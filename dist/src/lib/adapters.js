@@ -129,18 +129,18 @@ export class ClassValidatorAdapter {
  * Factory function to create validation adapter based on config
  */
 export function createValidationAdapter(config) {
-    const library = config.validationLibrary || 'none';
-    if (!config.validationEnabled || library === 'none') {
+    const library = config.runtime.validationLibrary || 'none';
+    if (!config.runtime.validationEnabled || library === 'none') {
         return new DefaultValidationAdapter();
     }
     // If custom validation path is provided, use it
-    if (config.validationPath) {
+    if (config.runtime.validationPath) {
         try {
             // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const CustomAdapter = require(config.validationPath);
+            const CustomAdapter = require(config.runtime.validationPath);
             const adapter = CustomAdapter.default || CustomAdapter;
             if (typeof adapter.validate !== 'function') {
-                throw new Error(`Validation adapter at ${config.validationPath} must implement ValidationAdapter interface`);
+                throw new Error(`Validation adapter at ${config.runtime.validationPath} must implement ValidationAdapter interface`);
             }
             return new adapter();
         }

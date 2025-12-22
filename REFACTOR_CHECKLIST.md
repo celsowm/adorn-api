@@ -8,7 +8,7 @@ The following checklist is derived directly from the refactor instructions curre
 - [ ] Guarantee developer ergonomics: strict TypeScript support, consistent config and generated artifacts
 
 ## Critical problems to fix
-- [ ] A) Normalize config usage so every consumer uses `config.generation.*` and `config.swagger.*`
+- [x] A) Normalize config usage so every consumer uses `config.generation.*` and `config.swagger.*`
 - [ ] B) Make CLI commands operational (`adorn gen` running both generators and `adorn serve` starting Express with optional dev codegen)
 - [ ] C) Either remove runtime-first path or fix prototype/constructor metadata handling and eliminate competing decorator systems
 - [ ] D) Eliminate invalid generated code patterns (remove `const req = req`, etc.)

@@ -1,66 +1,60 @@
 #!/usr/bin/env node
 // src/cli/index.ts
-// Main CLI entry point for adorn-api
+// Phase 4: Main CLI entry point - Breaking changes
 import { Command } from "commander";
+import { loadConfig } from "../lib/load-config.js";
 import { generateRoutes } from "./generate-routes.js";
 import { generateSwagger } from "./generate-swagger.js";
-import { loadConfig } from "../lib/load-config.js";
+import { createRuntimeServer } from "./serve-runtime.js";
 const program = new Command();
 program
     .name("adorn-api")
-    .description("TypeScript API framework with automatic route and Swagger generation")
-    .version("1.1.0");
+    .description("Phase 4: TypeScript API framework with code generation and runtime mode")
+    .version("2.0.0");
 program
     .command("gen")
-    .description("Generate routes and Swagger documentation")
-    .option("-c, --config <path>", "Path to configuration file")
+    .description("Generate routes and Swagger documentation (code generation mode)")
+    .option("-c, --config <path>", "Path to configuration file", "./adorn.config.ts")
     .option("--routes", "Generate routes only")
     .option("--swagger", "Generate Swagger only")
     .action(async (options) => {
     try {
         const config = await loadConfig(options.config);
-        if (options.swagger || !options.routes) {
-            console.log("🔍 Generating Swagger documentation...");
+        const generateRoutesOnly = options.routes && !options.swagger;
+        const generateSwaggerOnly = options.swagger && !options.routes;
+        console.log("🔨 Starting generation...");
+        if (generateSwaggerOnly || !generateRoutesOnly) {
             await generateSwagger(config);
         }
-        if (options.routes || !options.swagger) {
-            console.log("🛣️  Generating routes...");
+        if (generateRoutesOnly || !generateSwaggerOnly) {
             await generateRoutes(config);
         }
         console.log("✅ Generation complete!");
     }
     catch (error) {
         console.error("❌ Error during generation:", error instanceof Error ? error.message : String(error));
+        if (error instanceof Error && error.stack) {
+            console.error(error.stack);
+        }
         process.exit(1);
     }
 });
 program
-    .command("gen:routes")
-    .description("Generate Express routes only")
-    .option("-c, --config <path>", "Path to configuration file")
+    .command("serve")
+    .description("Run in runtime mode (no code generation)")
+    .option("-c, --config <path>", "Path to configuration file", "./adorn.config.ts")
+    .option("-p, --port <port>", "Port to listen on", "3000")
     .action(async (options) => {
     try {
         const config = await loadConfig(options.config);
-        await generateRoutes(config);
-        console.log("✅ Routes generated successfully!");
+        const port = parseInt(options.port, 10);
+        await createRuntimeServer(config, port);
     }
     catch (error) {
-        console.error("❌ Error generating routes:", error instanceof Error ? error.message : String(error));
-        process.exit(1);
-    }
-});
-program
-    .command("gen:swagger")
-    .description("Generate Swagger documentation only")
-    .option("-c, --config <path>", "Path to configuration file")
-    .action(async (options) => {
-    try {
-        const config = await loadConfig(options.config);
-        await generateSwagger(config);
-        console.log("✅ Swagger documentation generated successfully!");
-    }
-    catch (error) {
-        console.error("❌ Error generating Swagger:", error instanceof Error ? error.message : String(error));
+        console.error("❌ Error starting server:", error instanceof Error ? error.message : String(error));
+        if (error instanceof Error && error.stack) {
+            console.error(error.stack);
+        }
         process.exit(1);
     }
 });

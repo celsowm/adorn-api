@@ -13,7 +13,6 @@ const config: AdornConfig = {
     basePath: '/api',
     framework: 'express',
     routesOutput: './tests/example-app/routes.ts',
-    swaggerOutput: './swagger.json',
     authMiddlewarePath: './tests/example-app/middleware/auth.middleware.ts',
     globalMiddleware: [],
   },

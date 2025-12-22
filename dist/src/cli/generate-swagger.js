@@ -1,22 +1,21 @@
-// src/cli/generate-swagger.ts
 import path from "path";
 import { Project, SyntaxKind } from "ts-morph";
 import * as fs from "fs";
-import { DEFAULT_STATUS_CODES } from "../lib/config.js";
+import { DEFAULT_STATUS_CODES } from "../core/config.js";
 export async function generateSwagger(config) {
-    const project = new Project({ tsConfigFilePath: config.tsConfig });
+    const project = new Project({ tsConfigFilePath: config.generation.tsConfig });
     const openApiSpec = {
         openapi: "3.0.0",
         info: {
-            title: config.swaggerInfo.title,
-            version: config.swaggerInfo.version,
-            ...(config.swaggerInfo.description && { description: config.swaggerInfo.description }),
+            title: config.swagger.info.title,
+            version: config.swagger.info.version,
+            ...(config.swagger.info.description && { description: config.swagger.info.description }),
         },
         paths: {},
         components: {
             schemas: {},
             securitySchemes: {
-                ...config.securitySchemes,
+                ...config.swagger.securitySchemes,
                 bearerAuth: {
                     type: "http",
                     scheme: "bearer",
@@ -103,7 +102,7 @@ export async function generateSwagger(config) {
             const httpMethod = getDec ? "get" : postDec ? "post" : putDec ? "put" : deleteDec ? "delete" : "patch";
             const pathArg = decorator.getArguments()[0]?.getText().replace(/['"]/g, "") || "/";
             // Normalize path
-            const globalBasePath = config.basePath || "";
+            const globalBasePath = config.generation.basePath || "";
             const fullPath = normalizePath(globalBasePath, controllerBasePath, pathArg);
             const parameters = [];
             const requestBody = { content: {} };
@@ -163,12 +162,13 @@ export async function generateSwagger(config) {
             }
             // --- 2. Authentication Check ---
             const authDec = method.getDecorator("Authorized");
-            const controllerAuthDec = classDec.getDecorator("Authorized");
+            const controllerAuthDec = classDec.getDecorators().find(d => d.getName() === "Authorized");
             const isAuth = !!authDec || !!controllerAuthDec;
-            // --- 2.5 Phase 3: Tags, Summary, Description ---
+            // --- 2.5 Phase 3: Tags, Summary, Description, Errors ---
             const tagsDec = method.getDecorator("Tags");
             const summaryDec = method.getDecorator("Summary");
             const descriptionDec = method.getDecorator("Description");
+            const errorsDec = method.getDecorator("Errors");
             // --- 3. Status Code Determination ---
             const statusDec = method.getDecorator("Status");
             const customStatus = statusDec ? Number(statusDec.getArguments()[0]?.getText()) : undefined;
@@ -186,6 +186,102 @@ export async function generateSwagger(config) {
             const summary = summaryDec ? summaryDec.getArguments()[0]?.getText().replace(/['"]/g, '') : undefined;
             // Extract description from decorator
             const description = descriptionDec ? descriptionDec.getArguments()[0]?.getText().replace(/['"]/g, '') : undefined;
+            // Extract error responses from decorator
+            const errorResponses = {};
+            if (errorsDec) {
+                const errorsArg = errorsDec.getArguments()[0]?.getText();
+                if (errorsArg) {
+                    // Parse error responses - this is a simplified approach
+                    // In a full implementation, you'd parse this more carefully
+                    try {
+                        const errors = eval(`(${errorsArg})`);
+                        errors.forEach((err) => {
+                            if (err.statusCode) {
+                                errorResponses[err.statusCode] = {
+                                    description: err.description || 'Error',
+                                    content: {
+                                        'application/json': {
+                                            schema: {
+                                                type: 'object',
+                                                properties: {
+                                                    error: { type: 'string' },
+                                                    details: err.schema ? JSON.parse(JSON.stringify(err.schema)) : { type: 'string' }
+                                                }
+                                            }
+                                        }
+                                    }
+                                };
+                            }
+                        });
+                    }
+                    catch (e) {
+                        console.warn(`Could not parse @Errors decorator: ${e}`);
+                    }
+                }
+            }
+            // Add default error responses (400, 401, 404, 500)
+            if (isAuth) {
+                errorResponses[401] = {
+                    description: 'Unauthorized',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    error: { type: 'string' }
+                                }
+                            }
+                        }
+                    }
+                };
+            }
+            // Add 404 for any endpoint with path parameters
+            if (parameters.some(p => p.in === 'path')) {
+                errorResponses[404] = {
+                    description: 'Not Found',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    error: { type: 'string' }
+                                }
+                            }
+                        }
+                    }
+                };
+            }
+            // Add 400 for POST/PUT/PATCH with body
+            if (requestBody.content['application/json']) {
+                errorResponses[400] = {
+                    description: 'Bad Request - Validation failed',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    error: { type: 'string' },
+                                    details: { type: 'object' }
+                                }
+                            }
+                        }
+                    }
+                };
+            }
+            // Add 500 as default error
+            errorResponses[500] = {
+                description: 'Internal Server Error',
+                content: {
+                    'application/json': {
+                        schema: {
+                            type: 'object',
+                            properties: {
+                                error: { type: 'string' }
+                            }
+                        }
+                    }
+                }
+            };
             // Build response object
             const response = {
                 description: "Success",
@@ -202,7 +298,8 @@ export async function generateSwagger(config) {
                 requestBody: Object.keys(requestBody.content).length ? requestBody : undefined,
                 security: isAuth ? [{ bearerAuth: [] }] : undefined,
                 responses: {
-                    [statusCode]: response
+                    [statusCode]: response,
+                    ...errorResponses
                 }
             };
             // Add optional Phase 3 metadata
@@ -217,16 +314,16 @@ export async function generateSwagger(config) {
     }
     console.log("🔍 Scanning...");
     // Use controller-only glob for swagger if configured, otherwise use regular controllers glob
-    const swaggerGlob = config.swaggerControllersGlob || config.controllersGlob;
+    const swaggerGlob = config.swagger.controllersGlob || config.generation.controllersGlob;
     const sourceFiles = project.getSourceFiles(swaggerGlob);
     sourceFiles.forEach(file => file.getClasses().forEach(processController));
     // Ensure output directory exists
-    const outputDir = path.dirname(config.swaggerOutput);
+    const outputDir = path.dirname(config.swagger.outputPath);
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
     }
-    fs.writeFileSync(config.swaggerOutput, JSON.stringify(openApiSpec, null, 2));
-    console.log(`✅ Generated ${config.swaggerOutput}`);
+    fs.writeFileSync(config.swagger.outputPath, JSON.stringify(openApiSpec, null, 2));
+    console.log(`✅ Generated ${config.swagger.outputPath}`);
 }
 /**
  * Normalize route paths to ensure proper joining

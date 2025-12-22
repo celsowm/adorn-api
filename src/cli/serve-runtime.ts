@@ -3,7 +3,7 @@
 // Runtime server implementation
 
 import express from 'express';
-import type { AdornConfig } from '../lib/config.js';
+import type { AdornConfig } from '../core/config.js';
 import { RuntimeAPI } from '../core/runtime.js';
 import { expressAdapter } from '../core/adapters/express.adapter.js';
 import swaggerUi from 'swagger-ui-express';
@@ -19,18 +19,18 @@ export async function createRuntimeServer(config: AdornConfig, port: number): Pr
   
   // Create runtime API instance
   const runtimeConfig = {
-    validationEnabled: config.validationEnabled || false,
-    useClassInstantiation: config.useClassInstantiation || false,
+    validationEnabled: config.runtime.validationEnabled || false,
+    useClassInstantiation: config.runtime.useClassInstantiation || false,
     frameworkAdapter: expressAdapter,
   };
   
   const runtimeAPI = new RuntimeAPI(runtimeConfig);
   
   // Load controllers dynamically
-  const project = new Project({ tsConfigFilePath: config.tsConfig });
-  const sourceFiles = project.getSourceFiles(config.controllersGlob);
+  const project = new Project({ tsConfigFilePath: config.generation.tsConfig });
+  const sourceFiles = project.getSourceFiles(config.generation.controllersGlob);
   
-  console.log(`📂 Loading controllers from: ${config.controllersGlob}`);
+  console.log(`📂 Loading controllers from: ${config.generation.controllersGlob}`);
   
   for (const file of sourceFiles) {
     for (const classDec of file.getClasses()) {
@@ -63,7 +63,7 @@ export async function createRuntimeServer(config: AdornConfig, port: number): Pr
   });
   
   // Serve Swagger UI if available
-  const swaggerPath = config.swaggerOutput;
+  const swaggerPath = config.swagger.outputPath;
   if (fs.existsSync(swaggerPath)) {
     const swaggerDoc = JSON.parse(fs.readFileSync(swaggerPath, 'utf-8'));
     app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDoc));

@@ -1,53 +1,39 @@
 // src/lib/load-config.ts
-// Configuration loader for adorn-api
-import { existsSync } from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-export const DEFAULT_CONFIG = {
-    tsConfig: "./tsconfig.json",
-    controllersGlob: "**/*.controller.ts",
-    routesOutput: "./routes.ts",
-    basePath: "",
-    swaggerOutput: "./swagger.json",
-    swaggerInfo: {
-        title: "Adorn API",
-        version: "1.0.0",
-    },
-    authMiddlewarePath: "./middleware/auth.middleware.js",
-};
+// Configuration loader that merges user config with defaults
+import path from 'path';
+import { DEFAULT_CONFIG } from '../core/config.js';
+const DEFAULT_CONFIG_PATH = './adorn.config.ts';
 export async function loadConfig(configPath) {
-    // Try to load config file
-    const resolvedConfigPath = configPath
-        ? path.resolve(configPath)
-        : findConfigFile();
-    if (resolvedConfigPath && existsSync(resolvedConfigPath)) {
-        try {
-            const configModule = await import(resolvedConfigPath);
-            const userConfig = configModule.default || configModule;
-            return { ...DEFAULT_CONFIG, ...userConfig };
-        }
-        catch (error) {
-            console.warn(`Warning: Failed to load config from ${resolvedConfigPath}, using defaults`);
-            console.warn(error instanceof Error ? error.message : String(error));
-        }
+    const filePath = configPath || DEFAULT_CONFIG_PATH;
+    const absolutePath = path.resolve(process.cwd(), filePath);
+    try {
+        const module = await import(`${absolutePath}?t=${Date.now()}`);
+        const userConfig = module.default || module.config || {};
+        return mergeConfig(userConfig);
     }
-    return DEFAULT_CONFIG;
+    catch (error) {
+        throw new Error(`Failed to load config from ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    }
 }
-function findConfigFile() {
-    const configNames = [
-        "adorn.config.ts",
-        "adorn.config.js",
-        "adorn.config.mjs",
-        "adorn.config.cjs",
-    ];
-    const cwd = process.cwd();
-    for (const name of configNames) {
-        const configPath = path.join(cwd, name);
-        if (existsSync(configPath)) {
-            return configPath;
-        }
-    }
-    return null;
+function mergeConfig(userConfig) {
+    const defaults = DEFAULT_CONFIG;
+    const merged = {
+        generation: {
+            ...defaults.generation,
+            ...userConfig.generation,
+        },
+        runtime: {
+            ...defaults.runtime,
+            ...userConfig.runtime,
+        },
+        swagger: {
+            ...defaults.swagger,
+            ...userConfig.swagger,
+            info: {
+                ...defaults.swagger?.info,
+                ...userConfig.swagger?.info,
+            },
+        },
+    };
+    return merged;
 }

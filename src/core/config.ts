@@ -28,6 +28,7 @@ export interface RuntimeConfig {
   validationEnabled?: boolean;
   validationLibrary?: 'zod' | 'class-validator' | 'none';
   validationPath?: string;
+  validationAdapter?: ValidationAdapter;
   errorAdapterPath?: string;
   errorAdapter?: ErrorAdapter;
   authAdapter?: any;

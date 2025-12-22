@@ -1,24 +1,24 @@
 import path from "path";
 import { Project, Type, SyntaxKind, ClassDeclaration, PropertyDeclaration } from "ts-morph";
 import * as fs from "fs";
-import type { AdornConfig } from "../lib/config.js";
-import { DEFAULT_STATUS_CODES } from "../lib/config.js";
+  import type { AdornConfig } from "../core/config.js";
+  import { DEFAULT_STATUS_CODES } from "../core/config.js";
 
 export async function generateSwagger(config: AdornConfig): Promise<void> {
-  const project = new Project({ tsConfigFilePath: config.tsConfig });
+  const project = new Project({ tsConfigFilePath: config.generation.tsConfig });
 
   const openApiSpec: any = {
     openapi: "3.0.0",
     info: {
-      title: config.swaggerInfo.title,
-      version: config.swaggerInfo.version,
-      ...(config.swaggerInfo.description && { description: config.swaggerInfo.description }),
+      title: config.swagger.info.title,
+      version: config.swagger.info.version,
+      ...(config.swagger.info.description && { description: config.swagger.info.description }),
     },
     paths: {},
     components: { 
       schemas: {},
       securitySchemes: {
-        ...config.securitySchemes,
+        ...config.swagger.securitySchemes,
         bearerAuth: {
           type: "http",
           scheme: "bearer",
@@ -117,7 +117,7 @@ export async function generateSwagger(config: AdornConfig): Promise<void> {
       const pathArg = decorator.getArguments()[0]?.getText().replace(/['"]/g, "") || "/";
       
       // Normalize path
-      const globalBasePath = config.basePath || "";
+      const globalBasePath = config.generation.basePath || "";
       const fullPath = normalizePath(globalBasePath, controllerBasePath, pathArg);
 
       const parameters: any[] = [];
@@ -341,18 +341,18 @@ export async function generateSwagger(config: AdornConfig): Promise<void> {
 
   console.log("🔍 Scanning...");
   // Use controller-only glob for swagger if configured, otherwise use regular controllers glob
-  const swaggerGlob = config.swaggerControllersGlob || config.controllersGlob;
+  const swaggerGlob = config.swagger.controllersGlob || config.generation.controllersGlob;
   const sourceFiles = project.getSourceFiles(swaggerGlob);
   sourceFiles.forEach(file => file.getClasses().forEach(processController));
   
   // Ensure output directory exists
-  const outputDir = path.dirname(config.swaggerOutput);
+  const outputDir = path.dirname(config.swagger.outputPath);
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
   
-  fs.writeFileSync(config.swaggerOutput, JSON.stringify(openApiSpec, null, 2));
-  console.log(`✅ Generated ${config.swaggerOutput}`);
+  fs.writeFileSync(config.swagger.outputPath, JSON.stringify(openApiSpec, null, 2));
+  console.log(`✅ Generated ${config.swagger.outputPath}`);
 }
 
 /**
