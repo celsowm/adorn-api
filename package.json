@@ -1,0 +1,34 @@
+{
+  "name": "adorn-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "gen:spec": "ts-node --esm src/cli/generate-swagger.ts",
+    "gen:routes": "ts-node --esm src/cli/generate-routes.ts",
+    "gen": "npm run gen:spec && npm run gen:routes",
+    "example": "node scripts/run-example.js",
+    "test": "vitest run"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "body-parser": "^2.2.0",
+    "express": "^4.21.1",
+    "reflect-metadata": "^0.2.2",
+    "swagger-ui-express": "^5.0.1",
+    "ts-morph": "^27.0.2",
+    "typescript": "^5.9.3",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^25.0.3",
+    "@types/swagger-ui-express": "^4.1.8",
+    "ts-node": "^10.9.2",
+    "vitest": "^2.1.8"
+  }
+}

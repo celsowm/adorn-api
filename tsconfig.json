@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "outDir": "./dist",
+    "rootDir": ".",
+    // "experimentalDecorators": false, <--- ENSURE THIS IS FALSE OR OMITTED
+    "emitDecoratorMetadata": false // Standard decorators don't use this
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*"
+  ],
+  "ts-node": {
+    "preferTsExts": true,
+    "esm": true
+  }
+}
