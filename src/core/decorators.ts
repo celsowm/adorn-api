@@ -57,8 +57,8 @@ function getSchemaMetadata(target: any): Record<string, FieldMetadata> {
  * Marks a class as a controller with a base path
  * @param basePath - The base path for all routes in this controller
  */
-export function Controller(basePath: string): ClassDecorator {
-  return function (target: any) {
+export function Controller(basePath: string) {
+  return function (target: any, context: ClassDecoratorContext) {
     const meta = getControllerMetadata(target);
     meta.basePath = basePath;
   };
@@ -68,8 +68,8 @@ export function Controller(basePath: string): ClassDecorator {
  * Marks a controller as requiring authentication
  * @param role - Optional role requirement
  */
-export function Authorized(role?: string): ClassDecorator {
-  return function (target: any) {
+export function Authorized(role?: string) {
+  return function (target: any, context: ClassDecoratorContext) {
     const meta = getControllerMetadata(target);
     meta.auth = role || true;
   };
@@ -78,8 +78,8 @@ export function Authorized(role?: string): ClassDecorator {
 /**
  * Adds tags to all routes in the controller
  */
-export function Tags(...tags: string[]): ClassDecorator {
-  return function (target: any) {
+export function Tags(...tags: string[]) {
+  return function (target: any, context: ClassDecoratorContext) {
     const meta = getControllerMetadata(target);
     meta.tags = tags;
   };
@@ -91,13 +91,13 @@ export function Tags(...tags: string[]): ClassDecorator {
  * Creates an HTTP method decorator
  */
 function createHttpMethodDecorator(method: HttpMethod) {
-  return function (path: string): MethodDecorator {
-    return function (target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
-      const routes = getRouteMetadata(target);
+  return function (path?: string) {
+    return function (value: Function, context: ClassMethodDecoratorContext) {
+      const routes = getRouteMetadata(context.constructor);
       routes.push({
         method,
-        path,
-        methodName: String(propertyKey),
+        path: path ?? '',
+        methodName: context.name as string,
       });
     };
   };
@@ -112,10 +112,10 @@ export const Patch = createHttpMethodDecorator('patch');
 /**
  * Sets a custom status code for the response
  */
-export function Status(code: number): MethodDecorator {
-  return function (target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
-    const routes = getRouteMetadata(target);
-    const route = routes.find(r => r.methodName === String(propertyKey));
+export function Status(code: number) {
+  return function (value: Function, context: ClassMethodDecoratorContext) {
+    const routes = getRouteMetadata(context.constructor);
+    const route = routes.find(r => r.methodName === context.name);
     if (route) {
       route.statusCode = code;
     }
@@ -125,10 +125,10 @@ export function Status(code: number): MethodDecorator {
 /**
  * Marks a route as requiring authentication
  */
-export function AuthorizedRoute(role?: string): MethodDecorator {
-  return function (target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
-    const routes = getRouteMetadata(target);
-    const route = routes.find(r => r.methodName === String(propertyKey));
+export function AuthorizedRoute(role?: string) {
+  return function (value: Function, context: ClassMethodDecoratorContext) {
+    const routes = getRouteMetadata(context.constructor);
+    const route = routes.find(r => r.methodName === context.name);
     if (route) {
       route.auth = role || true;
     }
@@ -138,10 +138,10 @@ export function AuthorizedRoute(role?: string): MethodDecorator {
 /**
  * Specifies the response content type
  */
-export function Produces(mimeType: string, description?: string): MethodDecorator {
-  return function (target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
-    const routes = getRouteMetadata(target);
-    const route = routes.find(r => r.methodName === String(propertyKey));
+export function Produces(mimeType: string, description?: string) {
+  return function (value: Function, context: ClassMethodDecoratorContext) {
+    const routes = getRouteMetadata(context.constructor);
+    const route = routes.find(r => r.methodName === context.name);
     if (route) {
       route.produces = mimeType;
     }
@@ -151,10 +151,10 @@ export function Produces(mimeType: string, description?: string): MethodDecorato
 /**
  * Specifies error responses
  */
-export function Errors(errors: any[]): MethodDecorator {
-  return function (target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
-    const routes = getRouteMetadata(target);
-    const route = routes.find(r => r.methodName === String(propertyKey));
+export function Errors(errors: any[]) {
+  return function (value: Function, context: ClassMethodDecoratorContext) {
+    const routes = getRouteMetadata(context.constructor);
+    const route = routes.find(r => r.methodName === context.name);
     if (route) {
       route.errors = errors;
     }
@@ -164,10 +164,10 @@ export function Errors(errors: any[]): MethodDecorator {
 /**
  * Adds tags to the route
  */
-export function RouteTags(...tags: string[]): MethodDecorator {
-  return function (target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
-    const routes = getRouteMetadata(target);
-    const route = routes.find(r => r.methodName === String(propertyKey));
+export function RouteTags(...tags: string[]) {
+  return function (value: Function, context: ClassMethodDecoratorContext) {
+    const routes = getRouteMetadata(context.constructor);
+    const route = routes.find(r => r.methodName === context.name);
     if (route) {
       route.tags = tags;
     }
@@ -177,10 +177,10 @@ export function RouteTags(...tags: string[]): MethodDecorator {
 /**
  * Adds a summary to the route
  */
-export function Summary(summary: string): MethodDecorator {
-  return function (target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
-    const routes = getRouteMetadata(target);
-    const route = routes.find(r => r.methodName === String(propertyKey));
+export function Summary(summary: string) {
+  return function (value: Function, context: ClassMethodDecoratorContext) {
+    const routes = getRouteMetadata(context.constructor);
+    const route = routes.find(r => r.methodName === context.name);
     if (route) {
       route.summary = summary;
     }
@@ -190,10 +190,10 @@ export function Summary(summary: string): MethodDecorator {
 /**
  * Adds a description to the route
  */
-export function Description(description: string): MethodDecorator {
-  return function (target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
-    const routes = getRouteMetadata(target);
-    const route = routes.find(r => r.methodName === String(propertyKey));
+export function Description(description: string) {
+  return function (value: Function, context: ClassMethodDecoratorContext) {
+    const routes = getRouteMetadata(context.constructor);
+    const route = routes.find(r => r.methodName === context.name);
     if (route) {
       route.description = description;
     }

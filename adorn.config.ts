@@ -9,7 +9,7 @@ const config: AdornConfig = {
   generation: {
     rootDir: process.cwd(),
     tsConfig: './tsconfig.json',
-    controllersGlob: 'tests/example-app/controllers/*.ts',
+    controllersGlob: 'src/controllers/**/*.ts',
     basePath: '/api',
     framework: 'express',
     routesOutput: './tests/example-app/routes.ts',
