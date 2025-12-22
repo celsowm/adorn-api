@@ -2,7 +2,7 @@
 import path from "path";
 import { Project, SyntaxKind } from "ts-morph";
 import * as fs from "fs";
-import { DEFAULT_STATUS_CODES } from "../lib/config.ts";
+import { DEFAULT_STATUS_CODES } from "../lib/config.js";
 export async function generateSwagger(config) {
     const project = new Project({ tsConfigFilePath: config.tsConfig });
     const openApiSpec = {
@@ -16,6 +16,7 @@ export async function generateSwagger(config) {
         components: {
             schemas: {},
             securitySchemes: {
+                ...config.securitySchemes,
                 bearerAuth: {
                     type: "http",
                     scheme: "bearer",
@@ -95,10 +96,11 @@ export async function generateSwagger(config) {
             const postDec = method.getDecorator("Post");
             const putDec = method.getDecorator("Put");
             const deleteDec = method.getDecorator("Delete");
-            const decorator = getDec || postDec || putDec || deleteDec;
+            const patchDec = method.getDecorator("Patch");
+            const decorator = getDec || postDec || putDec || deleteDec || patchDec;
             if (!decorator)
                 return;
-            const httpMethod = getDec ? "get" : postDec ? "post" : putDec ? "put" : "delete";
+            const httpMethod = getDec ? "get" : postDec ? "post" : putDec ? "put" : deleteDec ? "delete" : "patch";
             const pathArg = decorator.getArguments()[0]?.getText().replace(/['"]/g, "") || "/";
             // Normalize path
             const globalBasePath = config.basePath || "";
@@ -124,6 +126,12 @@ export async function generateSwagger(config) {
                             if (pDecl.getDecorator("FromPath"))
                                 isPath = true;
                             if (pDecl.getDecorator("FromBody"))
+                                isBody = true;
+                            if (pDecl.getDecorator("FromHeader"))
+                                isQuery = true;
+                            if (pDecl.getDecorator("FromCookie"))
+                                isQuery = true;
+                            if (pDecl.getDecorator("UploadedFile"))
                                 isBody = true;
                         }
                     });
@@ -157,6 +165,10 @@ export async function generateSwagger(config) {
             const authDec = method.getDecorator("Authorized");
             const controllerAuthDec = classDec.getDecorator("Authorized");
             const isAuth = !!authDec || !!controllerAuthDec;
+            // --- 2.5 Phase 3: Tags, Summary, Description ---
+            const tagsDec = method.getDecorator("Tags");
+            const summaryDec = method.getDecorator("Summary");
+            const descriptionDec = method.getDecorator("Description");
             // --- 3. Status Code Determination ---
             const statusDec = method.getDecorator("Status");
             const customStatus = statusDec ? Number(statusDec.getArguments()[0]?.getText()) : undefined;
@@ -165,8 +177,15 @@ export async function generateSwagger(config) {
             // --- 4. Response Analysis (Return Type) ---
             const returnType = method.getReturnType();
             const responseSchema = resolveSchema(returnType, openApiSpec.components.schemas);
+            // --- 5. Build operation object ---
             if (!openApiSpec.paths[fullPath])
                 openApiSpec.paths[fullPath] = {};
+            // Extract tags from decorator
+            const tags = tagsDec ? tagsDec.getArguments().map(arg => arg.getText().replace(/['"]/g, '')) : undefined;
+            // Extract summary from decorator
+            const summary = summaryDec ? summaryDec.getArguments()[0]?.getText().replace(/['"]/g, '') : undefined;
+            // Extract description from decorator
+            const description = descriptionDec ? descriptionDec.getArguments()[0]?.getText().replace(/['"]/g, '') : undefined;
             // Build response object
             const response = {
                 description: "Success",
@@ -177,7 +196,7 @@ export async function generateSwagger(config) {
                     "application/json": { schema: responseSchema }
                 };
             }
-            openApiSpec.paths[fullPath][httpMethod] = {
+            const operation = {
                 operationId: method.getName(),
                 parameters,
                 requestBody: Object.keys(requestBody.content).length ? requestBody : undefined,
@@ -186,10 +205,20 @@ export async function generateSwagger(config) {
                     [statusCode]: response
                 }
             };
+            // Add optional Phase 3 metadata
+            if (tags)
+                operation.tags = tags;
+            if (summary)
+                operation.summary = summary;
+            if (description)
+                operation.description = description;
+            openApiSpec.paths[fullPath][httpMethod] = operation;
         });
     }
     console.log("🔍 Scanning...");
-    const sourceFiles = project.getSourceFiles(config.controllersGlob);
+    // Use controller-only glob for swagger if configured, otherwise use regular controllers glob
+    const swaggerGlob = config.swaggerControllersGlob || config.controllersGlob;
+    const sourceFiles = project.getSourceFiles(swaggerGlob);
     sourceFiles.forEach(file => file.getClasses().forEach(processController));
     // Ensure output directory exists
     const outputDir = path.dirname(config.swaggerOutput);

@@ -2,3 +2,5 @@
 // Main entry point for adorn-api library
 export * from "./lib/decorators.js";
 export * from "./lib/common.js";
+export * from "./lib/adapters.js";
+export { createValidationAdapter } from "./lib/adapters.js";

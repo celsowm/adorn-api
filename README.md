@@ -13,7 +13,12 @@ A TypeScript API framework using **Standard TC39 Decorators** (not experimental 
 - ✅ **Path Normalization**: Handles route paths correctly (e.g., `{id}` → `:id`)
 - ✅ **Inheritance Support**: Extend base DTO classes with full type information
 - ✅ **Generic Response Types**: `EntityResponse<T>`, `CreateInput<T>`, etc.
-- ✅ **Authentication**: Built-in `@Authorized` decorator
+- ✅ **Authentication**: Built-in `@Authorized` decorator with adapter support
+- ✅ **Auth Adapter**: Pluggable authentication middleware system
+- ✅ **DTO Factory**: Configurable DTO instantiation (plain objects or class instances)
+- ✅ **Error Adapter**: Custom error transformation before reaching error handlers
+- ✅ **Controller-Only Scan**: Optional separate glob for swagger generation
+- ✅ **Multiple Parameters**: Support for multiple method parameters beyond single DTO
 - ✅ **Union Types & Enums**: Automatically converted to Swagger enums
 - ✅ **Nested Objects**: Recursive type resolution for complex DTOs
 
@@ -230,6 +235,7 @@ const config: AdornConfig = {
   
   // Controller discovery
   controllersGlob: "**/*.controller.ts",
+  swaggerControllersGlob: "**/*.controller.ts", // Optional: separate glob for swagger
   
   // Route generation
   routesOutput: "./src/routes.ts",
@@ -245,6 +251,10 @@ const config: AdornConfig = {
   
   // Middleware paths (relative to output directory)
   authMiddlewarePath: "./middleware/auth.middleware.js",
+  
+  // Phase 2: Adapter configuration
+  useClassInstantiation: false, // If true, DTOs will be instantiated as classes
+  errorAdapterPath: undefined, // Optional: Path to custom error adapter
 };
 
 export default config;
@@ -261,6 +271,200 @@ npx adorn-api gen --config path/to/config.ts
 npx adorn-api gen --swagger  # Generate only Swagger
 npx adorn-api gen --routes   # Generate only routes
 ```
+
+## Phase 2 Features
+
+### Auth Adapter
+
+The `@Authorized` decorator now supports a pluggable adapter system, allowing you to use custom authentication middleware instead of the hard-coded path.
+
+#### Using the Default Auth Adapter
+
+```typescript
+// adorn.config.ts
+const config: AdornConfig = {
+  // ... other config
+  authMiddlewarePath: "./middleware/auth.middleware.js",
+};
+```
+
+```typescript
+// middleware/auth.middleware.js
+export function authenticationMiddleware(req, res, next) {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  // Validate token and set req.user
+  try {
+    const decoded = verifyToken(token);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(403).json({ error: 'Invalid token' });
+  }
+}
+```
+
+#### Using a Custom Auth Adapter
+
+```typescript
+// src/adapters/custom-auth.adapter.ts
+import type { AuthAdapter, Request, Response, NextFunction } from 'adorn-api';
+
+export class CustomAuthAdapter implements AuthAdapter {
+  getMiddleware(role?: string): (req: Request, res: Response, next: NextFunction) => void {
+    return (req, res, next) => {
+      // Custom auth logic
+      console.log(`Authenticating with role: ${role}`);
+      next();
+    };
+  }
+}
+```
+
+### DTO Factory
+
+Configure how DTOs are instantiated - either as plain objects (default) or as class instances.
+
+#### Plain Objects (Default)
+
+```typescript
+// adorn.config.ts
+const config: AdornConfig = {
+  useClassInstantiation: false, // Default
+};
+```
+
+```typescript
+// Controller method
+public async createUser(dto: CreateUserDto) {
+  // dto is a plain object
+  console.log(dto); // { name: 'John', email: 'john@example.com' }
+}
+```
+
+#### Class Instances
+
+```typescript
+// adorn.config.ts
+const config: AdornConfig = {
+  useClassInstantiation: true,
+};
+```
+
+```typescript
+// DTO with defaults and methods
+class CreateUserDto {
+  @FromBody()
+  name!: string;
+  
+  @FromBody()
+  email!: string;
+  
+  // Default values will be applied
+  role = 'user';
+  
+  // Class methods will work
+  isValid() {
+    return this.email.includes('@');
+  }
+}
+
+// Controller method
+public async createUser(dto: CreateUserDto) {
+  // dto is a class instance
+  console.log(dto.role); // 'user'
+  console.log(dto.isValid()); // true
+}
+```
+
+### Error Adapter
+
+Transform errors before they reach your error handlers.
+
+```typescript
+// src/adapters/error.adapter.ts
+import type { ErrorAdapter } from 'adorn-api';
+
+export class CustomErrorAdapter implements ErrorAdapter {
+  handleError(err: Error): Error {
+    // Add status code if missing
+    if (!(err as any).statusCode) {
+      (err as any).statusCode = 500;
+    }
+    
+    // Clean sensitive information
+    if (process.env.NODE_ENV === 'production') {
+      err.message = 'An error occurred';
+    }
+    
+    return err;
+  }
+}
+```
+
+```typescript
+// adorn.config.ts
+const config: AdornConfig = {
+  errorAdapterPath: "./src/adapters/error.adapter.js",
+};
+```
+
+### Multiple Parameters
+
+Controller methods can now accept multiple parameters beyond the single DTO pattern.
+
+```typescript
+@Controller("users")
+export class UserController {
+  // Multiple parameters: DTO + req + id
+  @Post("/{userId}/update")
+  public async updateUser(
+    dto: UpdateUserDto,
+    req: Request,
+    userId: string
+  ): Promise<User> {
+    // dto is mapped from req.body
+    // req is the Express request object
+    // userId is mapped from req.params.userId
+    console.log(req.user); // Access user from auth middleware
+    return this.userService.update(userId, dto);
+  }
+  
+  // Multiple DTOs
+  @Post("/batch")
+  public async batchCreate(
+    user1: CreateUserDto,
+    user2: CreateUserDto
+  ): Promise<User[]> {
+    // Both DTOs are mapped from req.body
+    return [user1, user2];
+  }
+}
+```
+
+### Controller-Only Swagger Scan
+
+Use a separate glob pattern for swagger generation to avoid scanning unrelated files.
+
+```typescript
+// adorn.config.ts
+const config: AdornConfig = {
+  // Route generation: scans all controllers
+  controllersGlob: "src/controllers/**/*.ts",
+  
+  // Swagger generation: only scans public API controllers
+  swaggerControllersGlob: "src/controllers/public/**/*.ts",
+};
+```
+
+This is useful when you have:
+- Internal controllers that shouldn't be documented
+- Admin endpoints in a separate directory
+- Test controllers that shouldn't appear in swagger
 
 ## TC39 Decorator Checklist
 

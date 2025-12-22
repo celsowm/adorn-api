@@ -1,4 +1,3 @@
-// src/cli/generate-swagger.ts
 import path from "path";
 import { Project, Type, SyntaxKind, ClassDeclaration, PropertyDeclaration } from "ts-morph";
 import * as fs from "fs";
@@ -19,6 +18,7 @@ export async function generateSwagger(config: AdornConfig): Promise<void> {
     components: { 
       schemas: {},
       securitySchemes: {
+        ...config.securitySchemes,
         bearerAuth: {
           type: "http",
           scheme: "bearer",
@@ -109,10 +109,11 @@ export async function generateSwagger(config: AdornConfig): Promise<void> {
       const postDec = method.getDecorator("Post");
       const putDec = method.getDecorator("Put");
       const deleteDec = method.getDecorator("Delete");
-      const decorator = getDec || postDec || putDec || deleteDec;
+      const patchDec = method.getDecorator("Patch");
+      const decorator = getDec || postDec || putDec || deleteDec || patchDec;
       if (!decorator) return;
 
-      const httpMethod = getDec ? "get" : postDec ? "post" : putDec ? "put" : "delete";
+      const httpMethod = getDec ? "get" : postDec ? "post" : putDec ? "put" : deleteDec ? "delete" : "patch";
       const pathArg = decorator.getArguments()[0]?.getText().replace(/['"]/g, "") || "/";
       
       // Normalize path
@@ -142,6 +143,9 @@ export async function generateSwagger(config: AdornConfig): Promise<void> {
                   if (pDecl.getDecorator("FromQuery")) isQuery = true;
                   if (pDecl.getDecorator("FromPath")) isPath = true;
                   if (pDecl.getDecorator("FromBody")) isBody = true;
+                  if (pDecl.getDecorator("FromHeader")) isQuery = true;
+                  if (pDecl.getDecorator("FromCookie")) isQuery = true;
+                  if (pDecl.getDecorator("UploadedFile")) isBody = true;
               }
           });
 
@@ -171,9 +175,15 @@ export async function generateSwagger(config: AdornConfig): Promise<void> {
 
       // --- 2. Authentication Check ---
       const authDec = method.getDecorator("Authorized");
-      const controllerAuthDec = classDec.getDecorator("Authorized");
+      const controllerAuthDec = classDec.getDecorators().find(d => d.getName() === "Authorized");
 
       const isAuth = !!authDec || !!controllerAuthDec;
+
+      // --- 2.5 Phase 3: Tags, Summary, Description, Errors ---
+      const tagsDec = method.getDecorator("Tags");
+      const summaryDec = method.getDecorator("Summary");
+      const descriptionDec = method.getDecorator("Description");
+      const errorsDec = method.getDecorator("Errors");
 
       // --- 3. Status Code Determination ---
       const statusDec = method.getDecorator("Status");
@@ -185,7 +195,117 @@ export async function generateSwagger(config: AdornConfig): Promise<void> {
       const returnType = method.getReturnType();
       const responseSchema = resolveSchema(returnType, openApiSpec.components.schemas);
 
+      // --- 5. Build operation object ---
       if (!openApiSpec.paths[fullPath]) openApiSpec.paths[fullPath] = {};
+      
+      // Extract tags from decorator
+      const tags = tagsDec ? tagsDec.getArguments().map(arg => arg.getText().replace(/['"]/g, '')) : undefined;
+      
+      // Extract summary from decorator
+      const summary = summaryDec ? summaryDec.getArguments()[0]?.getText().replace(/['"]/g, '') : undefined;
+      
+      // Extract description from decorator
+      const description = descriptionDec ? descriptionDec.getArguments()[0]?.getText().replace(/['"]/g, '') : undefined;
+      
+      // Extract error responses from decorator
+      const errorResponses: Record<number, any> = {};
+      if (errorsDec) {
+        const errorsArg = errorsDec.getArguments()[0]?.getText();
+        if (errorsArg) {
+          // Parse error responses - this is a simplified approach
+          // In a full implementation, you'd parse this more carefully
+          try {
+            const errors = eval(`(${errorsArg})`);
+            errors.forEach((err: any) => {
+              if (err.statusCode) {
+                errorResponses[err.statusCode] = {
+                  description: err.description || 'Error',
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'object',
+                        properties: {
+                          error: { type: 'string' },
+                          details: err.schema ? JSON.parse(JSON.stringify(err.schema)) : { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                };
+              }
+            });
+          } catch (e) {
+            console.warn(`Could not parse @Errors decorator: ${e}`);
+          }
+        }
+      }
+      
+      // Add default error responses (400, 401, 404, 500)
+      if (isAuth) {
+        errorResponses[401] = {
+          description: 'Unauthorized',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  error: { type: 'string' }
+                }
+              }
+            }
+          }
+        };
+      }
+      
+      // Add 404 for any endpoint with path parameters
+      if (parameters.some(p => p.in === 'path')) {
+        errorResponses[404] = {
+          description: 'Not Found',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  error: { type: 'string' }
+                }
+              }
+            }
+          }
+        };
+      }
+      
+      // Add 400 for POST/PUT/PATCH with body
+      if (requestBody.content['application/json']) {
+        errorResponses[400] = {
+          description: 'Bad Request - Validation failed',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  error: { type: 'string' },
+                  details: { type: 'object' }
+                }
+              }
+            }
+          }
+        };
+      }
+      
+      // Add 500 as default error
+      errorResponses[500] = {
+        description: 'Internal Server Error',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                error: { type: 'string' }
+              }
+            }
+          }
+        }
+      };
       
       // Build response object
       const response: any = {
@@ -199,20 +319,30 @@ export async function generateSwagger(config: AdornConfig): Promise<void> {
         };
       }
 
-      openApiSpec.paths[fullPath][httpMethod] = {
+      const operation: any = {
         operationId: method.getName(),
         parameters,
         requestBody: Object.keys(requestBody.content).length ? requestBody : undefined,
         security: isAuth ? [{ bearerAuth: [] }] : undefined,
         responses: {
-          [statusCode]: response
+          [statusCode]: response,
+          ...errorResponses
         }
       };
+
+      // Add optional Phase 3 metadata
+      if (tags) operation.tags = tags;
+      if (summary) operation.summary = summary;
+      if (description) operation.description = description;
+
+      openApiSpec.paths[fullPath][httpMethod] = operation;
     });
   }
 
   console.log("🔍 Scanning...");
-  const sourceFiles = project.getSourceFiles(config.controllersGlob);
+  // Use controller-only glob for swagger if configured, otherwise use regular controllers glob
+  const swaggerGlob = config.swaggerControllersGlob || config.controllersGlob;
+  const sourceFiles = project.getSourceFiles(swaggerGlob);
   sourceFiles.forEach(file => file.getClasses().forEach(processController));
   
   // Ensure output directory exists

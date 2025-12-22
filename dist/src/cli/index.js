@@ -2,9 +2,9 @@
 // src/cli/index.ts
 // Main CLI entry point for adorn-api
 import { Command } from "commander";
-import { generateRoutes } from "./generate-routes.ts";
-import { generateSwagger } from "./generate-swagger.ts";
-import { loadConfig } from "../lib/load-config.ts";
+import { generateRoutes } from "./generate-routes.js";
+import { generateSwagger } from "./generate-swagger.js";
+import { loadConfig } from "../lib/load-config.js";
 const program = new Command();
 program
     .name("adorn-api")
