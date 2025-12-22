@@ -1,4 +1,4 @@
-Below is a ready-to-paste **prompt for an AI refactor agent** to fully restructure the codebase you sent (the merged `sources-js-ts.txt`) into something production-usable for a **backend-only Node service** (CRUD + non-CRUD, dozens of SQL Server tables), with a strong bias toward **codegen-only** and **no legacy decorators**.
+Below is a ready-to-paste **prompt for an AI refactor agent** to fully restructure the codebase you sent (the merged `sources-js-ts.txt`) into something production-usable for a **backend-only Node service** (CRUD + non-CRUD, dozens of SQL Server tables), with a strong bias toward **codegen-only** and **no legacy decorators**. VERY FUCKING ULTRA IMPORT: NO LEGACY DECORATORS NEVER AT ALL
 
 ---
 
