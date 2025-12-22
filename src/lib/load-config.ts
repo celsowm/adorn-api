@@ -1,60 +1,46 @@
 // src/lib/load-config.ts
-// Phase 4: Configuration loader - Breaking changes
+// Configuration loader that merges user config with defaults
 
-import { promises as fs } from 'fs';
 import path from 'path';
-import type { AdornConfig, DEFAULT_CONFIG } from '../core/config.js';
+import type { AdornConfig } from '../core/config.js';
+import { DEFAULT_CONFIG } from '../core/config.js';
 
 const DEFAULT_CONFIG_PATH = './adorn.config.ts';
 
 export async function loadConfig(configPath?: string): Promise<AdornConfig> {
   const filePath = configPath || DEFAULT_CONFIG_PATH;
   const absolutePath = path.resolve(process.cwd(), filePath);
-  
+
   try {
-    // Read config file
-    const configContent = await fs.readFile(absolutePath, 'utf-8');
-    
-    // For now, we'll eval the config to get the default export
-    // In production, we'd use a proper config loader
-    // This is a simplified approach for Phase 4
     const module = await import(`${absolutePath}?t=${Date.now()}`);
     const userConfig = module.default || module.config || {};
-    
-    // Merge with defaults
     return mergeConfig(userConfig);
   } catch (error) {
     throw new Error(`Failed to load config from ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
-function mergeConfig(userConfig: any): AdornConfig {
-  const defaults: any = {
+function mergeConfig(userConfig: Partial<AdornConfig>): AdornConfig {
+  const defaults = DEFAULT_CONFIG;
+
+  const merged: AdornConfig = {
     generation: {
-      rootDir: process.cwd(),
-      tsConfig: './tsconfig.json',
-      controllersGlob: '**/*.controller.ts',
-      basePath: '',
-      framework: 'express',
-    },
+      ...defaults.generation,
+      ...userConfig.generation,
+    } as AdornConfig['generation'],
     runtime: {
-      validationEnabled: false,
-      useClassInstantiation: false,
-    },
+      ...defaults.runtime,
+      ...userConfig.runtime,
+    } as AdornConfig['runtime'],
     swagger: {
-      enabled: true,
-      outputPath: './swagger.json',
+      ...defaults.swagger,
+      ...userConfig.swagger,
       info: {
-        title: 'API Documentation',
-        version: '1.0.0',
+        ...defaults.swagger?.info,
+        ...userConfig.swagger?.info,
       },
-    },
+    } as AdornConfig['swagger'],
   };
-  
-  // Deep merge
-  return {
-    generation: { ...defaults.generation, ...userConfig.generation },
-    runtime: { ...defaults.runtime, ...userConfig.runtime },
-    swagger: { ...defaults.swagger, ...userConfig.swagger, info: { ...defaults.swagger.info, ...userConfig.swagger?.info } },
-  };
+
+  return merged;
 }

@@ -1,53 +1,37 @@
 // src/core/config.ts
-// Phase 4: Complete configuration overhaul - no backward compatibility
+// Phase 4: Configuration foundation for code generation + runtime
 
-import type { 
-  SecurityScheme, 
-  SecurityRequirement, 
-  SwaggerInfo,
+import type {
   FrameworkAdapter,
   ValidationAdapter,
   ErrorAdapter,
-  DTOFactory
+  DTOFactory,
+  SecurityScheme,
+  SecurityRequirement,
+  SwaggerInfo,
 } from './types.js';
 
 export interface GenerationConfig {
-  // Project structure
   rootDir: string;
   tsConfig: string;
-  
-  // Controller discovery
   controllersGlob: string;
-  
-  // Output configuration
-  routesOutput?: string;
-  swaggerOutput?: string;
-  
-  // Route configuration
+  routesOutput: string;
   basePath?: string;
-  
-  // Framework configuration
   framework: 'express' | 'fastify';
   frameworkAdapter?: FrameworkAdapter;
-  
-  // Middleware paths
   authMiddlewarePath?: string;
   globalMiddleware?: string[];
 }
 
 export interface RuntimeConfig {
-  // Framework adapter
   frameworkAdapter?: FrameworkAdapter;
-  
-  // Validation
-  validationEnabled: boolean;
-  validationAdapter?: ValidationAdapter;
-  
-  // Error handling
+  validationEnabled?: boolean;
+  validationLibrary?: 'zod' | 'class-validator' | 'none';
+  validationPath?: string;
+  errorAdapterPath?: string;
   errorAdapter?: ErrorAdapter;
-  
-  // DTO instantiation
-  useClassInstantiation: boolean;
+  authAdapter?: any;
+  useClassInstantiation?: boolean;
   dtoFactory?: DTOFactory;
 }
 
@@ -57,17 +41,12 @@ export interface SwaggerConfig {
   info: SwaggerInfo;
   securitySchemes?: Record<string, SecurityScheme>;
   defaultSecurity?: SecurityRequirement[];
-  controllersGlob?: string; // Optional: separate glob for swagger
+  controllersGlob?: string;
 }
 
 export interface AdornConfig {
-  // Generation configuration
   generation: GenerationConfig;
-  
-  // Runtime configuration
   runtime: RuntimeConfig;
-  
-  // Swagger configuration
   swagger: SwaggerConfig;
 }
 
@@ -75,16 +54,17 @@ export const DEFAULT_CONFIG: Partial<AdornConfig> = {
   generation: {
     rootDir: process.cwd(),
     tsConfig: './tsconfig.json',
-    controllersGlob: '**/*.controller.ts',
+    controllersGlob: 'src/controllers/**/*.ts',
+    routesOutput: './src/routes.generated.ts',
     basePath: '',
     framework: 'express',
+    globalMiddleware: [],
   },
-  
   runtime: {
     validationEnabled: false,
+    validationLibrary: 'none',
     useClassInstantiation: false,
   },
-  
   swagger: {
     enabled: true,
     outputPath: './swagger.json',

@@ -1,12 +1,14 @@
 import path from "path";
 import { Project, ClassDeclaration, PropertyDeclaration, SyntaxKind } from "ts-morph";
 import * as fs from "fs";
-import type { AdornConfig } from "../lib/config.js";
-import { DEFAULT_STATUS_CODES } from "../lib/config.js";
+import type { AdornConfig } from "../core/config.js";
+import { DEFAULT_STATUS_CODES } from "../core/config.js";
 import { createValidationAdapter } from "../lib/adapters.js";
 
 export async function generateRoutes(config: AdornConfig): Promise<void> {
-  const project = new Project({ tsConfigFilePath: config.tsConfig });
+  const generation = config.generation;
+  const runtime = config.runtime;
+  const project = new Project({ tsConfigFilePath: generation.tsConfig });
   
   let routeCode = `/* tslint:disable */
 /* eslint-disable */
@@ -16,25 +18,20 @@ import { DefaultAuthAdapter, ClassInstantiatingDTOFactory, DefaultErrorAdapter }
 import multer from 'multer';
 `;
 
-  // Helper to keep track of imports we need to add to the generated file
   const imports = new Set<string>();
-  
-  // Track multer instances for file uploads
   const multerInstances = new Map<string, string>();
 
   function processController(classDec: ClassDeclaration): string {
     const className = classDec.getName();
     if (!className) return "";
 
-    // Get source file path for import
     const sourceFile = classDec.getSourceFile();
-    const outputDir = path.dirname(path.resolve(config.routesOutput));
+    const outputDir = path.dirname(path.resolve(generation.routesOutput));
     const relativeDir = path.relative(outputDir, sourceFile.getDirectoryPath());
     const relativeSegments = relativeDir ? relativeDir.split(path.sep) : [];
     const baseName = sourceFile.getBaseName().replace(/\.ts$/, ".js");
     const importPath = `./${path.posix.join(...relativeSegments, baseName)}`;
     
-    // Only import if the class is exported
     if (classDec.isExported()) {
       imports.add(`import { ${className} } from '${importPath}';`);
     } else {
@@ -59,39 +56,27 @@ import multer from 'multer';
 
       const httpMethod = getDec ? "get" : postDec ? "post" : putDec ? "put" : deleteDec ? "delete" : "patch";
       const pathArg = decorator.getArguments()[0]?.getText().replace(/['"]/g, "") || "/";
-      
-      // Normalize path: handle basePath + controllerBasePath + method path
-      const globalBasePath = config.basePath || "";
+      const globalBasePath = generation.basePath || "";
       const fullPath = normalizePath(globalBasePath, controllerBasePath, pathArg);
 
       const methodName = method.getName();
       const params = method.getParameters();
-      
-      // Authentication check with role support
       const authDec = method.getDecorator("Authorized");
       const controllerAuthDec = classDec.getDecorators().find(d => d.getName() === "Authorized");
       const hasAuth = !!authDec || !!controllerAuthDec;
-      
-      // Get auth role if specified
       let authRole = undefined;
       if (authDec) {
         authRole = authDec.getArguments()[0]?.getText().replace(/['"]/g, "");
       } else if (controllerAuthDec) {
         authRole = controllerAuthDec.getArguments()[0]?.getText().replace(/['"]/g, "");
       }
-      
-      // Status code determination
       const statusDec = method.getDecorator("Status");
       const customStatus = statusDec ? Number(statusDec.getArguments()[0]?.getText()) : undefined;
       const defaultStatus = DEFAULT_STATUS_CODES[httpMethod];
       const statusCode = customStatus ?? defaultStatus;
+      const hasValidation = runtime.validationEnabled || false;
       
-      // Check for validation
-      const hasValidation = config.validationEnabled || false;
-      
-      // Check for file uploads
       let hasFileUpload = false;
-      let multerConfig = "";
       let fileFieldConfigs: Array<{ fieldName: string; maxCount: number }> = [];
       
       if (params.length > 0) {
@@ -117,10 +102,7 @@ import multer from 'multer';
         }
       }
       
-      // Build middleware array
       let middlewareChain: string[] = [];
-      
-      // Add multer middleware if file uploads
       if (hasFileUpload) {
         const multerInstanceName = `upload_${className}_${methodName}`;
         let fieldsCode = fileFieldConfigs.map(f => 
@@ -130,30 +112,23 @@ import multer from 'multer';
         middlewareChain.push(`${multerInstanceName}`);
       }
       
-      // Build parameter handling - supports multiple parameters
       let paramInstantiation = "";
       let methodCallParams: string[] = [];
       
       if (params.length > 0) {
-        params.forEach((param, index) => {
+        params.forEach(param => {
           const paramName = param.getName();
           const paramType = param.getType();
           const paramTypeSymbol = paramType.getSymbol();
           
-          // Check if this is a DTO class type
           if (paramTypeSymbol) {
             const paramTypeName = paramTypeSymbol.getName();
             const paramSourceFile = paramTypeSymbol.getDeclarations()[0]?.getSourceFile();
             
-            // Only import if it's from the same file as the controller
-            if (paramSourceFile === sourceFile) {
-              const isSameFile = paramSourceFile === sourceFile;
-              if (isSameFile && paramType.isClass()) {
-                imports.add(`import { ${paramTypeName} } from '${importPath}';`);
-              }
+            if (paramSourceFile === sourceFile && paramType.isClass()) {
+              imports.add(`import { ${paramTypeName} } from '${importPath}';`);
             }
             
-            // Generate DTO instantiation code
             paramInstantiation += `
         // DTO: ${paramName} (${paramTypeName})
         let ${paramName}: any = {};
@@ -168,7 +143,6 @@ import multer from 'multer';
         // Map Cookies
         Object.assign(${paramName}, req.cookies || {});
 `;
-            // Handle file uploads
             if (hasFileUpload) {
               paramInstantiation += `        // Map Files
         if (req.files) {
@@ -177,8 +151,7 @@ import multer from 'multer';
 `;
             }
             
-            // Use DTO factory if configured
-            if (config.useClassInstantiation) {
+            if (runtime.useClassInstantiation) {
               paramInstantiation += `
         // Instantiate DTO class
         const ${paramName}Instance = new ${paramTypeName}();
@@ -187,12 +160,11 @@ import multer from 'multer';
 `;
             }
             
-            // Add validation if enabled
             if (hasValidation) {
               paramInstantiation += `
         // Validate DTO
         try {
-            const validationAdapter = await (await import('adorn-api')).createValidationAdapter({ validationLibrary: '${config.validationLibrary || 'none'}', validationPath: ${config.validationPath ? `'${config.validationPath}'` : 'undefined'} });
+            const validationAdapter = await (await import('adorn-api')).createValidationAdapter({ validationLibrary: '${runtime.validationLibrary || 'none'}', validationPath: ${runtime.validationPath ? `'${runtime.validationPath}'` : 'undefined'} });
             await validationAdapter.validate(${paramName}, ${paramTypeName});
         } catch (validationError: any) {
             return res.status(400).json({ error: 'Validation failed', details: validationError.message });
@@ -202,7 +174,6 @@ import multer from 'multer';
             
             methodCallParams.push(paramName);
           } else {
-            // Primitive type or special parameter (req, res, next)
             if (paramName === 'req') {
               paramInstantiation += `        const req = req; // Already available\n`;
               methodCallParams.push('req');
@@ -213,7 +184,6 @@ import multer from 'multer';
               paramInstantiation += `        const next = next; // Already available\n`;
               methodCallParams.push('next');
             } else {
-              // Unknown primitive - try to map from request
               paramInstantiation += `
         const ${paramName} = (req.body as any)?.${paramName} || (req.params as any)?.${paramName} || (req.query as any)?.${paramName};
 `;
@@ -223,7 +193,6 @@ import multer from 'multer';
         });
       }
 
-      // Response handling based on status code
       let responseHandling = "";
       if (statusCode === 204) {
         responseHandling = `res.status(${statusCode}).send();`;
@@ -231,8 +200,6 @@ import multer from 'multer';
         responseHandling = `res.status(${statusCode}).json(response);`;
       }
 
-      // Build middleware invocation
-      let middlewareInvocation = "";
       if (hasAuth) {
         const roleArg = authRole ? `'${authRole}'` : 'undefined';
         middlewareChain.push(`authAdapter.getMiddleware(${roleArg})`);
@@ -243,7 +210,7 @@ import multer from 'multer';
         const controller = new ${className}();
         
         // Initialize adapters
-        const errorAdapter = ${config.errorAdapterPath ? `require('${config.errorAdapterPath}').default || require('${config.errorAdapterPath}').ErrorAdapter` : 'new DefaultErrorAdapter()'};
+        const errorAdapter = ${runtime.errorAdapterPath ? `require('${runtime.errorAdapterPath}').default || require('${runtime.errorAdapterPath}').ErrorAdapter` : 'new DefaultErrorAdapter()'};
         
         try {
             ${paramInstantiation}
@@ -260,7 +227,7 @@ import multer from 'multer';
     return methodBlocks;
   }
 
-  const sourceFiles = project.getSourceFiles(config.controllersGlob);
+  const sourceFiles = project.getSourceFiles(generation.controllersGlob);
   let allRoutes = "";
 
   sourceFiles.forEach(file => {
@@ -269,13 +236,11 @@ import multer from 'multer';
     });
   });
 
-  // Add multer instances at the top
   let multerInstancesCode = Array.from(multerInstances.values()).join('\n    ');
   if (multerInstancesCode) {
     multerInstancesCode = `\n    // Multer instances for file uploads\n    ${multerInstancesCode}\n`;
   }
 
-  // Prepend imports
   routeCode += Array.from(imports).join('\n');
   routeCode += `
 
@@ -285,35 +250,24 @@ export function RegisterRoutes(app: Express) {
 }
 `;
 
-  // Ensure output directory exists
-  const outputDir = path.dirname(config.routesOutput);
+  const outputDir = path.dirname(generation.routesOutput);
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  fs.writeFileSync(config.routesOutput, routeCode);
-  console.log(`✅ Generated Routes at ${config.routesOutput}`);
+  fs.writeFileSync(generation.routesOutput, routeCode);
+  console.log(`✅ Generated Routes at ${generation.routesOutput}`);
 }
 
-/**
- * Normalize route paths to ensure proper joining
- * Handles edge cases like missing/extra slashes
- */
 function normalizePath(globalBase: string, controllerBase: string, methodPath: string): string {
-  // Remove leading/trailing slashes
-  const cleanGlobal = globalBase.replace(/^\/+|\/+$/g, '');
-  const cleanController = controllerBase.replace(/^\/+|\/+$/g, '');
-  const cleanMethod = methodPath.replace(/^\/+|\/+$/g, '');
-  
-  // Build path parts
+  const cleanGlobal = globalBase.replace(/^\/+/g, '');
+  const cleanController = controllerBase.replace(/^\/+/g, '');
+  const cleanMethod = methodPath.replace(/^\/+/g, '');
   const parts: string[] = [];
   if (cleanGlobal) parts.push(cleanGlobal);
   if (cleanController) parts.push(cleanController);
   if (cleanMethod) parts.push(cleanMethod);
-  
-  // Join with single slashes and convert {param} to :param for Express
   let fullPath = '/' + parts.join('/');
   fullPath = fullPath.replace(/{/g, ':').replace(/}/g, '');
-  
   return fullPath;
 }
