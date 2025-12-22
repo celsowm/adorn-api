@@ -175,13 +175,10 @@ import multer from 'multer';
             methodCallParams.push(paramName);
           } else {
             if (paramName === 'req') {
-              paramInstantiation += `        const req = req; // Already available\n`;
               methodCallParams.push('req');
             } else if (paramName === 'res') {
-              paramInstantiation += `        const res = res; // Already available\n`;
               methodCallParams.push('res');
             } else if (paramName === 'next') {
-              paramInstantiation += `        const next = next; // Already available\n`;
               methodCallParams.push('next');
             } else {
               paramInstantiation += `

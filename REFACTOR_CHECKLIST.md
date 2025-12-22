@@ -1,5 +1,7 @@
 # REFACTOR Checklist (Status)
 
+MOST IMPORTANT THING: NO LEGACY DECORATORS NEVER NEVER NEVER !!!!!!!!!!!!!!!!!
+
 The following checklist is derived directly from the refactor instructions currently preserved in `REFACTOR.md`. Each item is marked according to whether it has been addressed in the current codebase. As no automated analysis has run yet, all items currently remain unchecked (`[ ]`).
 
 ## Non-negotiable goals
