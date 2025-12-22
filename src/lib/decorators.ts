@@ -5,6 +5,7 @@ export type HttpMethod = 'get' | 'post' | 'put' | 'delete';
 
 // Context metadata symbol for standard decorators
 const META_KEY = Symbol('adorn:route');
+const STATUS_META = Symbol('adorn:status');
 export const SCHEMA_META = Symbol('adorn:schema');
 export const AUTH_META = Symbol('adorn:auth');
 
@@ -122,6 +123,16 @@ export function FromBody() {
       (this as any)[SCHEMA_META] = meta;
     });
     return function (initialValue: any) { return initialValue; };
+  };
+}
+
+// -- Status Code Decorator --
+export function Status(code: number) {
+  return function (originalMethod: any, context: ClassMethodDecoratorContext) {
+    context.addInitializer(function () {
+      (this as any)[STATUS_META] = code;
+    });
+    return originalMethod;
   };
 }
 

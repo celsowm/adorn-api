@@ -8,6 +8,9 @@ A TypeScript API framework using **Standard TC39 Decorators** (not experimental 
 - ✅ **Type-Safe DTOs**: Full TypeScript type checking at edit time
 - ✅ **Automatic Swagger Generation**: Generates OpenAPI 3.0 documentation from your code
 - ✅ **Runtime Route Generation**: Automatically creates Express routes
+- ✅ **Configurable CLI**: Single configuration file for all generation options
+- ✅ **Proper HTTP Status Codes**: Returns 200/201/204 based on HTTP verb, with `@Status` overrides
+- ✅ **Path Normalization**: Handles route paths correctly (e.g., `{id}` → `:id`)
 - ✅ **Inheritance Support**: Extend base DTO classes with full type information
 - ✅ **Generic Response Types**: `EntityResponse<T>`, `CreateInput<T>`, etc.
 - ✅ **Authentication**: Built-in `@Authorized` decorator
@@ -213,6 +216,74 @@ app.get('/users/:userId', async (req: Request, res: Response) => {
     res.status(200).json(response);
 });
 ```
+
+## Configuration
+
+Create an `adorn.config.ts` file in your project root:
+
+```typescript
+import type { AdornConfig } from "./src/lib/config.js";
+
+const config: AdornConfig = {
+  // Project configuration
+  tsConfig: "./tsconfig.json",
+  
+  // Controller discovery
+  controllersGlob: "**/*.controller.ts",
+  
+  // Route generation
+  routesOutput: "./src/routes.ts",
+  basePath: "", // Optional global base path (e.g., "/api/v1")
+  
+  // Swagger generation
+  swaggerOutput: "./swagger.json",
+  swaggerInfo: {
+    title: "My API",
+    version: "1.0.0",
+    description: "API documentation",
+  },
+  
+  // Middleware paths (relative to output directory)
+  authMiddlewarePath: "./middleware/auth.middleware.js",
+};
+
+export default config;
+```
+
+Then run generation:
+```bash
+npx adorn-api gen
+```
+
+Or use the CLI options:
+```bash
+npx adorn-api gen --config path/to/config.ts
+npx adorn-api gen --swagger  # Generate only Swagger
+npx adorn-api gen --routes   # Generate only routes
+```
+
+## TC39 Decorator Checklist
+
+To use standard TC39 decorators with TypeScript, ensure your `tsconfig.json` has:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    // Do NOT enable these:
+    // "experimentalDecorators": false,  // Should be false or omitted
+    // "emitDecoratorMetadata": false  // Should be false (standard decorators don't use this)
+  }
+}
+```
+
+**Important:**
+- ❌ **Do NOT** enable `experimentalDecorators` (legacy decorators)
+- ❌ **Do NOT** enable `emitDecoratorMetadata` (not needed for standard decorators)
+- ✅ **Do** use `target: ES2022` or higher
+- ✅ **Do** use `"module": "NodeNext"` for ESM support
 
 ## Why Standard Decorators?
 

@@ -1,6 +1,7 @@
 // src/lib/decorators.ts
 // Context metadata symbol for standard decorators
 const META_KEY = Symbol('adorn:route');
+const STATUS_META = Symbol('adorn:status');
 export const SCHEMA_META = Symbol('adorn:schema');
 export const AUTH_META = Symbol('adorn:auth');
 // -- Method Decorator --
@@ -103,6 +104,15 @@ export function FromBody() {
             this[SCHEMA_META] = meta;
         });
         return function (initialValue) { return initialValue; };
+    };
+}
+// -- Status Code Decorator --
+export function Status(code) {
+    return function (originalMethod, context) {
+        context.addInitializer(function () {
+            this[STATUS_META] = code;
+        });
+        return originalMethod;
     };
 }
 // -- Authentication Decorator --

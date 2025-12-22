@@ -11,12 +11,13 @@ beforeAll(
   async () => {
     await runTsNodeScript("src/cli/generate-swagger.ts");
     await runTsNodeScript("src/cli/generate-routes.ts");
-    serverProcess = spawn(process.execPath, [path.join(projectRoot, "scripts", "run-example.js")], {
+    const proc = spawn(process.execPath, [path.join(projectRoot, "scripts", "run-example.js")], {
       cwd: projectRoot,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
     });
+    serverProcess = proc as ChildProcessWithoutNullStreams;
 
-    await waitForServerReady(serverProcess);
+    await waitForServerReady(serverProcess!);
   },
   30000
 );
