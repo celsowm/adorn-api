@@ -91,8 +91,29 @@ export async function scanControllers(config: Config): Promise<ControllerInfo[]>
           if (parameters.length > 0 && parameters[0]) {
             const firstParam = parameters[0];
             const paramType = firstParam.getType();
-            if (paramType.isClass()) {
-              dtoName = paramType.getSymbol()?.getName();
+            
+            // Check if it's a class or intersection of classes (e.g., "GetUserDto & UpdateUserDto")
+            const isClassOrIntersection = paramType.isClass() || 
+              (paramType.isIntersection() && 
+                paramType.getIntersectionTypes().some(t => t.isClass()));
+            
+            if (isClassOrIntersection) {
+              // Try to get a name from the type
+              const symbol = paramType.getSymbol();
+              if (symbol) {
+                dtoName = symbol.getName();
+              } else {
+                if (paramType.isIntersection()) {
+                  // For intersection types, combine names
+                  const intersectionNames = paramType.getIntersectionTypes()
+                    .filter(t => t.isClass())
+                    .map(t => t.getSymbol()?.getName())
+                    .filter(Boolean);
+                  if (intersectionNames.length > 0) {
+                    dtoName = intersectionNames[0]; // Use first class name
+                  }
+                }
+              }
             }
 
             // Extract path parameters from route path if inference is enabled

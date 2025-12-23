@@ -104,14 +104,17 @@ function buildDtoExtraction(method: MethodInfo, config: Config): string {
   const parts: string[] = ['{'];
   const pathParams = method.pathParams || [];
 
-  // Extract path params (highest priority)
-  if (pathParams.length > 0) {
-    for (const param of pathParams) {
-      parts.push(`  ${param}: req.params.${param},`);
-    }
+  // Extract body params first (for POST, PUT, PATCH requests)
+  if (['post', 'put', 'patch'].includes(method.httpMethod) && defaultDtoFieldSource !== 'query') {
+    // Filter out path params and undefined values from body to prevent them from overriding path params
+    parts.push(`  ...Object.fromEntries(`);
+    parts.push(`    Object.entries(req.body).filter(([key, value]) =>`);
+    parts.push(`      !${JSON.stringify(pathParams)}.includes(key) && value !== undefined`);
+    parts.push(`    )`);
+    parts.push(`  ),`);
   }
 
-  // Handle query params based on configuration
+  // Handle query params based on configuration (middle priority)
   if (defaultDtoFieldSource === 'query') {
     // All non-path params come from query
     parts.push(`  ...Object.fromEntries(`);
@@ -124,9 +127,11 @@ function buildDtoExtraction(method: MethodInfo, config: Config): string {
     parts.push(`  ),`);
   }
 
-  // Extract body params (for POST, PUT, PATCH requests)
-  if (['post', 'put', 'patch'].includes(method.httpMethod) && defaultDtoFieldSource !== 'query') {
-    parts.push(`  ...req.body,`);
+  // Extract path params last (highest priority - cannot be overwritten)
+  if (pathParams.length > 0) {
+    for (const param of pathParams) {
+      parts.push(`  ${param}: req.params.${param},`);
+    }
   }
 
   parts.push('}');

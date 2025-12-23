@@ -434,14 +434,52 @@ export class ProductsController {
   });
 
   describe("PUT requests", () => {
-    it.skip("should update a user completely - framework limitation with PUT path + body params", async () => {
-      // NOTE: Framework limitation - PUT/PATCH with both path params and body params
-      // has issues with parameter binding. This test documents the limitation.
-      // Core REST client functionality is demonstrated through GET/POST/DELETE tests.
+    it("should update a user completely with path param + body params", async () => {
+      // First create a user
+      const created = await client.post<{id: string; name: string; email: string}>("/users", {
+        name: "Jane Doe",
+        email: "jane@example.com"
+      });
+
+      // Update the user completely (PUT replaces all fields)
+      const updated = await client.put<{id: string; name: string; email: string}>(`/users/${created.id}`, {
+        name: "Jane Smith",
+        email: "jane.smith@example.com"
+      });
+
+      expect(updated).toMatchObject({
+        id: created.id,
+        name: "Jane Smith",
+        email: "jane.smith@example.com"
+      });
+
+      // Verify the update persisted
+      const fetched = await client.get<{id: string; name: string; email: string}>(`/users/${created.id}`);
+      expect(fetched).toMatchObject({
+        id: created.id,
+        name: "Jane Smith",
+        email: "jane.smith@example.com"
+      });
     });
 
-    it.skip("should update a product completely - framework limitation", async () => {
-      // NOTE: Framework limitation with PUT/PATCH
+    it("should update a product completely with path param + body params", async () => {
+      // First create a product
+      const created = await client.post<{id: string; name: string; price: number}>("/products", {
+        name: "Cheap Phone",
+        price: 199
+      });
+
+      // Update the product completely
+      const updated = await client.put<{id: string; name: string; price: number}>(`/products/${created.id}`, {
+        name: "Premium Phone",
+        price: 999
+      });
+
+      expect(updated).toMatchObject({
+        id: created.id,
+        name: "Premium Phone",
+        price: 999
+      });
     });
 
     it("should return error when updating non-existent user", async () => {
@@ -456,9 +494,31 @@ export class ProductsController {
   });
 
   describe("PATCH requests", () => {
-    it.skip("should partially update a user - framework limitation with PATCH path + body params", async () => {
-      // NOTE: Framework limitation - PUT/PATCH with both path params and body params
-      // has issues with parameter binding. This test documents the limitation.
+    it("should partially update a user with path param + body params", async () => {
+      // First create a user
+      const created = await client.post<{id: string; name: string; email: string}>("/users", {
+        name: "Bob Johnson",
+        email: "bob@example.com"
+      });
+
+      // Patch only the email (PATCH updates only provided fields)
+      const patched = await client.patch<{id: string; name: string; email: string}>(`/users/${created.id}`, {
+        email: "bob.johnson@example.com"
+      });
+
+      expect(patched).toMatchObject({
+        id: created.id,
+        name: "Bob Johnson",
+        email: "bob.johnson@example.com"
+      });
+
+      // Verify the patch persisted
+      const fetched = await client.get<{id: string; name: string; email: string}>(`/users/${created.id}`);
+      expect(fetched).toMatchObject({
+        id: created.id,
+        name: "Bob Johnson",
+        email: "bob.johnson@example.com"
+      });
     });
 
     it("should return error when patching non-existent user", async () => {
@@ -526,14 +586,58 @@ export class ProductsController {
   });
 
   describe("Full CRUD workflow", () => {
-    it.skip("should perform complete CRUD operations - requires PUT/PATCH support", async () => {
-      // NOTE: Full CRUD test skipped due to framework limitation with
-      // PUT/PATCH operations that have both path params and body params.
-      // The following operations are tested individually:
-      // - CREATE: ✓ Tested in POST requests
-      // - READ: ✓ Tested in GET requests  
-      // - UPDATE/PATCH: Framework limitation with path+body params
-      // - DELETE: ✓ Tested in DELETE requests
+    it("should perform complete CRUD operations", async () => {
+      // CREATE: Create a new user
+      const created = await client.post<{id: string; name: string; email: string}>("/users", {
+        name: "CRUD User",
+        email: "crud@example.com"
+      });
+
+      expect(created).toHaveProperty("id");
+      expect(created.name).toBe("CRUD User");
+      expect(created.email).toBe("crud@example.com");
+
+      // READ: Fetch the created user
+      const read = await client.get<{id: string; name: string; email: string}>(`/users/${created.id}`);
+      expect(read).toMatchObject(created);
+
+      // UPDATE: Update the user completely with PUT
+      const updated = await client.put<{id: string; name: string; email: string}>(`/users/${created.id}`, {
+        name: "Updated CRUD User",
+        email: "updated.crud@example.com"
+      });
+
+      expect(updated).toMatchObject({
+        id: created.id,
+        name: "Updated CRUD User",
+        email: "updated.crud@example.com"
+      });
+
+      // PATCH: Partially update the user
+      const patched = await client.patch<{id: string; name: string; email: string}>(`/users/${created.id}`, {
+        email: "final.crud@example.com"
+      });
+
+      expect(patched).toMatchObject({
+        id: created.id,
+        name: "Updated CRUD User",
+        email: "final.crud@example.com"
+      });
+
+      // DELETE: Remove the user
+      const deleted = await client.delete<{success: boolean; id: string}>(`/users/${created.id}`);
+      expect(deleted).toMatchObject({
+        success: true,
+        id: created.id
+      });
+
+      // Verify the user is gone
+      try {
+        await client.get(`/users/${created.id}`);
+        expect.fail("User should have been deleted");
+      } catch (error: any) {
+        expect(error.message).toContain("404");
+      }
     });
   });
 });
