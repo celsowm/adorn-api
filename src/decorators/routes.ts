@@ -8,13 +8,14 @@ import type { RouteMetadata } from '../meta/types.js';
 
 function createRouteDecorator(method: RouteMetadata['method'], path: string) {
   return function (
-    target: object,
-    propertyKey: string,
-    context: ClassMethodDecoratorContext
+    _target: object,
+    _propertyKey: string,
+    context?: ClassMethodDecoratorContext
   ): PropertyDescriptor | void {
     // Using standard Stage 3 decorator metadata API
-    const metadata = context.metadata;
-    metadata[ROUTE_KEY] = { method, path } as RouteMetadata;
+    if (context?.metadata) {
+      context.metadata[ROUTE_KEY] = { method, path } as RouteMetadata;
+    }
   };
 }
 
@@ -48,12 +49,13 @@ export function Options(path: string) {
 
 export function Status(code: number) {
   return function (
-    target: object,
-    propertyKey: string,
-    context: ClassMethodDecoratorContext
+    _target: object,
+    _propertyKey: string,
+    context?: ClassMethodDecoratorContext
   ): PropertyDescriptor | void {
     // Using standard Stage 3 decorator metadata API
-    const metadata = context.metadata;
-    metadata[STATUS_KEY] = code;
+    if (context?.metadata) {
+      context.metadata[STATUS_KEY] = code;
+    }
   };
 }

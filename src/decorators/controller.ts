@@ -8,11 +8,12 @@ import type { ControllerMetadata } from '../meta/types.js';
 
 export function Controller(path: string) {
   return function <T extends abstract new (...args: any[]) => any>(
-    target: T,
-    context: ClassDecoratorContext
+    _target: T,
+    context?: ClassDecoratorContext
   ): T | void {
     // Using standard Stage 3 decorator metadata API
-    const metadata = context.metadata;
-    metadata[CONTROLLER_KEY] = { path } as ControllerMetadata;
+    if (context?.metadata) {
+      context.metadata[CONTROLLER_KEY] = { path } as ControllerMetadata;
+    }
   };
 }

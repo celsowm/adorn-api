@@ -2,7 +2,7 @@
  * Scan for controllers in the codebase using ts-morph
  */
 
-import { Project, SyntaxKind } from 'ts-morph';
+import { Project } from 'ts-morph';
 import path from 'node:path';
 import type { Config } from '../config/types.js';
 import '../polyfills/symbol-metadata.js';

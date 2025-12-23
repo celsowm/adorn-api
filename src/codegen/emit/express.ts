@@ -7,7 +7,6 @@ import type { Config } from '../../config/types.js';
 import type { ControllerInfo } from '../../ast/scanControllers.js';
 
 export function emitExpressRoutes(config: Config, controllers: ControllerInfo[]): string {
-  const imports: string[] = [];
   const controllerImports: string[] = [];
   const routeDefinitions: string[] = [];
 
@@ -93,7 +92,7 @@ function getRelativePath(from: string, to: string, rootDir: string): string {
   return relative || '.';
 }
 
-function buildDtoExtraction(method: any, instanceVar: string): string {
+function buildDtoExtraction(method: any, _instanceVar: string): string {
   // If no DTO, use undefined
   if (!method.dtoName) {
     return 'undefined';
