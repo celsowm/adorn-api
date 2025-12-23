@@ -2,8 +2,10 @@
   "name": "adorn-api",
   "version": "0.0.1",
   "description": "A modern TypeScript API framework using standard decorators",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -45,7 +47,7 @@
     "prettier": "^3.0.0",
     "supertest": "^7.1.4",
     "tsup": "^8.0.0",
-    "typescript": "^5.0.0",
+    "typescript": "^5.6.0",
     "vitest": "^4.0.16"
   },
   "dependencies": {
