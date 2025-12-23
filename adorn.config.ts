@@ -1,15 +1,15 @@
 // adorn.config.ts
 // Phase 4: New configuration structure - Breaking changes
 
-import type { AdornConfig } from './src/core/config.js';
-import { expressAdapter } from './src/core/adapters/express.adapter.js';
+import type { AdornConfig } from './dist/src/core/config.js';
+import { expressAdapter } from './dist/src/core/adapters/express.adapter.js';
 
 const config: AdornConfig = {
   // Code generation configuration
   generation: {
     rootDir: process.cwd(),
     tsConfig: './tsconfig.json',
-    controllersGlob: 'src/controllers/**/*.ts',
+    controllersGlob: 'tests/example-app/controllers/**/*.ts',
     basePath: '/api',
     framework: 'express',
     routesOutput: './tests/example-app/routes.ts',

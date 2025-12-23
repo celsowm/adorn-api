@@ -1,47 +1,15 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Adorn API",
-    "version": "2.0.0"
+    "title": "Adorn API Documentation",
+    "version": "2.0.0",
+    "description": "Phase 4 API with runtime and code generation modes"
   },
   "paths": {
-    "/advanced/{tenantId}/users": {
+    "/api/users": {
       "get": {
-        "operationId": "listUsers",
-        "parameters": [
-          {
-            "name": "search",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "tenantId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
+        "operationId": "getAllUsers",
+        "parameters": [],
         "responses": {
           "200": {
             "description": "Success",
@@ -53,139 +21,42 @@
                     "type": "object",
                     "properties": {
                       "id": {
-                        "type": "string"
+                        "type": "integer"
                       },
                       "name": {
                         "type": "string"
                       },
                       "email": {
                         "type": "string"
-                      },
-                      "isActive": {
-                        "type": "boolean"
-                      },
-                      "createdAt": {
-                        "type": "string"
                       }
                     },
                     "required": [
                       "id",
                       "name",
-                      "email",
-                      "isActive",
-                      "createdAt"
+                      "email"
                     ]
                   }
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/advanced/": {
-      "post": {
-        "operationId": "create",
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "email": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "name",
-                  "email"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Success",
+          },
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "email": {
-                      "type": "string"
-                    },
-                    "isActive": {
-                      "type": "boolean"
-                    },
-                    "createdAt": {
+                    "error": {
                       "type": "string"
                     }
-                  },
-                  "required": [
-                    "id",
-                    "name",
-                    "email",
-                    "isActive",
-                    "createdAt"
-                  ]
+                  }
                 }
               }
             }
           }
         }
-      }
-    },
-    "/users/{userId}": {
-      "get": {
-        "operationId": "getUser",
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "details",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "enum": [
-                null,
-                null
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/users/": {
+      },
       "post": {
         "operationId": "createUser",
         "parameters": [],
@@ -211,12 +82,421 @@
           }
         },
         "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "email"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/:id": {
+      "get": {
+        "operationId": "getUserById",
+        "parameters": [
+          {
+            "name": "toString",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          },
+          {
+            "name": "toFixed",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          },
+          {
+            "name": "toExponential",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          },
+          {
+            "name": "toPrecision",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          },
+          {
+            "name": "valueOf",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          },
+          {
+            "name": "toLocaleString",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          }
+        ],
+        "responses": {
           "200": {
             "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "string"
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "email"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateUser",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "toString": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                  },
+                  "toFixed": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                  },
+                  "toExponential": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                  },
+                  "toPrecision": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                  },
+                  "valueOf": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                  },
+                  "toLocaleString": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                  }
+                },
+                "required": [
+                  "toString",
+                  "toFixed",
+                  "toExponential",
+                  "toPrecision",
+                  "valueOf",
+                  "toLocaleString"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "email"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteUser",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "toString": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                  },
+                  "toFixed": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                  },
+                  "toExponential": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                  },
+                  "toPrecision": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                  },
+                  "valueOf": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                  },
+                  "toLocaleString": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                  }
+                },
+                "required": [
+                  "toString",
+                  "toFixed",
+                  "toExponential",
+                  "toPrecision",
+                  "valueOf",
+                  "toLocaleString"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request - Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/admin/stats": {
+      "get": {
+        "operationId": "getAdminStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalUsers": {
+                      "type": "integer"
+                    },
+                    "activeUsers": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "totalUsers",
+                    "activeUsers"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }

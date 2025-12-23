@@ -7,7 +7,11 @@ export async function loadConfig(configPath) {
     const filePath = configPath || DEFAULT_CONFIG_PATH;
     const absolutePath = path.resolve(process.cwd(), filePath);
     try {
-        const module = await import(`${absolutePath}?t=${Date.now()}`);
+        // Handle Windows paths by converting to file:// URL
+        const fileUrl = process.platform === 'win32'
+            ? `file:///${absolutePath.replace(/\\/g, '/')}`
+            : absolutePath;
+        const module = await import(`${fileUrl}?t=${Date.now()}`);
         const userConfig = module.default || module.config || {};
         return mergeConfig(userConfig);
     }

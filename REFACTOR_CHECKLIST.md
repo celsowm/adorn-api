@@ -11,11 +11,11 @@ The following checklist is derived directly from the refactor instructions curre
 
 ## Critical problems to fix
 - [x] A) Normalize config usage so every consumer uses `config.generation.*` and `config.swagger.*`
-- [ ] B) Make CLI commands operational (`adorn gen` running both generators and `adorn serve` starting Express with optional dev codegen)
+- [x] B) Make CLI commands operational (`adorn gen` running both generators and `adorn serve` starting Express with optional dev codegen)
 - [ ] C) Either remove runtime-first path or fix prototype/constructor metadata handling and eliminate competing decorator systems
 - [ ] D) Eliminate invalid generated code patterns (remove `const req = req`, etc.)
 - [ ] E) Make framework support explicit (Express fully supported, Fastify only if implemented end-to-end)
-- [ ] F) Align route generation parameter inference with Swagger generation’s decorator-based model
+- [ ] F) Align route generation parameter inference with Swagger generation's decorator-based model
 - [ ] G) Instantiate auth/error adapters once, avoid crashes when optional paths are undefined, clarify role handling contract
 - [ ] H) Unify on a single ErrorAdapter contract (prefer Express `next(err)` flow)
 - [ ] I) Refactor runtime routing for scalability (path map/trie, instantiating controllers per request) if runtime remains
@@ -34,7 +34,7 @@ The following checklist is derived directly from the refactor instructions curre
 
 ## Execution plan steps (deriving from instructions)
 - [ ] Normalize config and align generators with nested config shape
-- [ ] Fix CLI to trigger code generation and server boot
+- [x] Fix CLI to trigger code generation and server boot
 - [ ] Decide and enforce codegen-only default/experimental runtime
 - [ ] Unify decorators into one implementation recognized by generators
 - [ ] Refactor route generator to fix handler internals and parameter inference

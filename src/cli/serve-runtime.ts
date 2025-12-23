@@ -9,6 +9,7 @@ import { expressAdapter } from '../core/adapters/express.adapter.js';
 import swaggerUi from 'swagger-ui-express';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as url from 'url';
 import { Project } from 'ts-morph';
 
 export async function createRuntimeServer(config: AdornConfig, port: number): Promise<void> {
@@ -42,9 +43,10 @@ export async function createRuntimeServer(config: AdornConfig, port: number): Pr
       if (!controllerDec) continue;
       
       try {
-        // Import controller class dynamically
+        // Import controller class dynamically (cross-platform, works on Windows)
         const modulePath = path.resolve(file.getFilePath().replace(/\.ts$/, '.js'));
-        const controllerModule = await import(modulePath);
+        const moduleUrl = url.pathToFileURL(modulePath).href;
+        const controllerModule = await import(moduleUrl);
         const ControllerClass = controllerModule[className];
         
         if (ControllerClass) {

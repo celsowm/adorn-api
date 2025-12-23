@@ -41,13 +41,22 @@ program
 });
 program
     .command("serve")
-    .description("Run in runtime mode (no code generation)")
+    .description("Run in runtime mode (no code generation) or codegen mode with --gen option")
     .option("-c, --config <path>", "Path to configuration file", "./adorn.config.ts")
     .option("-p, --port <port>", "Port to listen on", "3000")
+    .option("--gen", "Run code generation before starting server (dev mode)")
     .action(async (options) => {
     try {
         const config = await loadConfig(options.config);
         const port = parseInt(options.port, 10);
+        // Auto-generate code if --gen flag is provided
+        if (options.gen) {
+            console.log("🔨 Running code generation in dev mode...\n");
+            await generateRoutes(config);
+            await generateSwagger(config);
+            console.log("✅ Code generation complete!\n");
+        }
+        console.log(`📋 Serve mode: ${options.gen ? 'Codegen (generated routes)' : 'Runtime (reflection)'}\n`);
         await createRuntimeServer(config, port);
     }
     catch (error) {
