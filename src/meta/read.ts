@@ -15,7 +15,7 @@ export function getControllerMetadata(target: object): ControllerMetadata | unde
   const metadata = target.constructor?.[Symbol.metadata];
   if (!metadata) return undefined;
   
-  const controllerMeta = metadata[CONTROLLER_KEY];
+  const controllerMeta = (metadata as Record<symbol, unknown>)[CONTROLLER_KEY];
   if (!controllerMeta) return undefined;
   
   return controllerMeta as ControllerMetadata;
@@ -31,7 +31,7 @@ export function getRouteMetadata(target: object, propertyKey: string | symbol): 
   const propertyMetadata = metadata[propertyKey];
   if (!propertyMetadata) return undefined;
   
-  const routeMeta = propertyMetadata[ROUTE_KEY];
+  const routeMeta = (propertyMetadata as Record<symbol, unknown>)[ROUTE_KEY];
   if (!routeMeta) return undefined;
   
   return routeMeta as RouteMetadata;
@@ -48,9 +48,9 @@ export function getRouteMethods(target: object): Map<string | symbol, RouteMetad
   
   for (const [key, value] of Object.entries(metadata)) {
     if (typeof key === 'string' && key !== 'constructor' && value && typeof value === 'object') {
-      const routeMeta = (value as any)[ROUTE_KEY];
+      const routeMeta = (value as Record<symbol, unknown>)[ROUTE_KEY];
       if (routeMeta) {
-        routes.set(key, routeMeta);
+        routes.set(key, routeMeta as RouteMetadata);
       }
     }
   }
@@ -68,7 +68,7 @@ export function getStatusMetadata(target: object, propertyKey: string | symbol):
   const propertyMetadata = metadata[propertyKey];
   if (!propertyMetadata) return undefined;
   
-  const statusMeta = propertyMetadata[STATUS_KEY];
+  const statusMeta = (propertyMetadata as Record<symbol, unknown>)[STATUS_KEY];
   if (statusMeta === undefined) return undefined;
   
   return statusMeta as number;
@@ -84,7 +84,7 @@ export function getParamMetadata(target: object, propertyKey: string | symbol): 
   const propertyMetadata = metadata[propertyKey];
   if (!propertyMetadata) return [];
   
-  const paramsMeta = propertyMetadata[PARAM_KEY];
+  const paramsMeta = (propertyMetadata as Record<symbol, unknown>)[PARAM_KEY];
   if (!paramsMeta) return [];
   
   return paramsMeta as ParamMetadata[];
@@ -100,7 +100,7 @@ export function getDtoPropertyMetadata(target: object, propertyKey: string | sym
   const propertyMetadata = metadata[propertyKey];
   if (!propertyMetadata) return undefined;
   
-  const dtoMeta = propertyMetadata[DTO_PROPERTY_KEY];
+  const dtoMeta = (propertyMetadata as Record<symbol, unknown>)[DTO_PROPERTY_KEY];
   if (!dtoMeta) return undefined;
   
   return dtoMeta as DtoPropertyMetadata;

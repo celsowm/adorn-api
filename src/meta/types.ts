@@ -2,7 +2,7 @@
  * Type definitions for metadata stored via decorators
  */
 
-import type { ParamSource } from './read';
+import type { ParamSource } from './read.js';
 
 export interface ControllerMetadata {
   path: string;
