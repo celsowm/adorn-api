@@ -8,8 +8,4 @@ export default defineConfig({
   dts: true,
   sourcemap: true,
   target: 'es2022',
-  esbuildOptions: (options: any) => {
-    options.experimentalDecorators = true;
-    options.emitDecoratorMetadata = true;
-  },
 });
