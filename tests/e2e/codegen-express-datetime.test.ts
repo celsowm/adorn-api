@@ -1,78 +1,23 @@
 import { describe, it, expect } from "vitest";
 import express from "express";
 import request from "supertest";
-import fs from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
-import { loadConfig } from "../../src/config/loadConfig";
-import { generateRoutes } from "../../src/codegen/generateRoutes";
-import { generateOpenapi } from "../../src/openapi/generateOpenapi";
-
-async function mkTmpProjectDir(): Promise<string> {
-  const root = process.cwd();
-  const base = path.join(root, ".vitest-tmp");
-  await fs.mkdir(base, { recursive: true });
-  return fs.mkdtemp(path.join(base, "adorn-e2e-datetime-"));
-}
-
-async function writeFile(p: string, content: string) {
-  await fs.mkdir(path.dirname(p), { recursive: true });
-  await fs.writeFile(p, content, "utf8");
-}
+import {
+  mkTmpProjectDir,
+  writeFile,
+  setupTestProject,
+  generateCode,
+  createExpressApp,
+  safeRemoveDir
+} from "./helpers";
 
 describe("E2E: Date and DateTime handling", () => {
   it("handles datetime strings in request body and response", async () => {
-    const dir = await mkTmpProjectDir();
+    const dir = await mkTmpProjectDir("adorn-e2e-datetime-");
 
     try {
-      await writeFile(
-        path.join(dir, "tsconfig.json"),
-        JSON.stringify(
-          {
-            compilerOptions: {
-              target: "ES2022",
-              module: "NodeNext",
-              moduleResolution: "NodeNext",
-              strict: true,
-              skipLibCheck: true
-            },
-            include: ["src/**/*.ts"]
-          },
-          null,
-          2
-        )
-      );
-
-      await writeFile(
-        path.join(dir, "adorn.config.ts"),
-        `
-import { defineConfig } from "adorn-api/config";
-
-export default defineConfig({
-  generation: {
-    rootDir: ${JSON.stringify(dir)},
-    tsConfigPath: "./tsconfig.json",
-    controllers: { include: ["src/controllers/**/*.controller.ts"] },
-    basePath: "/api",
-    framework: "express",
-    outputs: {
-      routes: "src/generated/routes.ts",
-      openapi: "src/generated/openapi.json"
-    },
-    inference: {
-      inferPathParamsFromTemplate: true,
-      defaultDtoFieldSource: "smart",
-      collisionPolicy: "path-wins"
-    }
-  },
-  swagger: {
-    enabled: true,
-    info: { title: "E2E DateTime", version: "1.0.0" }
-  }
-});
-`.trim()
-      );
+      await setupTestProject(dir, { title: "E2E DateTime", version: "1.0.0" });
 
       await writeFile(
         path.join(dir, "src/controllers/events.controller.ts"),
@@ -102,18 +47,8 @@ export class EventsController {
 `.trim()
       );
 
-      const config = await loadConfig({ configPath: path.join(dir, "adorn.config.ts") });
-
-      await generateRoutes(config);
-      await generateOpenapi(config);
-
-      const routesFile = path.join(dir, "src/generated/routes.ts");
-      const mod = await import(pathToFileURL(routesFile).href);
-      const RegisterRoutes = mod.RegisterRoutes as (app: express.Express) => void;
-
-      const app = express();
-      app.use(express.json());
-      RegisterRoutes(app);
+      await generateCode(dir);
+      const app = await createExpressApp(dir);
 
       // Test with ISO datetime strings
       const startDate = "2025-01-15T10:30:00.000Z";
@@ -158,61 +93,15 @@ export class EventsController {
       });
 
     } finally {
-      await fs.rm(dir, { recursive: true, force: true });
+      await safeRemoveDir(dir);
     }
   });
 
   it("handles date-only strings in query parameters", async () => {
-    const dir = await mkTmpProjectDir();
+    const dir = await mkTmpProjectDir("adorn-e2e-datetime-");
 
     try {
-      await writeFile(
-        path.join(dir, "tsconfig.json"),
-        JSON.stringify(
-          {
-            compilerOptions: {
-              target: "ES2022",
-              module: "NodeNext",
-              moduleResolution: "NodeNext",
-              strict: true,
-              skipLibCheck: true
-            },
-            include: ["src/**/*.ts"]
-          },
-          null,
-          2
-        )
-      );
-
-      await writeFile(
-        path.join(dir, "adorn.config.ts"),
-        `
-import { defineConfig } from "adorn-api/config";
-
-export default defineConfig({
-  generation: {
-    rootDir: ${JSON.stringify(dir)},
-    tsConfigPath: "./tsconfig.json",
-    controllers: { include: ["src/controllers/**/*.controller.ts"] },
-    basePath: "/api",
-    framework: "express",
-    outputs: {
-      routes: "src/generated/routes.ts",
-      openapi: "src/generated/openapi.json"
-    },
-    inference: {
-      inferPathParamsFromTemplate: true,
-      defaultDtoFieldSource: "smart",
-      collisionPolicy: "path-wins"
-    }
-  },
-  swagger: {
-    enabled: true,
-    info: { title: "E2E Date Query", version: "1.0.0" }
-  }
-});
-`.trim()
-      );
+      await setupTestProject(dir, { title: "E2E Date Query", version: "1.0.0" });
 
       await writeFile(
         path.join(dir, "src/controllers/appointments.controller.ts"),
@@ -238,18 +127,8 @@ export class AppointmentsController {
 `.trim()
       );
 
-      const config = await loadConfig({ configPath: path.join(dir, "adorn.config.ts") });
-
-      await generateRoutes(config);
-      await generateOpenapi(config);
-
-      const routesFile = path.join(dir, "src/generated/routes.ts");
-      const mod = await import(pathToFileURL(routesFile).href);
-      const RegisterRoutes = mod.RegisterRoutes as (app: express.Express) => void;
-
-      const app = express();
-      app.use(express.json());
-      RegisterRoutes(app);
+      await generateCode(dir);
+      const app = await createExpressApp(dir);
 
       // Test with date-only format
       const r1 = await request(app)
@@ -276,61 +155,15 @@ export class AppointmentsController {
       });
 
     } finally {
-      await fs.rm(dir, { recursive: true, force: true });
+      await safeRemoveDir(dir);
     }
   });
 
   it("handles datetime in path parameters", async () => {
-    const dir = await mkTmpProjectDir();
+    const dir = await mkTmpProjectDir("adorn-e2e-datetime-");
 
     try {
-      await writeFile(
-        path.join(dir, "tsconfig.json"),
-        JSON.stringify(
-          {
-            compilerOptions: {
-              target: "ES2022",
-              module: "NodeNext",
-              moduleResolution: "NodeNext",
-              strict: true,
-              skipLibCheck: true
-            },
-            include: ["src/**/*.ts"]
-          },
-          null,
-          2
-        )
-      );
-
-      await writeFile(
-        path.join(dir, "adorn.config.ts"),
-        `
-import { defineConfig } from "adorn-api/config";
-
-export default defineConfig({
-  generation: {
-    rootDir: ${JSON.stringify(dir)},
-    tsConfigPath: "./tsconfig.json",
-    controllers: { include: ["src/controllers/**/*.controller.ts"] },
-    basePath: "/api",
-    framework: "express",
-    outputs: {
-      routes: "src/generated/routes.ts",
-      openapi: "src/generated/openapi.json"
-    },
-    inference: {
-      inferPathParamsFromTemplate: true,
-      defaultDtoFieldSource: "smart",
-      collisionPolicy: "path-wins"
-    }
-  },
-  swagger: {
-    enabled: true,
-    info: { title: "E2E DateTime Path", version: "1.0.0" }
-  }
-});
-`.trim()
-      );
+      await setupTestProject(dir, { title: "E2E DateTime Path", version: "1.0.0" });
 
       await writeFile(
         path.join(dir, "src/controllers/schedules.controller.ts"),
@@ -356,18 +189,8 @@ export class SchedulesController {
 `.trim()
       );
 
-      const config = await loadConfig({ configPath: path.join(dir, "adorn.config.ts") });
-
-      await generateRoutes(config);
-      await generateOpenapi(config);
-
-      const routesFile = path.join(dir, "src/generated/routes.ts");
-      const mod = await import(pathToFileURL(routesFile).href);
-      const RegisterRoutes = mod.RegisterRoutes as (app: express.Express) => void;
-
-      const app = express();
-      app.use(express.json());
-      RegisterRoutes(app);
+      await generateCode(dir);
+      const app = await createExpressApp(dir);
 
       // Test with timestamp in path
       const timestamp = "2025-01-15T10:30:00Z";
@@ -380,61 +203,15 @@ export class SchedulesController {
       expect(r1.body.decoded).toBe(new Date(timestamp).toISOString());
 
     } finally {
-      await fs.rm(dir, { recursive: true, force: true });
+      await safeRemoveDir(dir);
     }
   });
 
   it("handles mixed date types (datetime string, date string, number) in single endpoint", async () => {
-    const dir = await mkTmpProjectDir();
+    const dir = await mkTmpProjectDir("adorn-e2e-datetime-");
 
     try {
-      await writeFile(
-        path.join(dir, "tsconfig.json"),
-        JSON.stringify(
-          {
-            compilerOptions: {
-              target: "ES2022",
-              module: "NodeNext",
-              moduleResolution: "NodeNext",
-              strict: true,
-              skipLibCheck: true
-            },
-            include: ["src/**/*.ts"]
-          },
-          null,
-          2
-        )
-      );
-
-      await writeFile(
-        path.join(dir, "adorn.config.ts"),
-        `
-import { defineConfig } from "adorn-api/config";
-
-export default defineConfig({
-  generation: {
-    rootDir: ${JSON.stringify(dir)},
-    tsConfigPath: "./tsconfig.json",
-    controllers: { include: ["src/controllers/**/*.controller.ts"] },
-    basePath: "/api",
-    framework: "express",
-    outputs: {
-      routes: "src/generated/routes.ts",
-      openapi: "src/generated/openapi.json"
-    },
-    inference: {
-      inferPathParamsFromTemplate: true,
-      defaultDtoFieldSource: "smart",
-      collisionPolicy: "path-wins"
-    }
-  },
-  swagger: {
-    enabled: true,
-    info: { title: "E2E Mixed Dates", version: "1.0.0" }
-  }
-});
-`.trim()
-      );
+      await setupTestProject(dir, { title: "E2E Mixed Dates", version: "1.0.0" });
 
       await writeFile(
         path.join(dir, "src/controllers/logs.controller.ts"),
@@ -468,18 +245,8 @@ export class LogsController {
 `.trim()
       );
 
-      const config = await loadConfig({ configPath: path.join(dir, "adorn.config.ts") });
-
-      await generateRoutes(config);
-      await generateOpenapi(config);
-
-      const routesFile = path.join(dir, "src/generated/routes.ts");
-      const mod = await import(pathToFileURL(routesFile).href);
-      const RegisterRoutes = mod.RegisterRoutes as (app: express.Express) => void;
-
-      const app = express();
-      app.use(express.json());
-      RegisterRoutes(app);
+      await generateCode(dir);
+      const app = await createExpressApp(dir);
 
       // Test with mixed date types
       const timestamp = "2025-01-15T14:30:00.000Z";
@@ -508,7 +275,7 @@ export class LogsController {
       });
 
     } finally {
-      await fs.rm(dir, { recursive: true, force: true });
+      await safeRemoveDir(dir);
     }
   });
 });

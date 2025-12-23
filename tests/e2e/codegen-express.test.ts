@@ -1,27 +1,17 @@
 import { describe, it, expect } from "vitest";
 import express from "express";
 import request from "supertest";
-import fs from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
-// ✅ change these imports to match your final API surface
-import { loadConfig } from "../../src/config/loadConfig";
-import { generateRoutes } from "../../src/codegen/generateRoutes";
-import { generateOpenapi } from "../../src/openapi/generateOpenapi";
-
-async function mkTmpProjectDir(): Promise<string> {
-  // IMPORTANT: keep it inside repo so Vitest can transpile TS imports from it
-  const root = process.cwd();
-  const base = path.join(root, ".vitest-tmp");
-  await fs.mkdir(base, { recursive: true });
-  return fs.mkdtemp(path.join(base, "adorn-e2e-"));
-}
-
-async function writeFile(p: string, content: string) {
-  await fs.mkdir(path.dirname(p), { recursive: true });
-  await fs.writeFile(p, content, "utf8");
-}
+import {
+  mkTmpProjectDir,
+  writeFile,
+  setupTestProject,
+  generateCode,
+  createExpressApp,
+  readOpenApiJson,
+  safeRemoveDir
+} from "./helpers";
 
 describe("E2E: adorn codegen + express in-memory server", () => {
   it("generates routes + openapi and serves endpoints (no port)", async () => {
@@ -29,53 +19,7 @@ describe("E2E: adorn codegen + express in-memory server", () => {
 
     try {
       // ---- fixture files ----
-      await writeFile(
-        path.join(dir, "tsconfig.json"),
-        JSON.stringify(
-          {
-            compilerOptions: {
-              target: "ES2022",
-              module: "NodeNext",
-              moduleResolution: "NodeNext",
-              strict: true,
-              skipLibCheck: true
-            },
-            include: ["src/**/*.ts"]
-          },
-          null,
-          2
-        )
-      );
-
-      await writeFile(
-        path.join(dir, "adorn.config.ts"),
-        `
-import { defineConfig } from "adorn-api/config";
-
-export default defineConfig({
-  generation: {
-    rootDir: ${JSON.stringify(dir)},
-    tsConfigPath: "./tsconfig.json",
-    controllers: { include: ["src/controllers/**/*.controller.ts"] },
-    basePath: "/api",
-    framework: "express",
-    outputs: {
-      routes: "src/generated/routes.ts",
-      openapi: "src/generated/openapi.json"
-    },
-    inference: {
-      inferPathParamsFromTemplate: true,
-      defaultDtoFieldSource: "smart",
-      collisionPolicy: "path-wins"
-    }
-  },
-  swagger: {
-    enabled: true,
-    info: { title: "E2E", version: "1.0.0" }
-  }
-});
-`.trim()
-      );
+      await setupTestProject(dir, { title: "E2E", version: "1.0.0" });
 
       await writeFile(
         path.join(dir, "src/controllers/users.controller.ts"),
@@ -108,20 +52,10 @@ export class UsersController {
       );
 
       // ---- run codegen ----
-      const config = await loadConfig({ configPath: path.join(dir, "adorn.config.ts") });
-
-      await generateRoutes(config);
-      await generateOpenapi(config);
+      await generateCode(dir);
 
       // ---- import generated routes (TS) ----
-      const routesFile = path.join(dir, "src/generated/routes.ts");
-      const mod = await import(pathToFileURL(routesFile).href);
-      const RegisterRoutes = mod.RegisterRoutes as (app: express.Express) => void;
-
-      // ---- in-memory express app (no listen) ----
-      const app = express();
-      app.use(express.json());
-      RegisterRoutes(app);
+      const app = await createExpressApp(dir);
 
       // ---- hit endpoints ----
       const r1 = await request(app).get("/api/users/123");
@@ -133,16 +67,14 @@ export class UsersController {
       expect(r2.body).toEqual({ id: "999", name: "Ana" });
 
       // ---- assert openapi file exists + contains path ----
-      const openapiFile = path.join(dir, "src/generated/openapi.json");
-      const openapiRaw = await fs.readFile(openapiFile, "utf8");
-      const openapi = JSON.parse(openapiRaw);
+      const openapi = await readOpenApiJson(dir);
 
       expect(openapi.openapi).toBeTruthy();
       expect(openapi.paths["/api/users/{id}"]).toBeTruthy();
       expect(openapi.paths["/api/users"]).toBeTruthy();
     } finally {
       // cleanup
-      await fs.rm(dir, { recursive: true, force: true });
+      await safeRemoveDir(dir);
     }
   });
 });
