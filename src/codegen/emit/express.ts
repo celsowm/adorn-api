@@ -64,34 +64,34 @@ function getFullPath(basePath: string, controllerPath: string, methodPath: strin
 }
 
 function getRelativePath(from: string, to: string, rootDir: string): string {
-  // Normalize paths to use forward slashes
-  const fromNormalized = from.replace(/\\/g, '/');
-  const toNormalized = to.replace(/\\/g, '/');
-  const rootNormalized = rootDir.replace(/\\/g, '/');
+  // Normalize all paths using Node's path utilities
+  const fromNormalized = path.normalize(from);
+  const toNormalized = path.normalize(to);
+  const rootNormalized = path.normalize(rootDir);
   
   // Resolve 'from' path (output file) relative to rootDir
-  let fromAbsolute = path.isAbsolute(fromNormalized) 
+  const fromAbsolute = path.isAbsolute(fromNormalized) 
     ? fromNormalized 
     : path.resolve(rootNormalized, fromNormalized);
   
   // 'to' is already absolute (from scanControllers)
   const toAbsolute = toNormalized;
   
-  // Normalize resolved path to forward slashes for consistent handling
-  fromAbsolute = fromAbsolute.replace(/\\/g, '/');
+  // Get the directory of the 'from' file using path.dirname
+  const fromDir = path.dirname(fromAbsolute);
   
-  // Get the directory of the 'from' file
-  const fromDir = fromAbsolute.replace(/[^/]+$/, '');
-  const toDir = toAbsolute.replace(/\.ts$/, '');
+  // Remove .ts extension from target file
+  const toWithoutExt = toAbsolute.replace(/\.ts$/, '');
   
   // Calculate relative path from 'from' directory to 'to' file
-  let relative = path.relative(fromDir, toDir);
+  const relative = path.relative(fromDir, toWithoutExt);
   
-  // Normalize to use forward slashes and remove .ts extension
-  relative = relative.replace(/\\/g, '/').replace(/\.ts$/, '');
+  // Normalize to use forward slashes for ES module imports
+  // This ensures consistency across platforms
+  const normalizedRelative = relative.split(path.sep).join('/');
   
   // Ensure we're using .js extension for ES modules
-  return relative || '.';
+  return normalizedRelative || '.';
 }
 
 function buildDtoExtraction(method: MethodInfo, config: Config): string {
