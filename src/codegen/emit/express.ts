@@ -4,7 +4,7 @@
 
 import path from 'node:path';
 import type { Config } from '../../config/types.js';
-import type { ControllerInfo } from '../../ast/scanControllers.js';
+import type { ControllerInfo, MethodInfo } from '../../ast/scanControllers.js';
 
 export function emitExpressRoutes(config: Config, controllers: ControllerInfo[]): string {
   const controllerImports: string[] = [];
@@ -30,7 +30,7 @@ export function emitExpressRoutes(config: Config, controllers: ControllerInfo[])
         const controller = new ${controller.className}();
         
         // Build DTO from request
-        const dto = ${buildDtoExtraction(method, controller.className.toLowerCase())};
+        const dto = ${buildDtoExtraction(method, config)};
         
         const result = await controller.${method.methodName}(dto);
         ${method.statusCode ? `res.status(${method.statusCode});` : ''}
@@ -94,27 +94,42 @@ function getRelativePath(from: string, to: string, rootDir: string): string {
   return relative || '.';
 }
 
-function buildDtoExtraction(method: any, _instanceVar: string): string {
+function buildDtoExtraction(method: MethodInfo, config: Config): string {
   // If no DTO, use undefined
   if (!method.dtoName) {
     return 'undefined';
   }
 
-  // Build DTO object extraction
+  const { defaultDtoFieldSource } = config.generation.inference;
   const parts: string[] = ['{'];
-  
-  // For simplicity, extract from req.body for now
-  // In a full implementation, this would also handle path params, query params, etc.
-  parts.push(`  ...req.body,`);
-  
-  // Add path params if any
-  if (method.pathParams && method.pathParams.length > 0) {
-    for (const param of method.pathParams) {
+  const pathParams = method.pathParams || [];
+
+  // Extract path params (highest priority)
+  if (pathParams.length > 0) {
+    for (const param of pathParams) {
       parts.push(`  ${param}: req.params.${param},`);
     }
   }
-  
+
+  // Handle query params based on configuration
+  if (defaultDtoFieldSource === 'query') {
+    // All non-path params come from query
+    parts.push(`  ...Object.fromEntries(`);
+    parts.push(`    Object.entries(req.query).filter(([key]) => !${JSON.stringify(pathParams)}.includes(key))`);
+    parts.push(`  ),`);
+  } else if (defaultDtoFieldSource === 'smart') {
+    // Smart mode: query params come from req.query
+    parts.push(`  ...Object.fromEntries(`);
+    parts.push(`    Object.entries(req.query).filter(([key]) => !${JSON.stringify(pathParams)}.includes(key))`);
+    parts.push(`  ),`);
+  }
+
+  // Extract body params (for POST, PUT, PATCH requests)
+  if (['post', 'put', 'patch'].includes(method.httpMethod) && defaultDtoFieldSource !== 'query') {
+    parts.push(`  ...req.body,`);
+  }
+
   parts.push('}');
-  
+
   return parts.join('\n        ');
 }
