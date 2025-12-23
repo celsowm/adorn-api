@@ -40,8 +40,10 @@
     "@eslint/object-schema": "^3.0.0",
     "@types/express": "^4.17.0",
     "@types/node": "^20.19.27",
+    "@types/supertest": "^6.0.3",
     "eslint": "^9.0.0",
     "prettier": "^3.0.0",
+    "supertest": "^7.1.4",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0",
     "vitest": "^4.0.16"
