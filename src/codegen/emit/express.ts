@@ -2,6 +2,7 @@
  * Emit Express route registration code
  */
 
+import path from 'node:path';
 import type { Config } from '../../config/types.js';
 import type { ControllerInfo } from '../../ast/scanControllers.js';
 
@@ -13,7 +14,11 @@ export function emitExpressRoutes(config: Config, controllers: ControllerInfo[])
   // Collect imports and build route definitions
   for (const controller of controllers) {
     // Import controller class
-    const relativePath = getRelativePath(config.generation.outputs.routes, controller.filePath);
+    const relativePath = getRelativePath(
+      config.generation.outputs.routes,
+      controller.filePath,
+      config.generation.rootDir
+    );
     controllerImports.push(`import { ${controller.className} } from '${relativePath}.js';`);
 
     // Build route definitions
@@ -57,28 +62,35 @@ function getFullPath(basePath: string, controllerPath: string, methodPath: strin
   return '/' + fullPath;
 }
 
-function getRelativePath(from: string, to: string): string {
+function getRelativePath(from: string, to: string, rootDir: string): string {
   // Normalize paths to use forward slashes
   const fromNormalized = from.replace(/\\/g, '/');
   const toNormalized = to.replace(/\\/g, '/');
+  const rootNormalized = rootDir.replace(/\\/g, '/');
   
-  const fromDir = fromNormalized.replace(/[^/]+$/, '');
-  const toDir = toNormalized.replace(/\.ts$/, '');
+  // Resolve 'from' path (output file) relative to rootDir
+  let fromAbsolute = path.isAbsolute(fromNormalized) 
+    ? fromNormalized 
+    : path.resolve(rootNormalized, fromNormalized);
   
-  // Simple relative path calculation
-  const fromParts = fromDir.split('/').filter(p => p && p !== '.');
-  const toParts = toDir.split('/').filter(p => p && p !== '.');
+  // 'to' is already absolute (from scanControllers)
+  const toAbsolute = toNormalized;
   
-  let commonParts = 0;
-  while (commonParts < fromParts.length && commonParts < toParts.length && fromParts[commonParts] === toParts[commonParts]) {
-    commonParts++;
-  }
+  // Normalize resolved path to forward slashes for consistent handling
+  fromAbsolute = fromAbsolute.replace(/\\/g, '/');
   
-  const upParts = fromParts.length - commonParts - 1; // -1 for the file name
-  const relativeParts = ['../'.repeat(Math.max(0, upParts)), ...toParts.slice(commonParts)];
-  const relativePath = relativeParts.join('').replace(/\.ts$/, '');
+  // Get the directory of the 'from' file
+  const fromDir = fromAbsolute.replace(/[^/]+$/, '');
+  const toDir = toAbsolute.replace(/\.ts$/, '');
   
-  return relativePath || '.';
+  // Calculate relative path from 'from' directory to 'to' file
+  let relative = path.relative(fromDir, toDir);
+  
+  // Normalize to use forward slashes and remove .ts extension
+  relative = relative.replace(/\\/g, '/').replace(/\.ts$/, '');
+  
+  // Ensure we're using .js extension for ES modules
+  return relative || '.';
 }
 
 function buildDtoExtraction(method: any, instanceVar: string): string {
