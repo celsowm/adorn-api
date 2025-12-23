@@ -58,8 +58,12 @@ function getFullPath(basePath: string, controllerPath: string, methodPath: strin
 }
 
 function getRelativePath(from: string, to: string): string {
-  const fromDir = from.replace(/[^/]+$/, '');
-  const toDir = to.replace(/\.ts$/, '');
+  // Normalize paths to use forward slashes
+  const fromNormalized = from.replace(/\\/g, '/');
+  const toNormalized = to.replace(/\\/g, '/');
+  
+  const fromDir = fromNormalized.replace(/[^/]+$/, '');
+  const toDir = toNormalized.replace(/\.ts$/, '');
   
   // Simple relative path calculation
   const fromParts = fromDir.split('/').filter(p => p && p !== '.');
@@ -84,7 +88,7 @@ function buildDtoExtraction(method: any, instanceVar: string): string {
   }
 
   // Build DTO object extraction
-  const parts: string[] = [`const ${method.dtoName} = {`];
+  const parts: string[] = ['{'];
   
   // For simplicity, extract from req.body for now
   // In a full implementation, this would also handle path params, query params, etc.
@@ -97,8 +101,7 @@ function buildDtoExtraction(method: any, instanceVar: string): string {
     }
   }
   
-  parts.push(`};`);
-  parts.push(`return ${method.dtoName};`);
+  parts.push('}');
   
   return parts.join('\n        ');
 }
