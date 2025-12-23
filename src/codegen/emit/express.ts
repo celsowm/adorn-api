@@ -23,7 +23,6 @@ export function emitExpressRoutes(config: Config, controllers: ControllerInfo[])
     // Build route definitions
     for (const method of controller.methods) {
       const fullPath = getFullPath(config.generation.basePath, controller.path, method.path);
-      const controllerInstanceVar = `_${controller.className.toLowerCase()}`;
       
       routeDefinitions.push(`
     app.${method.httpMethod}('${fullPath}', async (req, res, next) => {
@@ -31,7 +30,7 @@ export function emitExpressRoutes(config: Config, controllers: ControllerInfo[])
         const controller = new ${controller.className}();
         
         // Build DTO from request
-        const dto = ${buildDtoExtraction(method, controllerInstanceVar)};
+        const dto = ${buildDtoExtraction(method, controller.className.toLowerCase())};
         
         const result = await controller.${method.methodName}(dto);
         ${method.statusCode ? `res.status(${method.statusCode});` : ''}
@@ -51,14 +50,17 @@ ${controllerImports.join('\n')}
 
 export function RegisterRoutes(app: express.Express): void {
 ${routeDefinitions.join('\n')}
-}
-`;
+}`;
 }
 
 function getFullPath(basePath: string, controllerPath: string, methodPath: string): string {
   const parts = [basePath, controllerPath, methodPath].filter(p => p && p !== '/');
   const fullPath = parts.map(p => p.replace(/^\/|\/$/g, '')).join('/');
-  return '/' + fullPath;
+  
+  // Convert OpenAPI-style path params {param} to Express-style :param
+  const expressPath = fullPath.replace(/\{([^}]+)\}/g, ':$1');
+  
+  return '/' + expressPath;
 }
 
 function getRelativePath(from: string, to: string, rootDir: string): string {
