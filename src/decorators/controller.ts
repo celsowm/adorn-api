@@ -15,5 +15,8 @@ export function Controller(path: string) {
     if (context?.metadata) {
       context.metadata[CONTROLLER_KEY] = { path } as ControllerMetadata;
     }
+
+    // Return target to ensure it works as a decorator
+    return _target;
   };
 }

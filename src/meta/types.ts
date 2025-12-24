@@ -22,5 +22,9 @@ export interface ParamMetadata {
 
 export interface DtoPropertyMetadata {
   required: boolean;
-  type?: string;
+  type?: 'string' | 'number' | 'boolean' | 'date' | 'object' | 'array';
+}
+
+export interface SecurityMetadata {
+  guards: any[];
 }

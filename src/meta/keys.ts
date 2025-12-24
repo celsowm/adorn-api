@@ -17,3 +17,6 @@ export const PARAM_KEY = Symbol('adorn:param');
 
 // DTO property metadata
 export const DTO_PROPERTY_KEY = Symbol('adorn:dto:property');
+
+// Security metadata
+export const SECURITY_KEY = Symbol('adorn:security');

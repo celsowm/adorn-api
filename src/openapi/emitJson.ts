@@ -4,8 +4,13 @@
 
 import type { Config } from '../config/types.js';
 import type { ControllerInfo } from '../ast/scanControllers.js';
+import type { DtoInfo } from '../ast/scanDtos.js';
 
-export function emitOpenapiJson(config: Config, controllers: ControllerInfo[]): Record<string, any> {
+export function emitOpenapiJson(
+  config: Config,
+  controllers: ControllerInfo[],
+  dtos: DtoInfo[] = []
+): Record<string, any> {
   const openapi: Record<string, any> = {
     openapi: '3.1.0',
     info: config.swagger.info,
@@ -14,6 +19,25 @@ export function emitOpenapiJson(config: Config, controllers: ControllerInfo[]): 
       schemas: {},
     },
   };
+
+  // Build schemas from DTOs
+  for (const dto of dtos) {
+    const properties: Record<string, any> = {};
+    const required: string[] = [];
+
+    for (const prop of dto.properties) {
+      properties[prop.name] = mapTypeToOpenApi(prop.type, prop.isArray);
+      if (prop.required) {
+        required.push(prop.name);
+      }
+    }
+
+    openapi.components.schemas[dto.name] = {
+      type: 'object',
+      properties,
+      ...(required.length > 0 ? { required } : {}),
+    };
+  }
 
   // Build paths from controllers
   for (const controller of controllers) {
@@ -52,15 +76,6 @@ export function emitOpenapiJson(config: Config, controllers: ControllerInfo[]): 
             },
           },
         };
-
-        // For demo/simplicity, we'll add a basic schema for the DTO
-        // In a real implementation, we'd use the AST to extract properties
-        if (!openapi.components.schemas[method.dtoName]) {
-          openapi.components.schemas[method.dtoName] = {
-            type: 'object',
-            properties: {}, // To be populated by AST scanner
-          };
-        }
       }
 
       // Add path parameters if any
@@ -85,6 +100,40 @@ export function emitOpenapiJson(config: Config, controllers: ControllerInfo[]): 
   }
 
   return openapi;
+}
+
+function mapTypeToOpenApi(tsType: string, isArray: boolean): any {
+  let type: string;
+  let format: string | undefined;
+
+  const normalizedType = tsType.toLowerCase();
+
+  if (normalizedType === 'string') {
+    type = 'string';
+  } else if (normalizedType === 'number') {
+    type = 'number';
+  } else if (normalizedType === 'boolean') {
+    type = 'boolean';
+  } else if (normalizedType === 'date' || normalizedType.includes('date')) {
+    type = 'string';
+    format = 'date-time';
+  } else {
+    type = 'object';
+  }
+
+  const schema: any = { type };
+  if (format) {
+    schema.format = format;
+  }
+
+  if (isArray) {
+    return {
+      type: 'array',
+      items: schema,
+    };
+  }
+
+  return schema;
 }
 
 function getFullPath(basePath: string, controllerPath: string, methodPath: string): string {

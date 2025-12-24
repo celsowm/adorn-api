@@ -32,12 +32,12 @@ export function emitExpressRoutes(config: Config, controllers: ControllerInfo[])
       }
       
       routeDefinitions.push(`
-    app.${method.httpMethod}('${fullPath}', async (req, res, next) => {
+    app.${method.httpMethod}('${fullPath}', async (req: express.Request, res: express.Response, next: express.NextFunction) => {
       try {
-        const controller = container.resolve(${controller.className});
+        const controller = container.resolve<${controller.className}>(${controller.className});
         
         // Build DTO from request
-        let dto = ${buildDtoExtraction(method, config)};
+        let dto: any = ${buildDtoExtraction(method, config)};
         
         ${method.dtoName ? `
         // Validate DTO
@@ -140,24 +140,46 @@ function buildDtoExtraction(method: MethodInfo, config: Config): string {
     return 'undefined';
   }
 
-  const { defaultDtoFieldSource } = config.generation.inference;
+  const { defaultDtoFieldSource, collisionPolicy } = config.generation.inference;
   const parts: string[] = ['{'];
   const pathParams = method.pathParams || [];
 
-  // Handle query params first if configured (to be overwritten by path params)
-  if (defaultDtoFieldSource === 'query' || defaultDtoFieldSource === 'smart') {
-    parts.push(`  ...req.query,`);
+  const sources: string[] = [];
+
+  // 1. Handle Query/Body based on smart/configured source
+  if (defaultDtoFieldSource === 'query') {
+    sources.push('...req.query');
+  } else if (defaultDtoFieldSource === 'body') {
+    sources.push('...req.body');
+  } else if (defaultDtoFieldSource === 'smart') {
+    // Smart merge: Query first, then Body (body wins over query)
+    sources.push('...req.query');
+    if (['post', 'put', 'patch'].includes(method.httpMethod)) {
+      sources.push('...req.body');
+    }
   }
 
-  // Extract body params (for POST, PUT, PATCH requests)
-  if (['post', 'put', 'patch'].includes(method.httpMethod) && defaultDtoFieldSource !== 'query') {
-    parts.push(`  ...req.body,`);
-  }
-
-  // Extract path params last (highest priority - cannot be overwritten)
-  if (pathParams.length > 0) {
-    for (const param of pathParams) {
-      parts.push(`  ${param}: req.params.${param},`);
+  // 2. Handle collision policy and path params
+  if (collisionPolicy === 'query-wins') {
+    // Path params first, then spread query/body (so they win)
+    if (pathParams.length > 0) {
+      for (const param of pathParams) {
+        parts.push(`  ${param}: req.params.${param},`);
+      }
+    }
+    for (const source of sources) {
+      parts.push(`  ${source},`);
+    }
+  } else {
+    // default: path-wins
+    // Spread query/body first, then individual path params (so they win)
+    for (const source of sources) {
+      parts.push(`  ${source},`);
+    }
+    if (pathParams.length > 0) {
+      for (const param of pathParams) {
+        parts.push(`  ${param}: req.params.${param},`);
+      }
     }
   }
 

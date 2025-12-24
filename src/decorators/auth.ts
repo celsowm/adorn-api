@@ -5,6 +5,8 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
+import '../polyfills/symbol-metadata.js';
+import { SECURITY_KEY } from '../meta/keys.js';
 
 /**
  * Type guard function
@@ -15,7 +17,7 @@ export type GuardFn = (req: Request, res: Response, next: NextFunction) => void 
  * Create an authentication guard
  * 
  * Usage:
- *   @UseGuards(AuthGuard)
+ *   @UseGuards(AuthGuard())
  *   @Get('/protected')
  *   protectedRoute() { ... }
  */
@@ -32,7 +34,7 @@ export function AuthGuard(_options: {
     prefix = 'Bearer',
   } = _options;
 
-  return function guard(req: Request, _res: Response, next: NextFunction) {
+  function guard(req: Request, _res: Response, next: NextFunction) {
     const authHeader = req.headers[header.toLowerCase()];
     
     if (!authHeader) {
@@ -57,6 +59,25 @@ export function AuthGuard(_options: {
     } catch {
       next(new UnauthorizedError('Invalid token'));
     }
+  }
+
+  return guard;
+}
+
+/**
+ * Apply guards as a decorator
+ */
+export function UseGuards(...guards: GuardFn[]) {
+  return function (
+    _target: object,
+    context?: ClassMethodDecoratorContext
+  ): void {
+    if (context?.metadata) {
+      if (!context.metadata[SECURITY_KEY]) {
+        context.metadata[SECURITY_KEY] = new Map<string | symbol, GuardFn[]>();
+      }
+      (context.metadata[SECURITY_KEY] as Map<string | symbol, GuardFn[]>).set(context.name, guards);
+    }
   };
 }
 
@@ -69,7 +90,7 @@ export function AuthGuard(_options: {
  *   adminRoute() { ... }
  */
 export function RolesGuard(...requiredRoles: string[]) {
-  return function guard(req: Request, _res: Response, next: NextFunction) {
+  function guard(req: Request, _res: Response, next: NextFunction) {
     const user = (req as any).user;
     
     if (!user) {
@@ -84,7 +105,9 @@ export function RolesGuard(...requiredRoles: string[]) {
     }
     
     next();
-  };
+  }
+
+  return guard;
 }
 
 /**
@@ -96,7 +119,7 @@ export function RolesGuard(...requiredRoles: string[]) {
  *   usersRoute() { ... }
  */
 export function PermissionsGuard(...requiredPermissions: string[]) {
-  return function guard(req: Request, _res: Response, next: NextFunction) {
+  function guard(req: Request, _res: Response, next: NextFunction) {
     const user = (req as any).user;
     
     if (!user) {
@@ -113,7 +136,9 @@ export function PermissionsGuard(...requiredPermissions: string[]) {
     }
     
     next();
-  };
+  }
+
+  return guard;
 }
 
 /**

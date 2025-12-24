@@ -12,6 +12,14 @@ import type { Request, Response, NextFunction } from 'express';
 export type ErrorMapper = (error: Error, req: Request, res: Response, next: NextFunction) => void;
 
 /**
+ * Simple logger interface
+ */
+export interface Logger {
+  error(message: string, context?: any): void;
+  info(message: string, context?: any): void;
+}
+
+/**
  * Default error mapper configuration
  */
 export interface ErrorMapperConfig {
@@ -19,8 +27,8 @@ export interface ErrorMapperConfig {
   statusMap?: Map<new (...args: any[]) => Error, number>;
   /** Default status code for unknown errors */
   defaultStatus?: number;
-  /** Whether to log errors to console */
-  logErrors?: boolean;
+  /** Custom logger */
+  logger?: Logger;
   /** Custom error message formatter */
   formatMessage?: (error: Error) => string;
 }
@@ -32,14 +40,14 @@ export function createErrorMapper(config: ErrorMapperConfig = {}): ErrorMapper {
   const {
     statusMap = createDefaultStatusMap(),
     defaultStatus = 500,
-    logErrors = true,
+    logger,
     formatMessage = (error) => error.message,
   } = config;
 
   return function errorMapper(error: Error, req: Request, res: Response, _next: NextFunction) {
-    // Log the error if enabled
-    if (logErrors) {
-      console.error('Error:', {
+    // Log the error if logger provided
+    if (logger) {
+      logger.error('Error occurred in request', {
         message: error.message,
         stack: error.stack,
         url: req.url,

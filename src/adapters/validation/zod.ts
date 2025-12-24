@@ -51,10 +51,72 @@ export function createZodSchema<T extends object>(dtoClass: new () => T): ZodVal
   return validationSchema;
 }
 
+import { DTO_PROPERTY_KEY } from '../../meta/keys.js';
+import type { DtoPropertyMetadata } from '../../meta/types.js';
+
 /**
- * Build a schema by inspecting a DTO instance
+ * Build a schema by inspecting DTO metadata (Stage 3 decorators)
  */
 function buildFallbackSchema<T extends object>(dtoClass: new () => T): ZodTypeAny {
+  const metadata = (dtoClass as any)[Symbol.metadata];
+  const propertyMap = metadata?.[DTO_PROPERTY_KEY] as Map<string, DtoPropertyMetadata> | undefined;
+
+  if (!propertyMap) {
+    // Fallback to instance inspection if no metadata (for backward compatibility or undecorated classes)
+    return buildFromInstance(dtoClass);
+  }
+
+  const shape: Record<string, ZodTypeAny> = {};
+
+  for (const [key, meta] of propertyMap.entries()) {
+    let fieldSchema: ZodTypeAny;
+
+    switch (meta.type) {
+      case 'string':
+        fieldSchema = z.preprocess((val) => String(val), z.string());
+        break;
+      case 'number':
+        fieldSchema = z.preprocess((val) => {
+          const parsed = Number(val);
+          return isNaN(parsed) ? val : parsed;
+        }, z.number());
+        break;
+      case 'boolean':
+        fieldSchema = z.preprocess((val) => {
+          if (typeof val === 'string') {
+            if (val.toLowerCase() === 'true') return true;
+            if (val.toLowerCase() === 'false') return false;
+          }
+          return val;
+        }, z.boolean());
+        break;
+      case 'date':
+        fieldSchema = z.preprocess((val) => {
+          if (typeof val === 'string' || typeof val === 'number') {
+            const date = new Date(val);
+            return isNaN(date.getTime()) ? val : date;
+          }
+          return val;
+        }, z.date());
+        break;
+      default:
+        fieldSchema = z.unknown();
+    }
+
+    if (!meta.required) {
+      fieldSchema = fieldSchema.optional();
+    }
+
+    shape[key] = fieldSchema;
+  }
+
+  return z.object(shape);
+}
+
+/**
+ * Legacy fallback: Build a schema by inspecting a DTO instance
+ */
+function buildFromInstance<T extends object>(dtoClass: new () => T): ZodTypeAny {
   // Create an instance to get property keys
   let instance: T;
   try {
@@ -65,8 +127,15 @@ function buildFallbackSchema<T extends object>(dtoClass: new () => T): ZodTypeAn
   }
   
   const shape: Record<string, ZodTypeAny> = {};
+  const keys = Object.keys(instance);
+
+  if (keys.length === 0) {
+    // If no keys found (likely due to ! properties), we can't do much with instance inspection
+    // Return a schema that at least allows unknown properties if it's a DTO
+    return z.record(z.unknown());
+  }
   
-  for (const key of Object.keys(instance)) {
+  for (const key of keys) {
     const value = (instance as any)[key];
     
     if (typeof value === 'string') {
