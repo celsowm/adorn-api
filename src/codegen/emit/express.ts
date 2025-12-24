@@ -91,7 +91,13 @@ function getRelativePath(from: string, to: string, rootDir: string): string {
   const normalizedRelative = relative.split(path.sep).join('/');
   
   // Ensure we're using .js extension for ES modules
-  return normalizedRelative || '.';
+  // Handle same-directory case - don't return bare module name
+  if (normalizedRelative === '.') {
+    const filename = path.basename(toWithoutExt);
+    return './' + filename;
+  }
+  
+  return normalizedRelative;
 }
 
 function buildDtoExtraction(method: MethodInfo, config: Config): string {
