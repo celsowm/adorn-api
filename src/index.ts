@@ -14,3 +14,9 @@ export { generateRoutes } from './codegen/generateRoutes.js';
 
 // Export OpenAPI functions
 export { generateOpenapi } from './openapi/generateOpenapi.js';
+
+// Export DI container
+export { container, Container } from './di/container.js';
+
+// Import polyfills
+import './polyfills/symbol-metadata.js';

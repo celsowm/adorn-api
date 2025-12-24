@@ -21,6 +21,11 @@
       "types": "./dist/decorators/index.d.ts",
       "import": "./dist/decorators/index.js",
       "require": "./dist/decorators/index.cjs"
+    },
+    "./adapters/*": {
+      "types": "./dist/adapters/*.d.ts",
+      "import": "./dist/adapters/*.js",
+      "require": "./dist/adapters/*.cjs"
     }
   },
   "files": [
@@ -30,7 +35,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest",
+    "test": "vitest run",
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
     "lint": "eslint src --ext .ts",

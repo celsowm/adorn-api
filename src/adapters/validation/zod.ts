@@ -30,6 +30,9 @@ const schemaCache = new Map<Function, ZodValidationSchema>();
  * Uses runtime instance inspection to build schemas from DTO classes.
  */
 export function createZodSchema<T extends object>(dtoClass: new () => T): ZodValidationSchema {
+  if (!dtoClass) {
+    throw new Error('createZodSchema: dtoClass is undefined');
+  }
   // Check cache first
   if (schemaCache.has(dtoClass)) {
     return schemaCache.get(dtoClass)!;
@@ -39,7 +42,7 @@ export function createZodSchema<T extends object>(dtoClass: new () => T): ZodVal
   
   const validationSchema: ZodValidationSchema = {
     [ZOD_SCHEMA_SYMBOL]: schema,
-    name: dtoClass.name,
+    name: dtoClass.name || 'AnonymousDto',
   };
 
   // Cache the schema
@@ -66,11 +69,32 @@ function buildFallbackSchema<T extends object>(dtoClass: new () => T): ZodTypeAn
   for (const key of Object.keys(instance)) {
     const value = (instance as any)[key];
     
-    if (typeof value === 'string') shape[key] = z.string();
-    else if (typeof value === 'number') shape[key] = z.number();
-    else if (typeof value === 'boolean') shape[key] = z.boolean();
-    else if (value instanceof Date) shape[key] = z.date();
-    else shape[key] = z.unknown();
+    if (typeof value === 'string') {
+      shape[key] = z.preprocess((val) => String(val), z.string());
+    } else if (typeof value === 'number') {
+      shape[key] = z.preprocess((val) => {
+        const parsed = Number(val);
+        return isNaN(parsed) ? val : parsed;
+      }, z.number());
+    } else if (typeof value === 'boolean') {
+      shape[key] = z.preprocess((val) => {
+        if (typeof val === 'string') {
+          if (val.toLowerCase() === 'true') return true;
+          if (val.toLowerCase() === 'false') return false;
+        }
+        return val;
+      }, z.boolean());
+    } else if (value instanceof Date) {
+      shape[key] = z.preprocess((val) => {
+        if (typeof val === 'string' || typeof val === 'number') {
+          const date = new Date(val);
+          return isNaN(date.getTime()) ? val : date;
+        }
+        return val;
+      }, z.date());
+    } else {
+      shape[key] = z.unknown();
+    }
   }
   
   return z.object(shape);

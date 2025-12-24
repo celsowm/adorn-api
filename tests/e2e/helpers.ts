@@ -137,7 +137,8 @@ export async function generateCode(dir: string): Promise<void> {
  */
 export async function createExpressApp(dir: string): Promise<express.Express> {
   const routesFile = path.join(dir, "src/generated/routes.ts");
-  const mod = await import(pathToFileURL(routesFile).href);
+  // Bypass ESM cache with a timestamp
+  const mod = await import(pathToFileURL(routesFile).href + "?t=" + Date.now());
   const RegisterRoutes = mod.RegisterRoutes as (app: express.Express) => void;
 
   const app = express();

@@ -10,6 +10,9 @@ export function emitOpenapiJson(config: Config, controllers: ControllerInfo[]): 
     openapi: '3.1.0',
     info: config.swagger.info,
     paths: {},
+    components: {
+      schemas: {},
+    },
   };
 
   // Build paths from controllers
@@ -28,9 +31,9 @@ export function emitOpenapiJson(config: Config, controllers: ControllerInfo[]): 
             description: 'Success',
             content: {
               'application/json': {
-                schema: {
-                  type: 'object',
-                },
+                schema: method.dtoName 
+                  ? { $ref: `#/components/schemas/${method.dtoName}` }
+                  : { type: 'object' },
               },
             },
           },
@@ -49,18 +52,32 @@ export function emitOpenapiJson(config: Config, controllers: ControllerInfo[]): 
             },
           },
         };
+
+        // For demo/simplicity, we'll add a basic schema for the DTO
+        // In a real implementation, we'd use the AST to extract properties
+        if (!openapi.components.schemas[method.dtoName]) {
+          openapi.components.schemas[method.dtoName] = {
+            type: 'object',
+            properties: {}, // To be populated by AST scanner
+          };
+        }
       }
 
       // Add path parameters if any
       if (method.pathParams && method.pathParams.length > 0) {
-        operation.parameters = method.pathParams.map(param => ({
+        const parameters = method.pathParams.map(param => ({
           name: param,
           in: 'path',
           required: true,
           schema: {
-            type: 'string',
+            type: 'string', // Default to string
           },
         }));
+
+        if (!operation.parameters) {
+          operation.parameters = [];
+        }
+        operation.parameters.push(...parameters);
       }
 
       openapi.paths[fullPath][method.httpMethod] = operation;
