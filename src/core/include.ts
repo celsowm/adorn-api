@@ -1,7 +1,9 @@
 import { ValidationError } from './errors.js';
 import type { IncludePolicy } from './metadata.js';
 
-export type IncludeTree = Record<string, IncludeTree>;
+export interface IncludeTree {
+  [key: string]: IncludeTree;
+}
 
 function splitPath(token: string): string[] {
   return token

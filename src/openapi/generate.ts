@@ -56,7 +56,6 @@ function extractObjectPropertySchema(objectSchema: any, prop: string): any | und
 
 function buildParameters(
   route: RouteIR,
-  componentsRef: (ref: SchemaRef) => { $ref: string },
   componentsSchemas: Record<string, any>
 ) {
   const params: any[] = [];
@@ -129,7 +128,7 @@ function operationForRoute(
   if (route.schemas.body) ensureComponent(route.schemas.body, components);
   ensureComponent(route.schemas.response, components);
 
-  const parameters = buildParameters(route, (r) => ensureComponent(r, components), components);
+  const parameters = buildParameters(route, components);
 
   const tags = tagsByController.get(route.controller);
   const op: any = {
@@ -191,15 +190,25 @@ export function generateOpenApiFromManifest(
   for (const t of tagsByController.values()) (t ?? []).forEach((x) => tagNames.add(x));
   const tags = tagNames.size ? [...tagNames].sort().map((name) => ({ name })) : undefined;
 
-  return {
+  const info: { title: string; version: string; description?: string } = {
+    title: opts.title ?? 'adorn-api',
+    version: opts.version ?? '0.0.1',
+  };
+
+  if (opts.description) {
+    info.description = opts.description;
+  }
+
+  const openApi: OpenApi31 = {
     openapi: '3.1.0',
-    info: {
-      title: opts.title ?? 'adorn-api',
-      version: opts.version ?? '0.0.1',
-      description: opts.description,
-    },
+    info,
     paths,
     components: { schemas: components },
-    tags,
   };
+
+  if (tags) {
+    openApi.tags = tags;
+  }
+
+  return openApi;
 }

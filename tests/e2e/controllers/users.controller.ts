@@ -13,7 +13,7 @@ export class UsersController {
     response: UserResponse,
     includePolicy: { allowed: ['posts'], maxDepth: 2 },
   })
-  async getUser(ctx: any) {
+  async getUser(ctx: any): Promise<{ id: number; name: string }> {
     const { id } = ctx.input.params as { id: number };
     const include = ctx.input.include.tokens;
     return { id, name: include.includes('posts') ? 'alice+posts' : 'alice' };
@@ -24,7 +24,7 @@ export class UsersController {
     body: CreateUserBody,
     response: UserResponse,
   })
-  async createUser(ctx: any) {
+  async createUser(ctx: any): Promise<{ id: number; name: string }> {
     const body = ctx.input.body as { name: string };
     return { id: 1, name: body.name };
   }

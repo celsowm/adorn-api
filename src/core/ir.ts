@@ -102,21 +102,34 @@ export function collectManifest(controllers: Function[]): ManifestIR {
         throw new RouteConfigError(`${method} ${fullPath}: body schema required`);
       if (!response) throw new RouteConfigError(`${method} ${fullPath}: response schema required`);
 
-      return {
+      const route: RouteIR = {
         controller: ctor,
         method,
         path: fullPath,
         handlerName,
-        schemas: { params, query, body, response },
-        includePolicy: s.includePolicy,
+        schemas: { query, response },
         guards: s.guards ?? [],
       };
+
+      if (params) {
+        route.schemas.params = params;
+      }
+
+      if (body) {
+        route.schemas.body = body;
+      }
+
+      if (s.includePolicy) {
+        route.includePolicy = s.includePolicy;
+      }
+
+      return route;
     });
 
     controllerIRs.push({
       controller: ctor,
       basePath: normalizeSlashes(cmeta.basePath),
-      tags: cmeta.tags,
+      tags: cmeta.tags ?? [],
       routes,
     });
   }

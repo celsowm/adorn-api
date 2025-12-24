@@ -1,6 +1,6 @@
 import { ensureDecoratorMetadata } from '../runtime/metadataPolyfill.js';
 import type { SchemaRef } from './schema.js';
-import type { Guard, IncludePolicy } from './metadata.js';
+import type { Guard, IncludePolicy, RouteStub } from './metadata.js';
 import { pushRouteStub, writeControllerMeta } from './metadata.js';
 import { RouteConfigError } from './errors.js';
 
@@ -12,7 +12,7 @@ export type ControllerOptions = {
 
 export function Controller(basePath: string, opts: ControllerOptions = {}) {
   return function <T extends Function>(value: T, context: ClassDecoratorContext) {
-    writeControllerMeta(context.metadata, { basePath, tags: opts.tags });
+    writeControllerMeta(context.metadata, { basePath, tags: opts.tags ?? [] });
     return value;
   };
 }
@@ -27,7 +27,7 @@ export type RouteOptions = {
 };
 
 function http(method: string, path: string, opts: RouteOptions) {
-  return function (value: Function, context: ClassMethodDecoratorContext) {
+  return function (_value: Function, context: ClassMethodDecoratorContext) {
     if (context.kind !== 'method')
       throw new RouteConfigError(`@${method} can only decorate methods`);
 
@@ -35,7 +35,7 @@ function http(method: string, path: string, opts: RouteOptions) {
       throw new RouteConfigError(`Decorated method name must be a string (got symbol)`);
     }
 
-    pushRouteStub(context.metadata, {
+    const routeStub: RouteStub = {
       method,
       path,
       handlerName: context.name,
@@ -45,11 +45,16 @@ function http(method: string, path: string, opts: RouteOptions) {
         body: opts.body,
         response: opts.response,
       },
-      includePolicy: opts.includePolicy,
       guards: opts.guards ?? [],
-    });
+    };
 
-    return value;
+    if (opts.includePolicy) {
+      routeStub.includePolicy = opts.includePolicy;
+    }
+
+    pushRouteStub(context.metadata, routeStub);
+
+    return;
   };
 }
 

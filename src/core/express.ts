@@ -132,7 +132,7 @@ export function registerControllers(
 }
 
 // Convenience builder for in-memory apps (useful in tests)
-export function buildApp(controllers: Function[], opts: RegisterOptions = {}) {
+export function buildApp(controllers: Function[], opts: RegisterOptions = {}): Express {
   const app = express();
   app.use(express.json());
   registerControllers(app, controllers, opts);
