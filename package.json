@@ -36,8 +36,10 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-security": "^3.0.1",
+    "metal-orm": "^1.0.59",
     "prettier": "^3.7.4",
     "rimraf": "^6.0.0",
+    "sqlite3": "^5.1.7",
     "supertest": "^7.1.4",
     "typescript": "^5.2.2",
     "vitest": "^4.0.16"
