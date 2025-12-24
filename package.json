@@ -9,7 +9,9 @@
   "scripts": {
     "clean": "rimraf dist",
     "build": "tsc -p tsconfig.json",
-    "test": "pnpm build && vitest run"
+    "test": "pnpm build && vitest run",
+    "openapi": "pnpm build && node dist/src/cli/openapi.js ./dist/tests/e2e/controllers/users.controller.js --out ./openapi.json",
+    "manifest": "pnpm build && node dist/src/cli/manifest.js ./dist/tests/e2e/controllers/users.controller.js"
   },
   "dependencies": {
     "express": "^5.2.1",
