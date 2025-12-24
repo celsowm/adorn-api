@@ -2,7 +2,7 @@ import express from "express";
 import { registerControllers } from "../../src/index.js";
 import { UsersController } from "./controllers/users.controller.js";
 
-export function buildApp(): express.Express {
+export function buildTestApp() {
   const app = express();
   app.use(express.json());
 

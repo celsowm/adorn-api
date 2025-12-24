@@ -48,8 +48,7 @@ function http(method: string, path: string, opts: RouteOptions) {
       guards: opts.guards ?? []
     });
 
-    // Return void to satisfy TypeScript decorator requirements
-    return;
+    return value;
   };
 }
 

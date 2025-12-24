@@ -4,6 +4,8 @@ import type { Guard, IncludePolicy, RouteStub } from "./metadata.js";
 import { readControllerMeta, readRouteStubs } from "./metadata.js";
 
 export type RouteIR = {
+  controller: Function;
+
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string; // OpenAPI style: /users/{id}
   handlerName: string;
@@ -32,6 +34,8 @@ export type ManifestIR = {
 };
 
 function normalizeSlashes(path: string): string {
+  // Normalize Windows separators then normalize repeated slashes.
+  path = path.replace(/\\/g, "/");
   if (!path.startsWith("/")) path = `/${path}`;
   path = path.replace(/\/+/g, "/");
   if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
@@ -94,6 +98,7 @@ export function collectManifest(controllers: Function[]): ManifestIR {
       if (!response) throw new RouteConfigError(`${method} ${fullPath}: response schema required`);
 
       return {
+        controller: ctor,
         method,
         path: fullPath,
         handlerName,

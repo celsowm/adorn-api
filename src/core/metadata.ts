@@ -6,6 +6,13 @@ export type ControllerMeta = {
   tags?: string[];
 };
 
+export type IncludePolicy = {
+  allowed?: string[];
+  maxDepth?: number;
+};
+
+export type Guard = (ctx: unknown) => void | Promise<void>;
+
 export type RouteStub = {
   method: string;
   path: string;
@@ -20,16 +27,8 @@ export type RouteStub = {
   guards?: Guard[];
 };
 
-export type IncludePolicy = {
-  allowed?: string[]; // whitelist roots (e.g. ["posts", "profile"])
-  maxDepth?: number; // default 3
-};
-
-export type Guard = (ctx: unknown) => void | Promise<void>;
-
 function getOrInitBag(metadata: unknown): Record<PropertyKey, unknown> {
   if (metadata && typeof metadata === "object") return metadata as Record<PropertyKey, unknown>;
-  // Should never happen in TS decorator runtime, but keep safe.
   return Object.create(null) as Record<PropertyKey, unknown>;
 }
 

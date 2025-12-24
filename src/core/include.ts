@@ -1,13 +1,10 @@
 import { ValidationError } from "./errors.js";
 import type { IncludePolicy } from "./metadata.js";
 
-export type IncludeTree = Record<string, unknown>;
+export type IncludeTree = Record<string, IncludeTree>;
 
-function splitIncludeToken(token: string): string[] {
-  return token
-    .split(".")
-    .map(s => s.trim())
-    .filter(Boolean);
+function splitPath(token: string): string[] {
+  return token.split(".").map(s => s.trim()).filter(Boolean);
 }
 
 export function parseInclude(raw: unknown): string[] {
@@ -25,13 +22,25 @@ export function parseInclude(raw: unknown): string[] {
   if (Array.isArray(raw)) raw.forEach(push);
   else push(raw);
 
-  // de-dupe preserving order
   const seen = new Set<string>();
   return items.filter(x => (seen.has(x) ? false : (seen.add(x), true)));
 }
 
-export function validateInclude(tokens: string[], policy?: IncludePolicy): string[] {
-  if (!tokens.length) return [];
+export function buildIncludeTree(tokens: string[]): IncludeTree {
+  const root: IncludeTree = {};
+  for (const tok of tokens) {
+    const segs = splitPath(tok);
+    let node = root;
+    for (const s of segs) {
+      node[s] ??= {};
+      node = node[s]!;
+    }
+  }
+  return root;
+}
+
+export function validateInclude(tokens: string[], policy?: IncludePolicy): { tokens: string[]; tree: IncludeTree } {
+  if (!tokens.length) return { tokens: [], tree: {} };
 
   if (!policy) {
     throw new ValidationError("include is not allowed for this route", [
@@ -43,7 +52,7 @@ export function validateInclude(tokens: string[], policy?: IncludePolicy): strin
   const allowedRoots = new Set((policy.allowed ?? []).map(s => s.trim()).filter(Boolean));
 
   for (const tok of tokens) {
-    const segs = splitIncludeToken(tok);
+    const segs = splitPath(tok);
     if (segs.length === 0) continue;
 
     if (segs.length > maxDepth) {
@@ -52,7 +61,7 @@ export function validateInclude(tokens: string[], policy?: IncludePolicy): strin
       ]);
     }
 
-    // simple cycle-ish check: forbid repeating a segment within a single path (a.b.a)
+    // cycle-ish: forbid repeating a segment within a single path
     const segSet = new Set<string>();
     for (const s of segs) {
       if (segSet.has(s)) {
@@ -73,5 +82,5 @@ export function validateInclude(tokens: string[], policy?: IncludePolicy): strin
     }
   }
 
-  return tokens;
+  return { tokens, tree: buildIncludeTree(tokens) };
 }

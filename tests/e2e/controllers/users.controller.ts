@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Controller, Get, Post, named, p, q, EmptyQuery } from "../../../src/index.js";
+import { Controller, Get, Post, named, p, EmptyQuery } from "../../../src/index.js";
 
 const UserParams = named("UserParams", z.object({ id: p.int() }));
 const CreateUserBody = named("CreateUserBody", z.object({ name: z.string().min(1) }));
@@ -15,7 +15,8 @@ export class UsersController {
   })
   async getUser(ctx: any) {
     const { id } = ctx.input.params as { id: number };
-    return { id, name: "alice" };
+    const include = ctx.input.include.tokens;
+    return { id, name: include.includes("posts") ? "alice+posts" : "alice" };
   }
 
   @Post("/", {
@@ -28,3 +29,5 @@ export class UsersController {
     return { id: 1, name: body.name };
   }
 }
+
+export const controllers = [UsersController];

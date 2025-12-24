@@ -5,6 +5,15 @@ export type ValidationIssue = {
   path: Array<string | number>;
   message: string;
   code?: string;
+  expected?: unknown;
+  received?: unknown;
+};
+
+export type ErrorEnvelope = {
+  error: string;
+  message: string;
+  status: number;
+  issues?: ValidationIssue[];
 };
 
 export class ValidationError extends Error {
@@ -18,10 +27,11 @@ export class ValidationError extends Error {
     super(message);
   }
 
-  toJSON() {
+  toJSON(): ErrorEnvelope {
     return {
       error: this.name,
       message: this.message,
+      status: this.status,
       issues: this.issues
     };
   }
@@ -35,10 +45,11 @@ export class RouteConfigError extends Error {
     super(message);
   }
 
-  toJSON() {
+  toJSON(): ErrorEnvelope {
     return {
       error: this.name,
-      message: this.message
+      message: this.message,
+      status: this.status
     };
   }
 }

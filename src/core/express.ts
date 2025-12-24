@@ -13,7 +13,10 @@ export type RequestContext = {
     params: unknown;
     query: unknown;
     body: unknown;
-    include: string[];
+    include: {
+      tokens: string[];
+      tree: Record<string, any>;
+    };
   };
   controller: unknown;
 };
@@ -43,19 +46,19 @@ export function registerControllers(app: Express, controllers: Function[], opts:
     const handler = async (req: Request, res: Response) => {
       try {
         const { includeRaw, querySansInclude } = omitInclude(req.query);
-        const includeTokens = validateInclude(parseInclude(includeRaw), route.includePolicy);
+        const include = validateInclude(parseInclude(includeRaw), route.includePolicy);
 
         const params = route.schemas.params ? validateOrThrow(route.schemas.params, req.params, "params") : {};
         const query = validateOrThrow(route.schemas.query, querySansInclude, "query");
         const body = route.schemas.body ? validateOrThrow(route.schemas.body, req.body, "body") : undefined;
 
-        const controller = resolve((manifest.controllers.find(c => c.routes.includes(route))?.controller) ?? (() => { throw new RouteConfigError("controller not found"); })());
+        const controller = resolve(route.controller);
 
         const ctx: RequestContext = {
           req,
           res,
           controller,
-          input: { params, query, body, include: includeTokens }
+          input: { params, query, body, include }
         };
 
         await runGuards(route.guards, ctx);
@@ -65,7 +68,7 @@ export function registerControllers(app: Express, controllers: Function[], opts:
 
         const result = await fn.call(controller, ctx);
 
-        // Optional response validation
+        // Allow returning either plain body OR {status, body, headers}
         const payload = result && typeof result === "object" && "status" in result && "body" in result
           ? (result as { status: number; body: unknown; headers?: Record<string, string> })
           : { status: 200, body: result as unknown };
@@ -87,15 +90,14 @@ export function registerControllers(app: Express, controllers: Function[], opts:
         if (err instanceof RouteConfigError) {
           return res.status(500).json(err.toJSON());
         }
-        // fallback
         return res.status(500).json({
           error: "InternalError",
-          message: err instanceof Error ? err.message : "unknown error"
+          message: err instanceof Error ? err.message : "unknown error",
+          status: 500
         });
       }
     };
 
-    // Attach to express
     switch (route.method) {
       case "GET":
         app.get(expressPath, handler);
@@ -115,5 +117,13 @@ export function registerControllers(app: Express, controllers: Function[], opts:
     }
   }
 
+  return app;
+}
+
+// Convenience builder for in-memory apps (useful in tests)
+export function buildApp(controllers: Function[], opts: RegisterOptions = {}) {
+  const app = express();
+  app.use(express.json());
+  registerControllers(app, controllers, opts);
   return app;
 }
