@@ -1,0 +1,3 @@
+# Adorn API
+
+adorn-api is a schema-first controller framework for TypeScript standard decorators. Decorators register route metadata via context.metadata, which is collected into a single normalized Manifest IR. The Express adapter compiles the manifest into routes and enforces validation/coercion through schema providers (Zod first), while include parsing and guards run inside a typed request context. The same manifest is designed to be the single source of truth for future OpenAPI generation.

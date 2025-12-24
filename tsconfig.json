@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "ESNext.Decorators", "DOM"],
+
+    "strict": true,
+    "skipLibCheck": true,
+
+    "experimentalDecorators": false,
+    "emitDecoratorMetadata": false,
+
+    "verbatimModuleSyntax": true,
+    "esModuleInterop": true,
+
+    "rootDir": ".",
+    "outDir": "dist",
+
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
+}
