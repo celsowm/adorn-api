@@ -1,2 +1,2 @@
-import { ensureDecoratorMetadata } from "../../src/runtime/metadataPolyfill.js";
+import { ensureDecoratorMetadata } from '../../src/runtime/metadataPolyfill.js';
 ensureDecoratorMetadata();

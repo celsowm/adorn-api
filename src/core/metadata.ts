@@ -1,5 +1,5 @@
-export const ADORN_CONTROLLER = Symbol.for("adorn.controller");
-export const ADORN_ROUTES = Symbol.for("adorn.routes");
+export const ADORN_CONTROLLER = Symbol.for('adorn.controller');
+export const ADORN_ROUTES = Symbol.for('adorn.routes');
 
 export type ControllerMeta = {
   basePath: string;
@@ -28,7 +28,7 @@ export type RouteStub = {
 };
 
 function getOrInitBag(metadata: unknown): Record<PropertyKey, unknown> {
-  if (metadata && typeof metadata === "object") return metadata as Record<PropertyKey, unknown>;
+  if (metadata && typeof metadata === 'object') return metadata as Record<PropertyKey, unknown>;
   return Object.create(null) as Record<PropertyKey, unknown>;
 }
 

@@ -1,4 +1,4 @@
-export type IssueSource = "params" | "query" | "body" | "response" | "include";
+export type IssueSource = 'params' | 'query' | 'body' | 'response' | 'include';
 
 export type ValidationIssue = {
   source: IssueSource;
@@ -18,7 +18,7 @@ export type ErrorEnvelope = {
 
 export class ValidationError extends Error {
   readonly status = 400 as const;
-  readonly name = "ValidationError" as const;
+  readonly name = 'ValidationError' as const;
 
   constructor(
     message: string,
@@ -32,14 +32,14 @@ export class ValidationError extends Error {
       error: this.name,
       message: this.message,
       status: this.status,
-      issues: this.issues
+      issues: this.issues,
     };
   }
 }
 
 export class RouteConfigError extends Error {
   readonly status = 500 as const;
-  readonly name = "RouteConfigError" as const;
+  readonly name = 'RouteConfigError' as const;
 
   constructor(message: string) {
     super(message);
@@ -49,7 +49,7 @@ export class RouteConfigError extends Error {
     return {
       error: this.name,
       message: this.message,
-      status: this.status
+      status: this.status,
     };
   }
 }

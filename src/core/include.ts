@@ -1,10 +1,13 @@
-import { ValidationError } from "./errors.js";
-import type { IncludePolicy } from "./metadata.js";
+import { ValidationError } from './errors.js';
+import type { IncludePolicy } from './metadata.js';
 
 export type IncludeTree = Record<string, IncludeTree>;
 
 function splitPath(token: string): string[] {
-  return token.split(".").map(s => s.trim()).filter(Boolean);
+  return token
+    .split('.')
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export function parseInclude(raw: unknown): string[] {
@@ -12,8 +15,8 @@ export function parseInclude(raw: unknown): string[] {
   const items: string[] = [];
 
   const push = (v: unknown) => {
-    if (typeof v !== "string") return;
-    for (const part of v.split(",")) {
+    if (typeof v !== 'string') return;
+    for (const part of v.split(',')) {
       const t = part.trim();
       if (t) items.push(t);
     }
@@ -23,7 +26,7 @@ export function parseInclude(raw: unknown): string[] {
   else push(raw);
 
   const seen = new Set<string>();
-  return items.filter(x => (seen.has(x) ? false : (seen.add(x), true)));
+  return items.filter((x) => (seen.has(x) ? false : (seen.add(x), true)));
 }
 
 export function buildIncludeTree(tokens: string[]): IncludeTree {
@@ -39,25 +42,28 @@ export function buildIncludeTree(tokens: string[]): IncludeTree {
   return root;
 }
 
-export function validateInclude(tokens: string[], policy?: IncludePolicy): { tokens: string[]; tree: IncludeTree } {
+export function validateInclude(
+  tokens: string[],
+  policy?: IncludePolicy
+): { tokens: string[]; tree: IncludeTree } {
   if (!tokens.length) return { tokens: [], tree: {} };
 
   if (!policy) {
-    throw new ValidationError("include is not allowed for this route", [
-      { source: "include", path: [], message: "include is not allowed" }
+    throw new ValidationError('include is not allowed for this route', [
+      { source: 'include', path: [], message: 'include is not allowed' },
     ]);
   }
 
   const maxDepth = policy.maxDepth ?? 3;
-  const allowedRoots = new Set((policy.allowed ?? []).map(s => s.trim()).filter(Boolean));
+  const allowedRoots = new Set((policy.allowed ?? []).map((s) => s.trim()).filter(Boolean));
 
   for (const tok of tokens) {
     const segs = splitPath(tok);
     if (segs.length === 0) continue;
 
     if (segs.length > maxDepth) {
-      throw new ValidationError("include exceeds maxDepth", [
-        { source: "include", path: [tok], message: `maxDepth=${maxDepth}` }
+      throw new ValidationError('include exceeds maxDepth', [
+        { source: 'include', path: [tok], message: `maxDepth=${maxDepth}` },
       ]);
     }
 
@@ -65,8 +71,8 @@ export function validateInclude(tokens: string[], policy?: IncludePolicy): { tok
     const segSet = new Set<string>();
     for (const s of segs) {
       if (segSet.has(s)) {
-        throw new ValidationError("include contains a cycle", [
-          { source: "include", path: [tok], message: "cycle detected" }
+        throw new ValidationError('include contains a cycle', [
+          { source: 'include', path: [tok], message: 'cycle detected' },
         ]);
       }
       segSet.add(s);
@@ -75,8 +81,8 @@ export function validateInclude(tokens: string[], policy?: IncludePolicy): { tok
     if (allowedRoots.size > 0) {
       const root = segs[0]!;
       if (!allowedRoots.has(root)) {
-        throw new ValidationError("include value not allowed", [
-          { source: "include", path: [tok], message: `allowed: ${[...allowedRoots].join(", ")}` }
+        throw new ValidationError('include value not allowed', [
+          { source: 'include', path: [tok], message: `allowed: ${[...allowedRoots].join(', ')}` },
         ]);
       }
     }

@@ -1,10 +1,10 @@
-import express from "express";
-import type { Express, Request, Response } from "express";
-import { collectManifest } from "./ir.js";
-import { ValidationError, RouteConfigError } from "./errors.js";
-import { parseInclude, validateInclude } from "./include.js";
-import { runGuards } from "./guards.js";
-import { validateOrThrow } from "./schema.js";
+import express from 'express';
+import type { Express, Request, Response } from 'express';
+import { collectManifest } from './ir.js';
+import { ValidationError, RouteConfigError } from './errors.js';
+import { parseInclude, validateInclude } from './include.js';
+import { runGuards } from './guards.js';
+import { validateOrThrow } from './schema.js';
 
 export type RequestContext = {
   req: Request;
@@ -27,16 +27,21 @@ export type RegisterOptions = {
 };
 
 function toExpressPath(openapiPath: string): string {
-  return openapiPath.replace(/\{([a-zA-Z0-9_]+)\}/g, ":$1");
+  return openapiPath.replace(/\{([a-zA-Z0-9_]+)\}/g, ':$1');
 }
 
 function omitInclude(query: any): { includeRaw: unknown; querySansInclude: any } {
-  if (!query || typeof query !== "object") return { includeRaw: undefined, querySansInclude: query };
+  if (!query || typeof query !== 'object')
+    return { includeRaw: undefined, querySansInclude: query };
   const { include, ...rest } = query as any;
   return { includeRaw: include, querySansInclude: rest };
 }
 
-export function registerControllers(app: Express, controllers: Function[], opts: RegisterOptions = {}) {
+export function registerControllers(
+  app: Express,
+  controllers: Function[],
+  opts: RegisterOptions = {}
+) {
   const manifest = collectManifest(controllers);
   const resolve = opts.resolveController ?? ((ctor) => new (ctor as any)());
 
@@ -48,9 +53,13 @@ export function registerControllers(app: Express, controllers: Function[], opts:
         const { includeRaw, querySansInclude } = omitInclude(req.query);
         const include = validateInclude(parseInclude(includeRaw), route.includePolicy);
 
-        const params = route.schemas.params ? validateOrThrow(route.schemas.params, req.params, "params") : {};
-        const query = validateOrThrow(route.schemas.query, querySansInclude, "query");
-        const body = route.schemas.body ? validateOrThrow(route.schemas.body, req.body, "body") : undefined;
+        const params = route.schemas.params
+          ? validateOrThrow(route.schemas.params, req.params, 'params')
+          : {};
+        const query = validateOrThrow(route.schemas.query, querySansInclude, 'query');
+        const body = route.schemas.body
+          ? validateOrThrow(route.schemas.body, req.body, 'body')
+          : undefined;
 
         const controller = resolve(route.controller);
 
@@ -58,27 +67,29 @@ export function registerControllers(app: Express, controllers: Function[], opts:
           req,
           res,
           controller,
-          input: { params, query, body, include }
+          input: { params, query, body, include },
         };
 
         await runGuards(route.guards, ctx);
 
         const fn = (controller as any)[route.handlerName];
-        if (typeof fn !== "function") throw new RouteConfigError(`Handler not found: ${route.handlerName}`);
+        if (typeof fn !== 'function')
+          throw new RouteConfigError(`Handler not found: ${route.handlerName}`);
 
         const result = await fn.call(controller, ctx);
 
         // Allow returning either plain body OR {status, body, headers}
-        const payload = result && typeof result === "object" && "status" in result && "body" in result
-          ? (result as { status: number; body: unknown; headers?: Record<string, string> })
-          : { status: 200, body: result as unknown };
+        const payload =
+          result && typeof result === 'object' && 'status' in result && 'body' in result
+            ? (result as { status: number; body: unknown; headers?: Record<string, string> })
+            : { status: 200, body: result as unknown };
 
         if (payload.headers) {
           for (const [k, v] of Object.entries(payload.headers)) res.setHeader(k, v);
         }
 
         if (opts.validateResponse) {
-          validateOrThrow(route.schemas.response, payload.body, "response");
+          validateOrThrow(route.schemas.response, payload.body, 'response');
         }
 
         if (payload.status === 204) return res.status(204).end();
@@ -91,27 +102,27 @@ export function registerControllers(app: Express, controllers: Function[], opts:
           return res.status(500).json(err.toJSON());
         }
         return res.status(500).json({
-          error: "InternalError",
-          message: err instanceof Error ? err.message : "unknown error",
-          status: 500
+          error: 'InternalError',
+          message: err instanceof Error ? err.message : 'unknown error',
+          status: 500,
         });
       }
     };
 
     switch (route.method) {
-      case "GET":
+      case 'GET':
         app.get(expressPath, handler);
         break;
-      case "POST":
+      case 'POST':
         app.post(expressPath, handler);
         break;
-      case "PUT":
+      case 'PUT':
         app.put(expressPath, handler);
         break;
-      case "PATCH":
+      case 'PATCH':
         app.patch(expressPath, handler);
         break;
-      case "DELETE":
+      case 'DELETE':
         app.delete(expressPath, handler);
         break;
     }

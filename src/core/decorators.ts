@@ -1,8 +1,8 @@
-import { ensureDecoratorMetadata } from "../runtime/metadataPolyfill.js";
-import type { SchemaRef } from "./schema.js";
-import type { Guard, IncludePolicy } from "./metadata.js";
-import { pushRouteStub, writeControllerMeta } from "./metadata.js";
-import { RouteConfigError } from "./errors.js";
+import { ensureDecoratorMetadata } from '../runtime/metadataPolyfill.js';
+import type { SchemaRef } from './schema.js';
+import type { Guard, IncludePolicy } from './metadata.js';
+import { pushRouteStub, writeControllerMeta } from './metadata.js';
+import { RouteConfigError } from './errors.js';
 
 ensureDecoratorMetadata();
 
@@ -28,9 +28,10 @@ export type RouteOptions = {
 
 function http(method: string, path: string, opts: RouteOptions) {
   return function (value: Function, context: ClassMethodDecoratorContext) {
-    if (context.kind !== "method") throw new RouteConfigError(`@${method} can only decorate methods`);
+    if (context.kind !== 'method')
+      throw new RouteConfigError(`@${method} can only decorate methods`);
 
-    if (typeof context.name !== "string") {
+    if (typeof context.name !== 'string') {
       throw new RouteConfigError(`Decorated method name must be a string (got symbol)`);
     }
 
@@ -42,18 +43,18 @@ function http(method: string, path: string, opts: RouteOptions) {
         params: opts.params,
         query: opts.query,
         body: opts.body,
-        response: opts.response
+        response: opts.response,
       },
       includePolicy: opts.includePolicy,
-      guards: opts.guards ?? []
+      guards: opts.guards ?? [],
     });
 
     return value;
   };
 }
 
-export const Get = (path: string, opts: RouteOptions) => http("GET", path, opts);
-export const Post = (path: string, opts: RouteOptions) => http("POST", path, opts);
-export const Put = (path: string, opts: RouteOptions) => http("PUT", path, opts);
-export const Patch = (path: string, opts: RouteOptions) => http("PATCH", path, opts);
-export const Delete = (path: string, opts: RouteOptions) => http("DELETE", path, opts);
+export const Get = (path: string, opts: RouteOptions) => http('GET', path, opts);
+export const Post = (path: string, opts: RouteOptions) => http('POST', path, opts);
+export const Put = (path: string, opts: RouteOptions) => http('PUT', path, opts);
+export const Patch = (path: string, opts: RouteOptions) => http('PATCH', path, opts);
+export const Delete = (path: string, opts: RouteOptions) => http('DELETE', path, opts);

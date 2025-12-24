@@ -1,17 +1,17 @@
-import { describe, it, expect } from "vitest";
-import { ensureDecoratorMetadata } from "../../src/runtime/metadataPolyfill.js";
+import { describe, it, expect } from 'vitest';
+import { ensureDecoratorMetadata } from '../../src/runtime/metadataPolyfill.js';
 
-describe("decorator metadata polyfill", () => {
-  it("Symbol.metadata exists", () => {
+describe('decorator metadata polyfill', () => {
+  it('Symbol.metadata exists', () => {
     ensureDecoratorMetadata();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect((Symbol as any).metadata).toBeTruthy();
   });
 
-  it("standard decorator can write to context.metadata", () => {
+  it('standard decorator can write to context.metadata', () => {
     ensureDecoratorMetadata();
 
-    const KEY = Symbol("k");
+    const KEY = Symbol('k');
 
     function Deco() {
       return function (_value: any, context: ClassDecoratorContext) {

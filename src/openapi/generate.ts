@@ -1,11 +1,11 @@
-import { z } from "zod";
-import type { ManifestIR, RouteIR } from "../core/ir.js";
-import type { SchemaRef } from "../core/schema.js";
-import { collectManifest } from "../core/ir.js";
-import { RouteConfigError } from "../core/errors.js";
+import { z } from 'zod';
+import type { ManifestIR, RouteIR } from '../core/ir.js';
+import type { SchemaRef } from '../core/schema.js';
+import { collectManifest } from '../core/ir.js';
+import { RouteConfigError } from '../core/errors.js';
 
 export type OpenApi31 = {
-  openapi: "3.1.0";
+  openapi: '3.1.0';
   info: { title: string; version: string; description?: string };
   paths: Record<string, any>;
   components: { schemas: Record<string, any> };
@@ -20,19 +20,19 @@ export type OpenApiOptions = {
 
 function sanitizeComponentName(id: string): string {
   // OpenAPI component keys are fairly permissive, but keep it stable + safe.
-  return id.replace(/[^a-zA-Z0-9_.-]/g, "_");
+  return id.replace(/[^a-zA-Z0-9_.-]/g, '_');
 }
 
 function schemaToJsonSchema(ref: SchemaRef): any {
-  if (ref.provider !== "zod") {
+  if (ref.provider !== 'zod') {
     throw new RouteConfigError(`Unsupported schema provider: ${String((ref as any).provider)}`);
   }
   // Zod v4 native JSON Schema conversion
   // Default target is draft-2020-12 which matches OpenAPI 3.1.
   return z.toJSONSchema(ref.schema, {
-    unrepresentable: "any",
-    cycles: "ref",
-    reused: "inline",
+    unrepresentable: 'any',
+    cycles: 'ref',
+    reused: 'inline',
     // io defaults to output; that's what we validate/return by default
   });
 }
@@ -47,14 +47,18 @@ function pathParamNames(openapiPath: string): string[] {
 
 function extractObjectPropertySchema(objectSchema: any, prop: string): any | undefined {
   // Works when schema is an object with `properties`
-  if (!objectSchema || typeof objectSchema !== "object") return undefined;
-  if (objectSchema.type !== "object") return undefined;
+  if (!objectSchema || typeof objectSchema !== 'object') return undefined;
+  if (objectSchema.type !== 'object') return undefined;
   const props = objectSchema.properties;
-  if (!props || typeof props !== "object") return undefined;
+  if (!props || typeof props !== 'object') return undefined;
   return props[prop];
 }
 
-function buildParameters(route: RouteIR, componentsRef: (ref: SchemaRef) => { $ref: string }, componentsSchemas: Record<string, any>) {
+function buildParameters(
+  route: RouteIR,
+  componentsRef: (ref: SchemaRef) => { $ref: string },
+  componentsSchemas: Record<string, any>
+) {
   const params: any[] = [];
 
   // Path params
@@ -62,12 +66,12 @@ function buildParameters(route: RouteIR, componentsRef: (ref: SchemaRef) => { $r
     const name = sanitizeComponentName(route.schemas.params.id);
     const objSchema = componentsSchemas[name];
     for (const p of pathParamNames(route.path)) {
-      const s = extractObjectPropertySchema(objSchema, p) ?? { type: "string" };
+      const s = extractObjectPropertySchema(objSchema, p) ?? { type: 'string' };
       params.push({
         name: p,
-        in: "path",
+        in: 'path',
         required: true,
-        schema: s
+        schema: s,
       });
     }
   }
@@ -76,15 +80,15 @@ function buildParameters(route: RouteIR, componentsRef: (ref: SchemaRef) => { $r
   if (route.schemas.query) {
     const qname = sanitizeComponentName(route.schemas.query.id);
     const qSchema = componentsSchemas[qname];
-    const props = qSchema?.type === "object" ? qSchema.properties : undefined;
-    if (props && typeof props === "object") {
+    const props = qSchema?.type === 'object' ? qSchema.properties : undefined;
+    if (props && typeof props === 'object') {
       const required: string[] = Array.isArray(qSchema.required) ? qSchema.required : [];
       for (const [k, v] of Object.entries(props)) {
         params.push({
           name: k,
-          in: "query",
+          in: 'query',
           required: required.includes(k),
-          schema: v
+          schema: v,
         });
       }
     }
@@ -93,15 +97,15 @@ function buildParameters(route: RouteIR, componentsRef: (ref: SchemaRef) => { $r
   // include param
   if (route.includePolicy) {
     const allowed = (route.includePolicy.allowed ?? []).filter(Boolean);
-    const schema: any = { type: "array", items: { type: "string" } };
-    if (allowed.length) schema.items = { type: "string", enum: allowed };
+    const schema: any = { type: 'array', items: { type: 'string' } };
+    if (allowed.length) schema.items = { type: 'string', enum: allowed };
     params.push({
-      name: "include",
-      in: "query",
+      name: 'include',
+      in: 'query',
       required: false,
-      style: "form",
+      style: 'form',
       explode: true,
-      schema
+      schema,
     });
   }
 
@@ -114,7 +118,11 @@ function ensureComponent(ref: SchemaRef, components: Record<string, any>): { $re
   return { $ref: `#/components/schemas/${key}` };
 }
 
-function operationForRoute(route: RouteIR, components: Record<string, any>, tagsByController: Map<Function, string[] | undefined>) {
+function operationForRoute(
+  route: RouteIR,
+  components: Record<string, any>,
+  tagsByController: Map<Function, string[] | undefined>
+) {
   // Ensure core schemas are registered
   if (route.schemas.params) ensureComponent(route.schemas.params, components);
   ensureComponent(route.schemas.query, components);
@@ -129,26 +137,28 @@ function operationForRoute(route: RouteIR, components: Record<string, any>, tags
     parameters: parameters.length ? parameters : undefined,
     tags: tags?.length ? tags : undefined,
     responses: {
-      "200": {
-        description: "OK",
+      '200': {
+        description: 'OK',
         content: {
-          "application/json": {
-            schema: { $ref: `#/components/schemas/${sanitizeComponentName(route.schemas.response.id)}` }
-          }
-        }
-      }
-    }
+          'application/json': {
+            schema: {
+              $ref: `#/components/schemas/${sanitizeComponentName(route.schemas.response.id)}`,
+            },
+          },
+        },
+      },
+    },
   };
 
-  const needsBody = route.method === "POST" || route.method === "PUT" || route.method === "PATCH";
+  const needsBody = route.method === 'POST' || route.method === 'PUT' || route.method === 'PATCH';
   if (needsBody && route.schemas.body) {
     op.requestBody = {
       required: true,
       content: {
-        "application/json": {
-          schema: { $ref: `#/components/schemas/${sanitizeComponentName(route.schemas.body.id)}` }
-        }
-      }
+        'application/json': {
+          schema: { $ref: `#/components/schemas/${sanitizeComponentName(route.schemas.body.id)}` },
+        },
+      },
     };
   }
 
@@ -160,7 +170,10 @@ export function generateOpenApi(controllers: Function[], opts: OpenApiOptions = 
   return generateOpenApiFromManifest(manifest, opts);
 }
 
-export function generateOpenApiFromManifest(manifest: ManifestIR, opts: OpenApiOptions = {}): OpenApi31 {
+export function generateOpenApiFromManifest(
+  manifest: ManifestIR,
+  opts: OpenApiOptions = {}
+): OpenApi31 {
   const components: Record<string, any> = {};
   const paths: Record<string, any> = {};
 
@@ -175,18 +188,18 @@ export function generateOpenApiFromManifest(manifest: ManifestIR, opts: OpenApiO
 
   // tags list (optional) - union of all controller tags
   const tagNames = new Set<string>();
-  for (const t of tagsByController.values()) (t ?? []).forEach(x => tagNames.add(x));
-  const tags = tagNames.size ? [...tagNames].sort().map(name => ({ name })) : undefined;
+  for (const t of tagsByController.values()) (t ?? []).forEach((x) => tagNames.add(x));
+  const tags = tagNames.size ? [...tagNames].sort().map((name) => ({ name })) : undefined;
 
   return {
-    openapi: "3.1.0",
+    openapi: '3.1.0',
     info: {
-      title: opts.title ?? "adorn-api",
-      version: opts.version ?? "0.0.1",
-      description: opts.description
+      title: opts.title ?? 'adorn-api',
+      version: opts.version ?? '0.0.1',
+      description: opts.description,
     },
     paths,
     components: { schemas: components },
-    tags
+    tags,
   };
 }

@@ -1,6 +1,6 @@
-import express from "express";
-import { registerControllers } from "../../src/index.js";
-import { UsersController } from "./controllers/users.controller.js";
+import express from 'express';
+import { registerControllers } from '../../src/index.js';
+import { UsersController } from './controllers/users.controller.js';
 
 export function buildTestApp() {
   const app = express();
@@ -8,7 +8,7 @@ export function buildTestApp() {
 
   registerControllers(app, [UsersController], {
     validateResponse: true,
-    resolveController: (ctor) => new (ctor as any)()
+    resolveController: (ctor) => new (ctor as any)(),
   });
 
   return app;
