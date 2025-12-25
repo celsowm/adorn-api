@@ -7,9 +7,6 @@ import {
   selectFrom,
   eq,
   SqliteDialect,
-  Orm,
-  OrmSession,
-  createSqliteExecutor,
   tableRef,
   insertInto,
   update,
@@ -17,7 +14,7 @@ import {
   count,
   and
 } from 'metal-orm';
-import Database from 'better-sqlite3';
+import sqlite3 from 'sqlite3';
 
 // Define the users table using metal-orm
 const users = defineTable('users', {
@@ -36,6 +33,8 @@ const UserResponse = named('UserResponse', z.object({
   email: z.string().nullable().optional(),
   createdAt: z.string().nullable().optional()
 }));
+const UserListResponse = named('UserListResponse', z.array(UserResponse.schema));
+const UserCountResponse = named('UserCountResponse', z.object({ count: z.number().int() }));
 
 const CreateUserBody = named('CreateUserBody', z.object({
   name: z.string().min(1),
@@ -47,31 +46,27 @@ const UpdateUserBody = named('UpdateUserBody', z.object({
   email: z.string().email().optional()
 }));
 
+const UserSearchQuery = named('UserSearchQuery', z.object({
+  name: z.string().optional(),
+  email: z.string().optional()
+}));
+
 const UserParams = named('UserParams', z.object({ id: p.int() }));
 
 @Controller('/metal-orm-users')
 export class MetalOrmUsersController {
-  private db: Database.Database;
-  private orm: Orm;
-  private dialect: SqliteDialect;
+  private readonly db: sqlite3.Database;
+  private readonly dialect: SqliteDialect;
+  private readonly ready: Promise<void>;
 
   constructor() {
-    this.db = new Database(':memory:');
+    this.db = new sqlite3.Database(':memory:');
     this.dialect = new SqliteDialect();
-    this.orm = new Orm({
-      dialect: this.dialect,
-      executorFactory: {
-        createExecutor: () => createSqliteExecutor(this.db),
-        createTransactionalExecutor: () => createSqliteExecutor(this.db),
-        dispose: async () => {},
-      },
-    });
-    this.init();
+    this.ready = this.init();
   }
 
-  private init() {
-    // Create the table using raw SQL for simplicity
-    this.db.exec(`
+  private async init(): Promise<void> {
+    await this.runSql(`
       CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
@@ -81,35 +76,121 @@ export class MetalOrmUsersController {
       )
     `);
 
-    // Insert some initial data
-    const stmt = this.db.prepare(`
-      INSERT INTO users (name, email, createdAt) VALUES
-        ('Alice', 'alice@example.com', ?),
-        ('Bob', 'bob@example.com', ?)
-    `);
     const now = new Date().toISOString();
-    stmt.run(now, now);
+    await this.runSql(
+      `
+        INSERT INTO users (name, email, createdAt) VALUES
+          ('Alice', 'alice@example.com', ?),
+          ('Bob', 'bob@example.com', ?)
+      `,
+      [now, now],
+    );
+  }
+
+  private runSql(sql: string, params: unknown[] = []): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.db.run(sql, params, (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
+  }
+
+  private getRow<T>(sql: string, params: unknown[] = []): Promise<T | undefined> {
+    return new Promise((resolve, reject) => {
+      this.db.get(sql, params, (err, row) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(row as T | undefined);
+      });
+    });
+  }
+
+  private allRows<T>(sql: string, params: unknown[] = []): Promise<Array<T>> {
+    return new Promise((resolve, reject) => {
+      this.db.all(sql, params, (err, rows) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(rows as Array<T>);
+      });
+    });
   }
 
   @Get('/', {
     query: EmptyQuery,
-    response: z.array(UserResponse),
+    response: UserListResponse,
   })
   async listUsers(ctx: RequestContext): Promise<Array<{ id: number; name: string; email?: string | null; createdAt?: string | null }>> {
-    const session = new OrmSession({ orm: this.orm, executor: createSqliteExecutor(this.db) });
+    await this.ready;
     const u = tableRef(users);
 
     const query = selectFrom(users)
       .select('id', 'name', 'email', 'createdAt')
       .orderBy(u.id, 'ASC');
 
-    const { sql, params } = query.compile(this.dialect);
-    const rows = this.db.prepare(sql).all(...params) as Array<{
+    const compiled = query.compile(this.dialect);
+    const rows = await this.allRows<{
       id: number;
       name: string;
       email?: string | null;
       createdAt?: string | null;
-    }>;
+    }>(compiled.sql, compiled.params ?? []);
+
+    return rows;
+  }
+
+  @Get('/count', {
+    query: EmptyQuery,
+    response: UserCountResponse,
+  })
+  async countUsers(ctx: RequestContext): Promise<{ count: number }> {
+    await this.ready;
+    const u = tableRef(users);
+
+    const query = selectFrom(users)
+      .select({ count: count(u.id) });
+
+    const compiled = query.compile(this.dialect);
+    const result = await this.getRow<{ count: number }>(compiled.sql, compiled.params ?? []);
+
+    return { count: result?.count ?? 0 };
+  }
+
+  @Get('/search', {
+    query: UserSearchQuery,
+    response: UserListResponse,
+  })
+  async searchUsers(ctx: RequestContext): Promise<Array<{ id: number; name: string; email?: string | null; createdAt?: string | null }>> {
+    const { name, email } = ctx.input.query as { name?: string; email?: string };
+    await this.ready;
+    const u = tableRef(users);
+
+    let query = selectFrom(users)
+      .select('id', 'name', 'email', 'createdAt');
+
+    if (name) {
+      query = query.where(eq(u.$.name, name));
+    }
+
+    if (email) {
+      const condition = name ? and(eq(u.$.name, name), eq(u.email, email)) : eq(u.email, email);
+      query = query.where(condition);
+    }
+
+    const compiled = query.compile(this.dialect);
+    const rows = await this.allRows<{
+      id: number;
+      name: string;
+      email?: string | null;
+      createdAt?: string | null;
+    }>(compiled.sql, compiled.params ?? []);
 
     return rows;
   }
@@ -121,20 +202,20 @@ export class MetalOrmUsersController {
   })
   async getUser(ctx: RequestContext): Promise<{ id: number; name: string; email?: string | null; createdAt?: string | null }> {
     const { id } = ctx.input.params as { id: number };
-    const session = new OrmSession({ orm: this.orm, executor: createSqliteExecutor(this.db) });
+    await this.ready;
     const u = tableRef(users);
 
     const query = selectFrom(users)
       .select('id', 'name', 'email', 'createdAt')
       .where(eq(u.id, id));
 
-    const { sql, params } = query.compile(this.dialect);
-    const row = this.db.prepare(sql).get(...params) as {
+    const compiled = query.compile(this.dialect);
+    const row = await this.getRow<{
       id: number;
       name: string;
       email?: string | null;
       createdAt?: string | null;
-    } | undefined;
+    }>(compiled.sql, compiled.params ?? []);
 
     if (!row) {
       throw new Error('User not found');
@@ -150,20 +231,24 @@ export class MetalOrmUsersController {
   })
   async createUser(ctx: RequestContext): Promise<{ id: number; name: string; email?: string | null; createdAt?: string | null }> {
     const { name, email } = ctx.input.body as { name: string; email?: string };
-    const session = new OrmSession({ orm: this.orm, executor: createSqliteExecutor(this.db) });
+    await this.ready;
 
     const createdAt = new Date().toISOString();
     const insertStmt = insertInto(users)
       .values({ name, email: email || null, createdAt })
-      .returning('id', 'name', 'email', 'createdAt')
+      .returning(users.columns.id, users.columns.name, users.columns.email, users.columns.createdAt)
       .compile(this.dialect);
 
-    const result = this.db.prepare(insertStmt.sql).get(...insertStmt.params) as {
+    const result = await this.getRow<{
       id: number;
       name: string;
       email: string | null;
       createdAt: string;
-    };
+    }>(insertStmt.sql, insertStmt.params ?? []);
+
+    if (!result) {
+      throw new Error('Failed to create user');
+    }
 
     return {
       id: result.id,
@@ -182,32 +267,39 @@ export class MetalOrmUsersController {
   async updateUser(ctx: RequestContext): Promise<{ id: number; name: string; email?: string | null; createdAt?: string | null }> {
     const { id } = ctx.input.params as { id: number };
     const { name, email } = ctx.input.body as { name: string; email?: string };
-    const session = new OrmSession({ orm: this.orm, executor: createSqliteExecutor(this.db) });
+    await this.ready;
     const u = tableRef(users);
 
     // First check if user exists
     const existsQuery = selectFrom(users)
-      .select(count(u.id))
+      .select({ count: count(u.id) })
       .where(eq(u.id, id))
       .compile(this.dialect);
 
-    const existsResult = this.db.prepare(existsQuery.sql).get(...existsQuery.params) as { count: number };
-    if (existsResult.count === 0) {
+    const existsResult = await this.getRow<{ count: number }>(
+      existsQuery.sql,
+      existsQuery.params ?? [],
+    );
+    if (!existsResult || existsResult.count === 0) {
       throw new Error('User not found');
     }
 
     const updateStmt = update(users)
       .set({ name, email: email || null })
       .where(eq(u.id, id))
-      .returning('id', 'name', 'email', 'createdAt')
+      .returning(users.columns.id, users.columns.name, users.columns.email, users.columns.createdAt)
       .compile(this.dialect);
 
-    const result = this.db.prepare(updateStmt.sql).get(...updateStmt.params) as {
+    const result = await this.getRow<{
       id: number;
       name: string;
       email: string | null;
       createdAt: string;
-    };
+    }>(updateStmt.sql, updateStmt.params ?? []);
+
+    if (!result) {
+      throw new Error('Failed to update user');
+    }
 
     return {
       id: result.id,
@@ -224,17 +316,20 @@ export class MetalOrmUsersController {
   })
   async deleteUser(ctx: RequestContext): Promise<void> {
     const { id } = ctx.input.params as { id: number };
-    const session = new OrmSession({ orm: this.orm, executor: createSqliteExecutor(this.db) });
+    await this.ready;
     const u = tableRef(users);
 
     // First check if user exists
     const existsQuery = selectFrom(users)
-      .select(count(u.id))
+      .select({ count: count(u.id) })
       .where(eq(u.id, id))
       .compile(this.dialect);
 
-    const existsResult = this.db.prepare(existsQuery.sql).get(...existsQuery.params) as { count: number };
-    if (existsResult.count === 0) {
+    const existsResult = await this.getRow<{ count: number }>(
+      existsQuery.sql,
+      existsQuery.params ?? [],
+    );
+    if (!existsResult || existsResult.count === 0) {
       throw new Error('User not found');
     }
 
@@ -242,58 +337,6 @@ export class MetalOrmUsersController {
       .where(eq(u.id, id))
       .compile(this.dialect);
 
-    this.db.prepare(deleteStmt.sql).run(...deleteStmt.params);
-  }
-
-  @Get('/count', {
-    query: EmptyQuery,
-    response: z.object({ count: z.number().int() }),
-  })
-  async countUsers(ctx: RequestContext): Promise<{ count: number }> {
-    const session = new OrmSession({ orm: this.orm, executor: createSqliteExecutor(this.db) });
-    const u = tableRef(users);
-
-    const query = selectFrom(users)
-      .select(count(u.id));
-
-    const { sql, params } = query.compile(this.dialect);
-    const result = this.db.prepare(sql).get(...params) as { count: number };
-
-    return result;
-  }
-
-  @Get('/search', {
-    query: z.object({
-      name: z.string().optional(),
-      email: z.string().optional()
-    }),
-    response: z.array(UserResponse),
-  })
-  async searchUsers(ctx: RequestContext): Promise<Array<{ id: number; name: string; email?: string | null; createdAt?: string | null }>> {
-    const { name, email } = ctx.input.query as { name?: string; email?: string };
-    const session = new OrmSession({ orm: this.orm, executor: createSqliteExecutor(this.db) });
-    const u = tableRef(users);
-
-    let query = selectFrom(users)
-      .select('id', 'name', 'email', 'createdAt');
-
-    if (name) {
-      query = query.where(eq(u.name, name));
-    }
-
-    if (email) {
-      const condition = name ? and(eq(u.name, name), eq(u.email, email)) : eq(u.email, email);
-      query = query.where(condition);
-    }
-
-    const { sql, params } = query.compile(this.dialect);
-    const rows = this.db.prepare(sql).all(...params) as Array<{
-      id: number;
-      name: string;
-      email?: string | null;
-      createdAt?: string | null;
-    }>;
-
-    return rows;
+    await this.runSql(deleteStmt.sql, deleteStmt.params ?? []);
   }
 }
