@@ -22,6 +22,15 @@ export type RequestContext = {
   controller: unknown;
 };
 
+export type TypedRequestContext<P, Q, B> = Omit<RequestContext, 'input'> & {
+  input: {
+    params: P;
+    query: Q;
+    body: B;
+    include: RequestContext['input']['include'];
+  };
+};
+
 export type RegisterOptions = {
   resolveController?: (ctor: Function) => unknown;
   validateResponse?: boolean;

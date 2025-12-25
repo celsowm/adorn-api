@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { RouteConfigError, ValidationError } from './errors.js';
 
 export type SchemaRef = { provider: string; id: string; schema: unknown };
+export type InferSchema<T extends { schema: unknown }> = z.infer<T['schema'] & z.ZodTypeAny>;
 
 type SchemaValidator = (schema: unknown, value: unknown, source: ValidateSource) => unknown;
 

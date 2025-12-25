@@ -7,10 +7,11 @@ import {
   Delete,
   EmptyQuery,
   EmptyResponse,
+  defineEntityFields,
   entitySchemas,
   NotFoundError,
 } from '../../../src/index.js';
-import type { RequestContext, EntitySelection } from '../../../src/index.js';
+import type { EntityPick, EntitySelection, InferSchema, TypedRequestContext } from '../../../src/index.js';
 import {
   Entity,
   Column,
@@ -80,16 +81,28 @@ const userSchemas = entitySchemas(User, {
 const userView = userSchemas.pick('id', 'name', 'email', 'createdAt');
 const userWrite = userSchemas.body('name', 'email');
 const userSearch = userSchemas.query('name', 'email');
+const userParamFields = defineEntityFields<User>()('id');
 
 const UserResponse = userView.response();
 const UserListResponse = userView.list();
 const CountResponse = userSchemas.aggregates.count();
-const UserParams = userSchemas.params();
+const UserParams = userSchemas.params(...userParamFields);
 const CreateUserBody = userWrite.create();
 const UpdateUserBody = userWrite.partial().update();
 const SearchQuery = userSearch.schema();
 
 type UserDto = EntitySelection<User, typeof userView.fields>;
+type EmptyQueryInput = InferSchema<typeof EmptyQuery>;
+type UserParamsInput = EntitySelection<User, typeof userParamFields>;
+type SearchQueryInput = Partial<EntityPick<User, typeof userSearch.fields>>;
+type CreateUserBodyInput = EntityPick<User, typeof userWrite.fields>;
+type UpdateUserBodyInput = Partial<CreateUserBodyInput>;
+type SearchInput = Record<string, unknown> & SearchQueryInput;
+type UserParamsCtx = TypedRequestContext<UserParamsInput, EmptyQueryInput, undefined>;
+type UserSearchCtx = TypedRequestContext<{}, SearchInput, undefined>;
+type UserCreateCtx = TypedRequestContext<{}, EmptyQueryInput, CreateUserBodyInput>;
+type UserUpdateCtx = TypedRequestContext<UserParamsInput, EmptyQueryInput, UpdateUserBodyInput>;
+type UserRemoveCtx = TypedRequestContext<UserParamsInput, EmptyQueryInput, undefined>;
 
 @Controller('/metal-orm-entity-users')
 export class MetalOrmEntityUsersController {
@@ -221,9 +234,9 @@ export class MetalOrmEntityUsersController {
     query: SearchQuery,
     response: UserListResponse,
   })
-  async search(ctx: RequestContext): Promise<UserDto[]> {
+  async search(ctx: UserSearchCtx): Promise<UserDto[]> {
     await this.ready;
-    const input = ctx.input.query as Record<string, unknown>;
+    const input = ctx.input.query;
     return this.withSession(async (session) => {
       let queryBuilder = selectFromEntity(User)
         .select(this.columnSelection)
@@ -242,9 +255,9 @@ export class MetalOrmEntityUsersController {
     query: EmptyQuery,
     response: UserResponse,
   })
-  async get(ctx: RequestContext): Promise<UserDto> {
+  async get(ctx: UserParamsCtx): Promise<UserDto> {
     await this.ready;
-    const { id } = ctx.input.params as { id: number };
+    const { id } = ctx.input.params;
     return this.withSession(async (session) => {
       const user = await session.find(User, id);
       if (!user) {
@@ -259,9 +272,9 @@ export class MetalOrmEntityUsersController {
     body: CreateUserBody,
     response: UserResponse,
   })
-  async create(ctx: RequestContext): Promise<UserDto> {
+  async create(ctx: UserCreateCtx): Promise<UserDto> {
     await this.ready;
-    const body = ctx.input.body as { name: string; email?: string };
+    const body = ctx.input.body;
     return this.withSession(async (session) => {
       const user = new User();
       user.name = body.name;
@@ -278,10 +291,10 @@ export class MetalOrmEntityUsersController {
     body: UpdateUserBody,
     response: UserResponse,
   })
-  async update(ctx: RequestContext): Promise<UserDto> {
+  async update(ctx: UserUpdateCtx): Promise<UserDto> {
     await this.ready;
-    const { id } = ctx.input.params as { id: number };
-    const body = ctx.input.body as { name?: string; email?: string | null };
+    const { id } = ctx.input.params;
+    const body = ctx.input.body;
     return this.withSession(async (session) => {
       const user = await session.find(User, id);
       if (!user) {
@@ -303,9 +316,9 @@ export class MetalOrmEntityUsersController {
     query: EmptyQuery,
     response: EmptyResponse,
   })
-  async remove(ctx: RequestContext): Promise<void> {
+  async remove(ctx: UserRemoveCtx): Promise<void> {
     await this.ready;
-    const { id } = ctx.input.params as { id: number };
+    const { id } = ctx.input.params;
     return this.withSession(async (session) => {
       const user = await session.find(User, id);
       if (!user) {

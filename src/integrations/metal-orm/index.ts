@@ -9,6 +9,7 @@ export {
   defineEntityFields,
   entitySchemas,
   fieldsOf,
+  type EntityPick,
   type EntitySelection,
   type EntitySchemas,
   type EntitySchemaOptions,

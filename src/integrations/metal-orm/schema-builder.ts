@@ -59,6 +59,8 @@ export type EntitySelection<T, K extends readonly (keyof T)[]> = {
   [P in K[number]]: Exclude<T[P], undefined>;
 };
 
+export type EntityPick<T, K extends readonly (keyof T)[]> = Pick<T, K[number]>;
+
 export function defineEntityFields<T>() {
   return <K extends readonly (keyof T)[]>(...fields: K): K => fields;
 }
