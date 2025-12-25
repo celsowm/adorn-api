@@ -6,6 +6,7 @@ export {
   buildColumnSelection,
   createCrudSchemaIds,
   createMetalOrmZodSchemas,
+  type EntitySelection,
   type CrudSchemaOptions,
   type CrudSchemaOverrides,
   type CrudSchemaIds,

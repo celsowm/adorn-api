@@ -11,7 +11,7 @@ import {
   createCrudSchemaIds,
   createMetalOrmZodSchemas,
 } from '../../../src/index.js';
-import type { RequestContext } from '../../../src/index.js';
+import type { RequestContext, EntitySelection } from '../../../src/index.js';
 import {
   Entity,
   Column,
@@ -105,12 +105,7 @@ const CreateUserBody = userSchemas.createBody;
 const UpdateUserBody = userSchemas.updateBody;
 const SearchQuery = userSchemas.search;
 
-type UserDto = {
-  id: number;
-  name: string;
-  email: string | null;
-  createdAt: string;
-};
+type UserDto = EntitySelection<User, typeof userSelectFields>;
 
 @Controller('/metal-orm-entity-users')
 export class MetalOrmEntityUsersController {

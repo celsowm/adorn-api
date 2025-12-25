@@ -55,6 +55,10 @@ export type CrudZodSchemas = {
 
 type OverrideSlot = keyof CrudSchemaOverrides;
 
+export type EntitySelection<T, K extends readonly (keyof T)[]> = {
+  [P in K[number]]: Exclude<T[P], undefined>;
+};
+
 export function createCrudSchemaIds(prefix: string, entityName: string): CrudSchemaIds {
   const base = `${prefix}${entityName}`;
   return {

@@ -31,6 +31,7 @@ export {
 export type {
   CrudSchemaOptions,
   CrudSchemaOverrides,
+  EntitySelection,
   CrudSchemaIds,
   CrudZodSchemas,
 } from './integrations/metal-orm/index.js';
