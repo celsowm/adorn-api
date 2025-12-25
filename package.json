@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "vitest": "vitest",
     "test": "npm run build && npm run vitest run",
     "openapi": "npm run build && node dist/src/cli/openapi.js./dist/tests/e2e/controllers/users.controller.js --out./openapi.json",
     "manifest": "npm run build && node dist/src/cli/manifest.js./dist/tests/e2e/controllers/users.controller.js",

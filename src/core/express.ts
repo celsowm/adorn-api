@@ -79,10 +79,11 @@ export function registerControllers(
         const result = await fn.call(controller, ctx);
 
         // Allow returning either plain body OR {status, body, headers}
+        // Special case: if result is undefined (void return), use 204 for EmptyResponse
         const payload =
           result && typeof result === 'object' && 'status' in result && 'body' in result
             ? (result as { status: number; body: unknown; headers?: Record<string, string> })
-            : { status: 200, body: result as unknown };
+            : { status: result === undefined ? 204 : 200, body: result as unknown };
 
         if (payload.headers) {
           for (const [k, v] of Object.entries(payload.headers)) res.setHeader(k, v);
