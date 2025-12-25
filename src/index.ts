@@ -41,6 +41,7 @@ export type {
   EntitySchemaView,
   EntitySchemaBody,
   EntitySchemaQuery,
+  EntitySchemaAggregates,
   CrudSchemaIds,
   CrudZodSchemas,
 } from './integrations/metal-orm/index.js';

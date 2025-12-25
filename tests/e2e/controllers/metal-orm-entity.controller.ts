@@ -82,7 +82,7 @@ const userSearch = userSchemas.query('name', 'email');
 
 const UserResponse = userView.response();
 const UserListResponse = userView.list();
-const CountResponse = userSchemas.count();
+const CountResponse = userSchemas.aggregates.count();
 const UserParams = userSchemas.params();
 const CreateUserBody = userWrite.create();
 const UpdateUserBody = userWrite.partial().update();

@@ -16,6 +16,7 @@ export {
   type EntitySchemaView,
   type EntitySchemaBody,
   type EntitySchemaQuery,
+  type EntitySchemaAggregates,
   type CrudSchemaOptions,
   type CrudSchemaOverrides,
   type CrudSchemaIds,

@@ -108,6 +108,11 @@ export type EntitySchemaQuery<T, K extends readonly (keyof T)[]> = {
   strict: () => EntitySchemaQuery<T, K>;
 };
 
+export type EntitySchemaAggregates = {
+  schema: (suffix: string, schema: z.ZodTypeAny, id?: string) => SchemaRef;
+  count: (id?: string) => SchemaRef;
+};
+
 export type EntitySchemas<T extends object> = {
   table: TableDef;
   entityName: string;
@@ -118,7 +123,7 @@ export type EntitySchemas<T extends object> = {
   params: <K extends readonly (keyof T)[]>(...fields: K) => SchemaRef;
   body: <K extends readonly (keyof T)[]>(...fields: K) => EntitySchemaBody<T, K>;
   query: <K extends readonly (keyof T)[]>(...fields: K) => EntitySchemaQuery<T, K>;
-  count: (id?: string) => SchemaRef;
+  aggregates: EntitySchemaAggregates;
 };
 
 export function createCrudSchemaIds(prefix: string, entityName: string): CrudSchemaIds {
@@ -240,6 +245,8 @@ export function entitySchemas<T extends object>(
   const searchId = `${baseId}SearchQuery`;
 
   const countSchema = z.object({ count: z.number().int() });
+  const aggregateSchema = (suffix: string, schema: z.ZodTypeAny, id?: string): SchemaRef =>
+    named(id ?? `${baseId}${suffix}`, schema);
 
   const makeView = <K extends readonly (keyof T)[]>(fields: K): EntitySchemaView<T, K> => {
     const fieldNames = fields as readonly string[];
@@ -303,6 +310,10 @@ export function entitySchemas<T extends object>(
     makeBody(fields, { partial: false, array: false });
   const query = <K extends readonly (keyof T)[]>(...fields: K): EntitySchemaQuery<T, K> =>
     makeQuery(fields, queryPassthrough);
+  const aggregates: EntitySchemaAggregates = {
+    schema: aggregateSchema,
+    count: (id = countId) => aggregateSchema('CountResponse', countSchema, id),
+  };
 
   return {
     table,
@@ -314,7 +325,7 @@ export function entitySchemas<T extends object>(
     params,
     body,
     query,
-    count: (id = countId) => named(id, countSchema),
+    aggregates,
   };
 }
 
