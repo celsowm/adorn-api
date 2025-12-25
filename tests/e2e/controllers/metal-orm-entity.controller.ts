@@ -8,6 +8,7 @@ import {
   EmptyQuery,
   EmptyResponse,
   entitySchemas,
+  NotFoundError,
 } from '../../../src/index.js';
 import type { RequestContext, EntitySelection } from '../../../src/index.js';
 import {
@@ -247,7 +248,7 @@ export class MetalOrmEntityUsersController {
     return this.withSession(async (session) => {
       const user = await session.find(User, id);
       if (!user) {
-        throw new Error('User not found');
+        throw new NotFoundError('User not found');
       }
       return this.formatUser(user as unknown as Record<string, unknown>);
     });
@@ -284,7 +285,7 @@ export class MetalOrmEntityUsersController {
     return this.withSession(async (session) => {
       const user = await session.find(User, id);
       if (!user) {
-        throw new Error('User not found');
+        throw new NotFoundError('User not found');
       }
       if (body.name !== undefined) {
         user.name = body.name;
@@ -308,7 +309,7 @@ export class MetalOrmEntityUsersController {
     return this.withSession(async (session) => {
       const user = await session.find(User, id);
       if (!user) {
-        throw new Error('User not found');
+        throw new NotFoundError('User not found');
       }
       await session.remove(user);
       await session.commit();

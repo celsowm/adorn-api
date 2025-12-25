@@ -37,6 +37,45 @@ function schemaToJsonSchema(ref: SchemaRef): any {
   });
 }
 
+function ensureErrorEnvelope(components: Record<string, any>): { $ref: string } {
+  const key = 'ErrorEnvelope';
+  if (!components[key]) {
+    components[key] = {
+      type: 'object',
+      properties: {
+        error: { type: 'string' },
+        message: { type: 'string' },
+        status: { type: 'integer' },
+        issues: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              source: { type: 'string' },
+              path: {
+                type: 'array',
+                items: {
+                  oneOf: [{ type: 'string' }, { type: 'number' }],
+                },
+              },
+              message: { type: 'string' },
+              code: { type: 'string' },
+              expected: {},
+              received: {},
+            },
+            required: ['source', 'path', 'message'],
+            additionalProperties: true,
+          },
+        },
+        details: { type: 'object', additionalProperties: true },
+      },
+      required: ['error', 'message', 'status'],
+      additionalProperties: true,
+    };
+  }
+  return { $ref: `#/components/schemas/${key}` };
+}
+
 function pathParamNames(openapiPath: string): string[] {
   const out: string[] = [];
   const re = /\{([a-zA-Z0-9_]+)\}/g;
@@ -126,27 +165,42 @@ function operationForRoute(
   if (route.schemas.params) ensureComponent(route.schemas.params, components);
   ensureComponent(route.schemas.query, components);
   if (route.schemas.body) ensureComponent(route.schemas.body, components);
-  ensureComponent(route.schemas.response, components);
+  const responseRef = ensureComponent(route.schemas.response, components);
 
   const parameters = buildParameters(route, components);
 
   const tags = tagsByController.get(route.controller);
+  const responses: Record<string, any> = {};
+  const isEmptyResponse = route.schemas.response.id === 'EmptyResponse';
+
+  if (isEmptyResponse) {
+    responses['204'] = { description: 'No Content' };
+  } else {
+    responses['200'] = {
+      description: 'OK',
+      content: {
+        'application/json': {
+          schema: responseRef,
+        },
+      },
+    };
+  }
+
+  const errorRef = ensureErrorEnvelope(components);
+  const errorContent = {
+    'application/json': {
+      schema: errorRef,
+    },
+  };
+  responses['400'] = { description: 'Validation Error', content: errorContent };
+  responses['404'] = { description: 'Not Found', content: errorContent };
+  responses['500'] = { description: 'Internal Server Error', content: errorContent };
+
   const op: any = {
     operationId: `${route.controller.name}_${route.handlerName}`,
     parameters: parameters.length ? parameters : undefined,
     tags: tags?.length ? tags : undefined,
-    responses: {
-      '200': {
-        description: 'OK',
-        content: {
-          'application/json': {
-            schema: {
-              $ref: `#/components/schemas/${sanitizeComponentName(route.schemas.response.id)}`,
-            },
-          },
-        },
-      },
-    },
+    responses,
   };
 
   const needsBody = route.method === 'POST' || route.method === 'PUT' || route.method === 'PATCH';

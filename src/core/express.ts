@@ -1,8 +1,9 @@
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 import { collectManifest } from './ir.js';
-import { ValidationError, RouteConfigError } from './errors.js';
+import { ValidationError, RouteConfigError, HttpError } from './errors.js';
 import { parseInclude, validateInclude } from './include.js';
+import type { IncludeTree } from './include.js';
 import { runGuards } from './guards.js';
 import { validateOrThrow } from './schema.js';
 
@@ -15,7 +16,7 @@ export type RequestContext = {
     body: unknown;
     include: {
       tokens: string[];
-      tree: Record<string, any>;
+      tree: IncludeTree;
     };
   };
   controller: unknown;
@@ -99,12 +100,16 @@ export function registerControllers(
         if (err instanceof ValidationError) {
           return res.status(400).json(err.toJSON());
         }
+        if (err instanceof HttpError) {
+          return res.status(err.status).json(err.toJSON());
+        }
         if (err instanceof RouteConfigError) {
           return res.status(500).json(err.toJSON());
         }
+        const isProduction = process.env.NODE_ENV === 'production';
         return res.status(500).json({
           error: 'InternalError',
-          message: err instanceof Error ? err.message : 'unknown error',
+          message: isProduction ? 'An unexpected error occurred' : err instanceof Error ? err.message : 'unknown error',
           status: 500,
         });
       }

@@ -1,6 +1,8 @@
 export const ADORN_CONTROLLER = Symbol.for('adorn.controller');
 export const ADORN_ROUTES = Symbol.for('adorn.routes');
 
+import type { RequestContext } from './express.js';
+
 export type ControllerMeta = {
   basePath: string;
   tags?: string[];
@@ -11,7 +13,7 @@ export type IncludePolicy = {
   maxDepth?: number;
 };
 
-export type Guard = (ctx: unknown) => void | Promise<void>;
+export type Guard = (ctx: RequestContext) => void | Promise<void>;
 
 export type RouteStub = {
   method: string;

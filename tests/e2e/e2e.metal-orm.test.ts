@@ -101,7 +101,7 @@ describe('metal-orm e2e with sqlite memory db', () => {
     // Verify deletion
     await request(app)
       .get('/metal-orm-users/3')
-      .expect(500); // Controller throws 'User not found' which results in 500 by default if not handled
+      .expect(404); // NotFoundError now flows through the HTTP error handler
 
     // Verify count after deletion
     const finalCountRes = await request(app)

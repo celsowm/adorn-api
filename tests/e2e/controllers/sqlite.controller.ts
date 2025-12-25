@@ -1,5 +1,16 @@
 import { z } from 'zod';
-import { Controller, Get, Post, Put, Delete, named, p, EmptyQuery, EmptyResponse } from '../../../src/index.js';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  named,
+  p,
+  EmptyQuery,
+  EmptyResponse,
+  NotFoundError,
+} from '../../../src/index.js';
 import type { RequestContext } from '../../../src/index.js';
 import Database from 'better-sqlite3';
 
@@ -31,7 +42,7 @@ export class SqliteUsersController {
     const user = this.db.prepare('SELECT id, name FROM users WHERE id = ?').get(id) as { id: number; name: string } | undefined;
 
     if (!user) {
-      throw new Error('User not found');
+      throw new NotFoundError('User not found');
     }
     return user;
   }
@@ -59,9 +70,9 @@ export class SqliteUsersController {
     
     const info = this.db.prepare('UPDATE users SET name = ? WHERE id = ?').run(name, id);
     
-    if (info.changes === 0) {
-      throw new Error('User not found');
-    }
+      if (info.changes === 0) {
+        throw new NotFoundError('User not found');
+      }
     
     return { id, name };
   }
@@ -76,7 +87,7 @@ export class SqliteUsersController {
     const info = this.db.prepare('DELETE FROM users WHERE id = ?').run(id);
     
     if (info.changes === 0) {
-      throw new Error('User not found');
+      throw new NotFoundError('User not found');
     }
   }
 }

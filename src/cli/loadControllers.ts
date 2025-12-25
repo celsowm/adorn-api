@@ -11,10 +11,7 @@ export async function loadControllersFromModule(modulePath: string): Promise<Fun
   // Convention: default export controller class
   if (typeof (mod as any).default === 'function') return [(mod as any).default as Function];
 
-  // Otherwise: gather exported functions/classes
-  const out: Function[] = [];
-  for (const v of Object.values(mod)) {
-    if (typeof v === 'function') out.push(v as Function);
-  }
-  return out;
+  throw new Error(
+    'No controllers found: export `controllers` array or default controller class from the entry module.'
+  );
 }

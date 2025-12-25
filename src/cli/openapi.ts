@@ -6,17 +6,54 @@ import { generateOpenApi } from '../openapi/generate.js';
 
 ensureDecoratorMetadata();
 
+function usage(message?: string): never {
+  if (message) {
+    // eslint-disable-next-line no-undef
+    console.error(`Error: ${message}`);
+  }
+  // eslint-disable-next-line no-undef
+  console.error('Usage: openapi <entry-module> [--out <output-file>]');
+  // eslint-disable-next-line no-undef
+  process.exit(1);
+}
+
 function parseArgs(argv: string[]): { entry: string; out?: string } {
   const args = argv.slice(2);
-  const entry = args[0];
-  if (!entry) {
-    // eslint-disable-next-line no-undef
-    console.error('Usage: openapi <entry-module> [--out ./openapi.json]');
-    // eslint-disable-next-line no-undef
-    process.exit(1);
+  if (!args.length) {
+    usage('entry module is required');
   }
-  const outIndex = args.indexOf('--out');
-  const out = outIndex >= 0 ? args[outIndex + 1] : undefined;
+
+  let entry: string | undefined;
+  let out: string | undefined;
+
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (arg === '--out') {
+      const next = args[i + 1];
+      if (!next) {
+        usage('--out requires a file path');
+      }
+      out = next;
+      i += 1;
+      continue;
+    }
+
+    if (arg === '--help' || arg === '-h') {
+      usage();
+    }
+
+    if (!entry) {
+      entry = arg;
+      continue;
+    }
+
+    usage(`unexpected argument: ${arg}`);
+  }
+
+  if (!entry) {
+    usage('entry module is required');
+  }
+
   return { entry, out };
 }
 
@@ -30,11 +67,10 @@ const spec = generateOpenApi(controllers, { title: 'adorn-api', version: '0.0.1'
 
 const json = JSON.stringify(spec, null, 2);
 if (out) {
-  // eslint-disable-next-line no-undef
   writeFileSync(resolve(process.cwd(), out), json, 'utf-8');
   // eslint-disable-next-line no-undef
-  console.log(`Wrote OpenAPI to ${out}`);
+  console.log(`OpenAPI specification written to ${out}`);
 } else {
   // eslint-disable-next-line no-undef
-  console.log(json);
+  process.stdout.write(`${json}\n`);
 }

@@ -60,7 +60,7 @@ describe('sqlite e2e', () => {
     // Verify deletion
     await request(app)
       .get('/sqlite-users/1')
-      .expect(500); // Controller throws 'User not found' which results in 500 by default if not handled
+      .expect(404); // NotFoundError now maps to 404 via the HTTP handler
   });
 
   it('should return 400 for invalid body on POST', async () => {

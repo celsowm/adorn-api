@@ -1,7 +1,12 @@
 import { ensureDecoratorMetadata } from '../../runtime/metadataPolyfill.js';
-import { EmptyQuery, EmptyResponse, type SchemaRef } from '../../core/schema.js';
+import {
+  EmptyQuery,
+  EmptyResponse,
+  type SchemaRef
+} from '../../core/schema.js';
 import { writeControllerMeta, pushRouteStub } from '../../core/metadata.js';
 import type { RequestContext } from '../../core/express.js';
+import { RouteConfigError, HttpError, NotFoundError } from '../../core/errors.js';
 import {
   Orm,
   type OrmSession,
@@ -88,7 +93,7 @@ function resolveTarget(target: EntityConstructor<object> | TableDef): CrudTarget
   }
   const table = getTableDefFromEntity(target);
   if (!table) {
-    throw new Error(`Entity '${target.name}' is not registered with metal-orm decorators`);
+    throw new RouteConfigError(`Entity '${target.name}' is not registered with metal-orm decorators`);
   }
   return { kind: 'entity', entity: target, table };
 }
@@ -259,7 +264,9 @@ function buildSchemas<TSchema>(
   const paramsShape: Record<string, TSchema> = {};
   const paramColumn = target.table.columns[primaryKey];
   if (!paramColumn) {
-    throw new Error(`Primary key column '${primaryKey}' not found on table '${target.table.name}'`);
+    throw new RouteConfigError(
+      `Primary key column '${primaryKey}' not found on table '${target.table.name}'`
+    );
   }
   paramsShape[primaryKey] = columnSchema(provider, paramColumn, 'params', overrides.params?.[primaryKey]);
 
@@ -267,7 +274,7 @@ function buildSchemas<TSchema>(
   for (const colName of selectColumns) {
     const col = target.table.columns[colName];
     if (!col) {
-      throw new Error(`Column '${colName}' not found on table '${target.table.name}'`);
+      throw new RouteConfigError(`Column '${colName}' not found on table '${target.table.name}'`);
     }
     responseShape[colName] = columnSchema(provider, col, 'response', overrides.response?.[colName]);
   }
@@ -276,7 +283,7 @@ function buildSchemas<TSchema>(
   for (const colName of createFields) {
     const col = target.table.columns[colName];
     if (!col) {
-      throw new Error(`Column '${colName}' not found on table '${target.table.name}'`);
+      throw new RouteConfigError(`Column '${colName}' not found on table '${target.table.name}'`);
     }
     createShape[colName] = columnSchema(provider, col, 'body', overrides.body?.[colName]);
   }
@@ -285,7 +292,7 @@ function buildSchemas<TSchema>(
   for (const colName of updateFields) {
     const col = target.table.columns[colName];
     if (!col) {
-      throw new Error(`Column '${colName}' not found on table '${target.table.name}'`);
+      throw new RouteConfigError(`Column '${colName}' not found on table '${target.table.name}'`);
     }
     updateShape[colName] = columnSchema(provider, col, 'body', overrides.body?.[colName]);
   }
@@ -294,7 +301,7 @@ function buildSchemas<TSchema>(
   for (const colName of searchFields) {
     const col = target.table.columns[colName];
     if (!col) {
-      throw new Error(`Column '${colName}' not found on table '${target.table.name}'`);
+      throw new RouteConfigError(`Column '${colName}' not found on table '${target.table.name}'`);
     }
     searchShape[colName] = columnSchema(provider, col, 'query', overrides.query?.[colName]);
   }
@@ -365,7 +372,7 @@ function getCrudMetadata<TSchema>(ctor: Function): CrudDefinition<TSchema> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const def = (ctor as any)[CRUD_META] as CrudDefinition<TSchema> | undefined;
   if (!def) {
-    throw new Error('Missing metal-orm CRUD metadata. Did you forget @MetalOrmCrudController()?');
+    throw new RouteConfigError('Missing metal-orm CRUD metadata. Did you forget @MetalOrmCrudController()?');
   }
   return def;
 }
@@ -508,7 +515,7 @@ function buildColumnSelection(table: TableDef, columns: string[]): Record<string
   for (const columnName of columns) {
     const column = table.columns[columnName];
     if (!column) {
-      throw new Error(`Column '${columnName}' not found on table '${table.name}'`);
+      throw new RouteConfigError(`Column '${columnName}' not found on table '${table.name}'`);
     }
     selection[columnName] = column;
   }
@@ -634,7 +641,7 @@ export abstract class MetalOrmCrudBase {
       if (def.target.kind === 'entity') {
         const entity = await session.find(def.target.entity, id);
         if (!entity) {
-          throw new Error(def.notFoundMessage);
+          throw new NotFoundError(def.notFoundMessage);
         }
         return normalizeRow(def, entity as Record<string, unknown>);
       }
@@ -647,7 +654,7 @@ export abstract class MetalOrmCrudBase {
       const rows = await executeCompiled(session, compiled);
       const row = rows[0];
       if (!row) {
-        throw new Error(def.notFoundMessage);
+        throw new NotFoundError(def.notFoundMessage);
       }
       return normalizeRow(def, row);
     });
@@ -685,11 +692,16 @@ export abstract class MetalOrmCrudBase {
         .values(payload)
         .returning(...returningColumns)
         .compile(session.dialect);
-      const rows = await executeCompiled(session, stmt);
-      const row = rows[0];
-      if (!row) {
-        throw new Error('Failed to create');
-      }
+    const rows = await executeCompiled(session, stmt);
+    const row = rows[0];
+    if (!row) {
+      throw new HttpError(
+        500,
+        'CrudError',
+        'Failed to create record',
+        { table: def.target.table.name }
+      );
+    }
       return normalizeRow(def, row);
     });
   }
@@ -711,7 +723,7 @@ export abstract class MetalOrmCrudBase {
       if (def.target.kind === 'entity') {
         const entity = await session.find(def.target.entity, id);
         if (!entity) {
-          throw new Error(def.notFoundMessage);
+          throw new NotFoundError(def.notFoundMessage);
         }
         for (const [key, value] of Object.entries(payload)) {
           (entity as Record<string, unknown>)[key] = value;
@@ -730,7 +742,7 @@ export abstract class MetalOrmCrudBase {
       const rows = await executeCompiled(session, stmt);
       const row = rows[0];
       if (!row) {
-        throw new Error(def.notFoundMessage);
+        throw new NotFoundError(def.notFoundMessage);
       }
       return normalizeRow(def, row);
     });
@@ -745,7 +757,7 @@ export abstract class MetalOrmCrudBase {
       if (def.target.kind === 'entity') {
         const entity = await session.find(def.target.entity, id);
         if (!entity) {
-          throw new Error(def.notFoundMessage);
+          throw new NotFoundError(def.notFoundMessage);
         }
         await session.remove(entity);
         await session.commit();
@@ -760,7 +772,7 @@ export abstract class MetalOrmCrudBase {
         .compile(session.dialect);
       const existsRows = await executeCompiled(session, existsQuery);
       if (!existsRows[0]) {
-        throw new Error(def.notFoundMessage);
+        throw new NotFoundError(def.notFoundMessage);
       }
       const del = deleteFrom(def.target.table)
         .where(eq(getColumnRef(ref, def.primaryKey), id as string | number))

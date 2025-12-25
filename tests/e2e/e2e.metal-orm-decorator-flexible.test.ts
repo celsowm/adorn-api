@@ -92,7 +92,7 @@ describe('metal-orm decorator flexible e2e with sqlite memory db', () => {
 
     await request(app)
       .get('/metal-orm-decorator-flexible-users/3')
-      .expect(500);
+      .expect(404);
 
     const finalCountRes = await request(app)
       .get('/metal-orm-decorator-flexible-users/count')

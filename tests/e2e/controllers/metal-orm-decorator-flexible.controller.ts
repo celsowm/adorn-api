@@ -1,4 +1,10 @@
-import { MetalOrmCrudController, type RequestContext, zodSchemaProvider } from '../../../src/index.js';
+import {
+  MetalOrmCrudController,
+  type RequestContext,
+  zodSchemaProvider,
+  NotFoundError,
+  RouteConfigError,
+} from '../../../src/index.js';
 import {
   Entity,
   Column,
@@ -113,7 +119,7 @@ export class MetalOrmFlexibleUsersController {
 
     const table = getTableDefFromEntity(User);
     if (!table) {
-      throw new Error('User table metadata is not available');
+      throw new RouteConfigError('User table metadata is not available');
     }
     this.table = table;
     this.ready = this.init();
@@ -236,7 +242,7 @@ export class MetalOrmFlexibleUsersController {
     return this.withSession(async (session) => {
       const user = await session.find(User, id);
       if (!user) {
-        throw new Error('User not found');
+        throw new NotFoundError('User not found');
       }
       return this.formatUser(user);
     });
@@ -262,7 +268,7 @@ export class MetalOrmFlexibleUsersController {
     return this.withSession(async (session) => {
       const user = await session.find(User, id);
       if (!user) {
-        throw new Error('User not found');
+        throw new NotFoundError('User not found');
       }
       if (body.name !== undefined) {
         user.name = body.name;
@@ -281,7 +287,7 @@ export class MetalOrmFlexibleUsersController {
     return this.withSession(async (session) => {
       const user = await session.find(User, id);
       if (!user) {
-        throw new Error('User not found');
+        throw new NotFoundError('User not found');
       }
       await session.remove(user);
       await session.commit();
