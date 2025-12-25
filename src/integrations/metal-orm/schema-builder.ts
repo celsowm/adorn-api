@@ -363,6 +363,91 @@ export function entitySchemas<T extends object>(
   };
 }
 
+export type EntityContractRefs = {
+  response: SchemaRef;
+  list: SchemaRef;
+  count: SchemaRef;
+  params: SchemaRef;
+  body: SchemaRef;
+  bodyPartial: SchemaRef;
+  query: SchemaRef;
+};
+
+export type EntityContractTypes<
+  T extends object,
+  V extends readonly (keyof T)[],
+  W extends readonly (keyof T)[],
+  Q extends readonly (keyof T)[],
+  P extends readonly (keyof T)[],
+> = {
+  dto: EntitySelection<T, V>;
+  params: EntitySelection<T, P>;
+  query: Partial<EntityPick<T, Q>>;
+  queryInput: Record<string, unknown> & Partial<EntityPick<T, Q>>;
+  body: EntityPick<T, W>;
+  bodyPartial: Partial<EntityPick<T, W>>;
+};
+
+export type EntityContract<
+  T extends object,
+  V extends readonly (keyof T)[],
+  W extends readonly (keyof T)[],
+  Q extends readonly (keyof T)[],
+  P extends readonly (keyof T)[],
+> = {
+  schemas: EntitySchemas<T>;
+  table: TableDef;
+  view: EntitySchemaView<T, V>;
+  write: EntitySchemaBody<T, W>;
+  query: EntitySchemaQuery<T, Q>;
+  paramsFields: P;
+  selection: Record<string, ColumnDef>;
+  refs: EntityContractRefs;
+  types: EntityContractTypes<T, V, W, Q, P>;
+};
+
+export function entityContract<
+  T extends object,
+  V extends readonly (keyof T)[],
+  W extends readonly (keyof T)[],
+  Q extends readonly (keyof T)[],
+  P extends readonly (keyof T)[],
+>(
+  target: EntityConstructor<T> | TableDef,
+  options: EntitySchemaOptions,
+  config: { view: V; write: W; query: Q; params: P },
+): EntityContract<T, V, W, Q, P> {
+  const schemas = entitySchemas(target, options);
+  const view = schemas.pick(...config.view);
+  const write = schemas.body(...config.write);
+  const query = schemas.query(...config.query);
+  const paramsFields = config.params;
+
+  const refs: EntityContractRefs = {
+    response: view.response(),
+    list: view.list(),
+    count: schemas.aggregates.count(),
+    params: schemas.params(...paramsFields),
+    body: write.create(),
+    bodyPartial: write.partial().update(),
+    query: query.schema(),
+  };
+
+  const types = {} as EntityContractTypes<T, V, W, Q, P>;
+
+  return {
+    schemas,
+    table: schemas.table,
+    view,
+    write,
+    query,
+    paramsFields,
+    selection: view.selection,
+    refs,
+    types,
+  };
+}
+
 function resolveSchema(
   slot: OverrideSlot,
   field: string,

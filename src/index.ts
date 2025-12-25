@@ -30,6 +30,7 @@ export {
   createCrudSchemaIds,
   createMetalOrmZodSchemas,
   defineEntityFields,
+  entityContract,
   entitySchemas,
   fieldsOf,
   parseEntityView,
@@ -40,6 +41,9 @@ export {
 export type {
   CrudSchemaOptions,
   CrudSchemaOverrides,
+  EntityContract,
+  EntityContractRefs,
+  EntityContractTypes,
   EntitySelection,
   EntityPick,
   EntitySchemas,

@@ -7,13 +7,13 @@ import {
   Delete,
   EmptyQuery,
   EmptyResponse,
-  defineEntityFields,
-  entitySchemas,
+  entityContract,
+  fieldsOf,
   parseEntityView,
   parseEntityViewList,
   NotFoundError,
 } from '../../../src/index.js';
-import type { EntityPick, EntitySelection, InferSchema, TypedRequestContext } from '../../../src/index.js';
+import type { InferSchema, TypedRequestContext } from '../../../src/index.js';
 import {
   Entity,
   Column,
@@ -68,43 +68,46 @@ class User {
 
 bootstrapEntities();
 
-const userSchemas = entitySchemas(User, {
-  idPrefix: 'MetalOrmEntity',
-  overrides: {
-    all: {
-      email: z.string().email(),
-    },
-    query: {
-      name: z.string().min(1),
+const userContract = entityContract(
+  User,
+  {
+    idPrefix: 'MetalOrmEntity',
+    overrides: {
+      all: {
+        email: z.string().email(),
+      },
+      query: {
+        name: z.string().min(1),
+      },
     },
   },
-});
+  {
+    view: fieldsOf<User>()('id', 'name', 'email', 'createdAt'),
+    write: fieldsOf<User>()('name', 'email'),
+    query: fieldsOf<User>()('name', 'email'),
+    params: fieldsOf<User>()('id'),
+  },
+);
 
-const userView = userSchemas.pick('id', 'name', 'email', 'createdAt');
-const userWrite = userSchemas.body('name', 'email');
-const userSearch = userSchemas.query('name', 'email');
-const userParamFields = defineEntityFields<User>()('id');
+const UserResponse = userContract.refs.response;
+const UserListResponse = userContract.refs.list;
+const CountResponse = userContract.refs.count;
+const UserParams = userContract.refs.params;
+const CreateUserBody = userContract.refs.body;
+const UpdateUserBody = userContract.refs.bodyPartial;
+const SearchQuery = userContract.refs.query;
 
-const UserResponse = userView.response();
-const UserListResponse = userView.list();
-const CountResponse = userSchemas.aggregates.count();
-const UserParams = userSchemas.params(...userParamFields);
-const CreateUserBody = userWrite.create();
-const UpdateUserBody = userWrite.partial().update();
-const SearchQuery = userSearch.schema();
-
-type UserDto = EntitySelection<User, typeof userView.fields>;
+type UserDto = typeof userContract.types.dto;
 type EmptyQueryInput = InferSchema<typeof EmptyQuery>;
-type UserParamsInput = EntitySelection<User, typeof userParamFields>;
-type SearchQueryInput = Partial<EntityPick<User, typeof userSearch.fields>>;
-type CreateUserBodyInput = EntityPick<User, typeof userWrite.fields>;
-type UpdateUserBodyInput = Partial<CreateUserBodyInput>;
-type SearchInput = Record<string, unknown> & SearchQueryInput;
-type UserParamsCtx = TypedRequestContext<UserParamsInput, EmptyQueryInput, undefined>;
-type UserSearchCtx = TypedRequestContext<{}, SearchInput, undefined>;
-type UserCreateCtx = TypedRequestContext<{}, EmptyQueryInput, CreateUserBodyInput>;
-type UserUpdateCtx = TypedRequestContext<UserParamsInput, EmptyQueryInput, UpdateUserBodyInput>;
-type UserRemoveCtx = TypedRequestContext<UserParamsInput, EmptyQueryInput, undefined>;
+type UserParamsCtx = TypedRequestContext<typeof userContract.types.params, EmptyQueryInput, undefined>;
+type UserSearchCtx = TypedRequestContext<{}, typeof userContract.types.queryInput, undefined>;
+type UserCreateCtx = TypedRequestContext<{}, EmptyQueryInput, typeof userContract.types.body>;
+type UserUpdateCtx = TypedRequestContext<
+  typeof userContract.types.params,
+  EmptyQueryInput,
+  typeof userContract.types.bodyPartial
+>;
+type UserRemoveCtx = TypedRequestContext<typeof userContract.types.params, EmptyQueryInput, undefined>;
 
 @Controller('/metal-orm-entity-users')
 export class MetalOrmEntityUsersController {
@@ -114,7 +117,7 @@ export class MetalOrmEntityUsersController {
   protected readonly ready: Promise<void>;
   private readonly table: TableDef;
   private readonly columnSelection: Record<string, ColumnDef>;
-  private readonly searchFields = userSearch.fields;
+  private readonly searchFields = userContract.query.fields;
 
   constructor() {
     this.db = new sqlite3.Database(':memory:');
@@ -129,8 +132,8 @@ export class MetalOrmEntityUsersController {
       },
     });
 
-    this.table = userSchemas.table;
-    this.columnSelection = userView.selection;
+    this.table = userContract.table;
+    this.columnSelection = userContract.selection;
     this.ready = this.init();
   }
 
@@ -181,7 +184,7 @@ export class MetalOrmEntityUsersController {
     if (!row) {
       throw new NotFoundError('User not found');
     }
-    return parseEntityView(userView, row);
+    return parseEntityView(userContract.view, row);
   }
 
   private buildSearchCondition(input: Record<string, unknown>): ExpressionNode | undefined {
@@ -208,7 +211,7 @@ export class MetalOrmEntityUsersController {
         .select(this.columnSelection)
         .orderBy(this.table.columns.id, 'ASC')
         .execute(session);
-      return parseEntityViewList(userView, rows);
+      return parseEntityViewList(userContract.view, rows);
     });
   }
 
@@ -243,7 +246,7 @@ export class MetalOrmEntityUsersController {
         queryBuilder = queryBuilder.where(condition);
       }
       const rows = await queryBuilder.execute(session);
-      return parseEntityViewList(userView, rows);
+      return parseEntityViewList(userContract.view, rows);
     });
   }
 
