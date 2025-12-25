@@ -7,20 +7,19 @@
     "node": ">=20"
   },
   "scripts": {
-    "clean": "rimraf dist",
     "build": "tsc -p tsconfig.json",
-    "test": "pnpm build && vitest run",
-    "openapi": "pnpm build && node dist/src/cli/openapi.js ./dist/tests/e2e/controllers/users.controller.js --out ./openapi.json",
-    "manifest": "pnpm build && node dist/src/cli/manifest.js ./dist/tests/e2e/controllers/users.controller.js",
-    "check": "pnpm run check:types && pnpm run check:lint && pnpm run check:security && pnpm run check:deps && pnpm run check:format && pnpm run check:build && pnpm run check:test",
+    "test": "npm run build && npm run vitest run",
+    "openapi": "npm run build && node dist/src/cli/openapi.js./dist/tests/e2e/controllers/users.controller.js --out./openapi.json",
+    "manifest": "npm run build && node dist/src/cli/manifest.js./dist/tests/e2e/controllers/users.controller.js",
+    "check": "npm run check:types && npm run check:lint && npm run check:security && npm run check:deps && npm run check:format && npm run check:build && npm run check:test",
     "check:types": "tsc --noEmit --strict --noUnusedLocals --noUnusedParameters --noImplicitReturns --noFallthroughCasesInSwitch --exactOptionalPropertyTypes",
     "check:lint": "eslint src/**/*.ts tests/**/*.ts --max-warnings 0",
     "check:security": "eslint src/**/*.ts tests/**/*.ts --max-warnings 0 --rule 'security/recommended: error'",
-    "check:deps": "pnpm audit --audit-level high",
+    "check:deps": "npm audit --audit-level high",
     "check:format": "prettier --check src/**/*.ts tests/**/*.ts",
     "format": "prettier --write src/**/*.ts tests/**/*.ts",
-    "check:build": "pnpm run clean && pnpm run build",
-    "check:test": "pnpm run test"
+    "check:build": "npm run clean && npm run build",
+    "check:test": "npm run test"
   },
   "dependencies": {
     "express": "^5.2.1",
@@ -28,7 +27,7 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
-    "@types/node": "^20.0.0",
+    "@types/node": "^25.0.3",
     "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^8.50.1",
     "@typescript-eslint/parser": "^8.50.1",
@@ -38,10 +37,9 @@
     "eslint-plugin-security": "^3.0.1",
     "metal-orm": "^1.0.59",
     "prettier": "^3.7.4",
-    "rimraf": "^6.0.0",
-    "sqlite3": "^5.1.7",
+    "better-sqlite3": "^12.5.0",
     "supertest": "^7.1.4",
-    "typescript": "^5.2.2",
+    "typescript": "^5.9.3",
     "vitest": "^4.0.16"
   }
 }
