@@ -69,7 +69,7 @@ export class RouteBuilder<
   paramsFields<T extends Record<string, z.ZodTypeAny | SchemaRef>>(shape: T): RouteBuilder<TMethod, SchemaRef, TQuery, TBody, TResponse> {
     const zshape: Record<string, z.ZodTypeAny> = {};
     for (const [k, v] of Object.entries(shape)) {
-      zshape[k] = (v as any)?.schema ? (v as SchemaRef).schema : (v as z.ZodTypeAny);
+      zshape[k] = (v as any)?.schema ? ((v as SchemaRef).schema as z.ZodTypeAny) : (v as z.ZodTypeAny);
     }
     const id = autoSchemaId(this.method, this.path, "params");
     this.paramsRef = named(id, z.object(zshape).strict());
@@ -87,7 +87,7 @@ export class RouteBuilder<
   queryFields<T extends Record<string, z.ZodTypeAny | SchemaRef>>(shape: T, passthrough = true): RouteBuilder<TMethod, TParams, SchemaRef, TBody, TResponse> {
     const zshape: Record<string, z.ZodTypeAny> = {};
     for (const [k, v] of Object.entries(shape)) {
-      zshape[k] = (v as any)?.schema ? (v as SchemaRef).schema : (v as z.ZodTypeAny);
+      zshape[k] = (v as any)?.schema ? ((v as SchemaRef).schema as z.ZodTypeAny) : (v as z.ZodTypeAny);
     }
     const id = autoSchemaId(this.method, this.path, "query");
     const obj = z.object(zshape);

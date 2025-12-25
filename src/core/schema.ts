@@ -1,7 +1,15 @@
 import { z } from 'zod';
-import { ValidationError } from './errors.js';
+import { RouteConfigError, ValidationError } from './errors.js';
 
-export type SchemaRef = { provider: 'zod'; id: string; schema: z.ZodTypeAny };
+export type SchemaRef = { provider: string; id: string; schema: unknown };
+
+type SchemaValidator = (schema: unknown, value: unknown, source: ValidateSource) => unknown;
+
+const schemaProviders = new Map<string, SchemaValidator>();
+
+export function registerSchemaProvider(id: string, validate: SchemaValidator): void {
+  schemaProviders.set(id, validate);
+}
 
 export function named(id: string, schema: z.ZodTypeAny): SchemaRef {
   return { provider: 'zod', id, schema };
@@ -53,7 +61,15 @@ export const q = {
 export type ValidateSource = 'params' | 'query' | 'body' | 'response';
 
 export function validateOrThrow(ref: SchemaRef, value: unknown, source: ValidateSource): unknown {
-  const parsed = ref.schema.safeParse(value);
+  const validate = schemaProviders.get(ref.provider);
+  if (!validate) {
+    throw new RouteConfigError(`Unsupported schema provider: ${String(ref.provider)}`);
+  }
+  return validate(ref.schema, value, source);
+}
+
+registerSchemaProvider('zod', (schema, value, source) => {
+  const parsed = (schema as z.ZodTypeAny).safeParse(value);
   if (parsed.success) return parsed.data;
 
   const issues = parsed.error.issues.map((i: any) => ({
@@ -66,4 +82,4 @@ export function validateOrThrow(ref: SchemaRef, value: unknown, source: Validate
   }));
 
   throw new ValidationError('validation failed', issues);
-}
+});

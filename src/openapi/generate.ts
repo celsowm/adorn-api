@@ -29,7 +29,7 @@ function schemaToJsonSchema(ref: SchemaRef): any {
   }
   // Zod v4 native JSON Schema conversion
   // Default target is draft-2020-12 which matches OpenAPI 3.1.
-  return z.toJSONSchema(ref.schema, {
+  return z.toJSONSchema(ref.schema as z.ZodTypeAny, {
     unrepresentable: 'any',
     cycles: 'ref',
     reused: 'inline',

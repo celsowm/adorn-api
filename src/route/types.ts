@@ -20,11 +20,11 @@ export type BuiltRoute<
 };
 
 type InferRef<T extends SchemaRef | undefined> = T extends SchemaRef
-  ? z.infer<T["schema"]>
+  ? z.infer<T["schema"] & z.ZodTypeAny>
   : {};
 
 type InferBody<T extends SchemaRef | undefined> = T extends SchemaRef
-  ? z.infer<T["schema"]>
+  ? z.infer<T["schema"] & z.ZodTypeAny>
   : undefined;
 
 export type RouteCtx<TRoute extends BuiltRoute<any, any, any, any>> = Omit<
