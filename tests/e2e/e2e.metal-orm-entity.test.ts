@@ -1,0 +1,157 @@
+import request from 'supertest';
+import { describe, it, expect } from 'vitest';
+import express from 'express';
+import { registerControllers } from '../../src/index.js';
+import { MetalOrmEntityUsersController } from './controllers/metal-orm-entity.controller.js';
+
+function buildMetalOrmEntityApp() {
+  const app = express();
+  app.use(express.json());
+
+  const controller = new MetalOrmEntityUsersController();
+
+  registerControllers(app, [MetalOrmEntityUsersController], {
+    validateResponse: true,
+    resolveController: () => controller,
+  });
+
+  return app;
+}
+
+describe('metal-orm entity controller e2e with sqlite memory db', () => {
+  it('should perform full CRUD operations using entity-backed controller', async () => {
+    const app = buildMetalOrmEntityApp();
+
+    const postRes = await request(app)
+      .post('/metal-orm-entity-users')
+      .send({ name: 'Charlie', email: 'charlie@example.com' })
+      .expect(200);
+
+    expect(postRes.body).toEqual({
+      id: 3,
+      name: 'Charlie',
+      email: 'charlie@example.com',
+      createdAt: expect.any(String),
+    });
+
+    const getRes = await request(app)
+      .get('/metal-orm-entity-users/3')
+      .expect(200);
+
+    expect(getRes.body).toEqual({
+      id: 3,
+      name: 'Charlie',
+      email: 'charlie@example.com',
+      createdAt: expect.any(String),
+    });
+
+    const listRes = await request(app)
+      .get('/metal-orm-entity-users')
+      .expect(200);
+
+    expect(listRes.body).toHaveLength(3);
+    expect(listRes.body[0].name).toBe('Alice');
+    expect(listRes.body[1].name).toBe('Bob');
+    expect(listRes.body[2].name).toBe('Charlie');
+
+    const putRes = await request(app)
+      .put('/metal-orm-entity-users/3')
+      .send({ name: 'Charlotte', email: 'charlotte@example.com' })
+      .expect(200);
+
+    expect(putRes.body).toEqual({
+      id: 3,
+      name: 'Charlotte',
+      email: 'charlotte@example.com',
+      createdAt: expect.any(String),
+    });
+
+    const getUpdatedRes = await request(app)
+      .get('/metal-orm-entity-users/3')
+      .expect(200);
+
+    expect(getUpdatedRes.body.name).toBe('Charlotte');
+    expect(getUpdatedRes.body.email).toBe('charlotte@example.com');
+
+    const countRes = await request(app)
+      .get('/metal-orm-entity-users/count')
+      .expect(200);
+
+    expect(countRes.body).toEqual({ count: 3 });
+
+    const searchRes = await request(app)
+      .get('/metal-orm-entity-users/search?name=Charlotte')
+      .expect(200);
+
+    expect(searchRes.body).toHaveLength(1);
+    expect(searchRes.body[0].name).toBe('Charlotte');
+
+    await request(app)
+      .delete('/metal-orm-entity-users/3')
+      .expect(204);
+
+    await request(app)
+      .get('/metal-orm-entity-users/3')
+      .expect(500);
+
+    const finalCountRes = await request(app)
+      .get('/metal-orm-entity-users/count')
+      .expect(200);
+
+    expect(finalCountRes.body).toEqual({ count: 2 });
+  });
+
+  it('should return 400 for invalid body on POST', async () => {
+    const app = buildMetalOrmEntityApp();
+    await request(app)
+      .post('/metal-orm-entity-users')
+      .send({ name: '' })
+      .expect(400);
+  });
+
+  it('should handle optional email field', async () => {
+    const app = buildMetalOrmEntityApp();
+
+    const postRes = await request(app)
+      .post('/metal-orm-entity-users')
+      .send({ name: 'No Email User' })
+      .expect(200);
+
+    expect(postRes.body).toEqual({
+      id: 3,
+      name: 'No Email User',
+      email: null,
+      createdAt: expect.any(String),
+    });
+
+    const getRes = await request(app)
+      .get('/metal-orm-entity-users/3')
+      .expect(200);
+
+    expect(getRes.body.email).toBeNull();
+  });
+
+  it('should test search by email', async () => {
+    const app = buildMetalOrmEntityApp();
+
+    const searchRes = await request(app)
+      .get('/metal-orm-entity-users/search?email=alice@example.com')
+      .expect(200);
+
+    expect(searchRes.body).toHaveLength(1);
+    expect(searchRes.body[0].name).toBe('Alice');
+    expect(searchRes.body[0].email).toBe('alice@example.com');
+  });
+
+  it('should test search by name and email', async () => {
+    const app = buildMetalOrmEntityApp();
+
+    const searchRes = await request(app)
+      .get('/metal-orm-entity-users/search?name=Alice&email=alice@example.com')
+      .expect(200);
+
+    expect(searchRes.body).toHaveLength(1);
+    expect(searchRes.body[0].name).toBe('Alice');
+    expect(searchRes.body[0].email).toBe('alice@example.com');
+  });
+});
