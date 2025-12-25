@@ -9,6 +9,8 @@ import {
   EmptyResponse,
   defineEntityFields,
   entitySchemas,
+  parseEntityView,
+  parseEntityViewList,
   NotFoundError,
 } from '../../../src/index.js';
 import type { EntityPick, EntitySelection, InferSchema, TypedRequestContext } from '../../../src/index.js';
@@ -170,21 +172,16 @@ export class MetalOrmEntityUsersController {
     }
   }
 
-  private formatUser(user: Record<string, unknown>): UserDto {
-    const createdAtRaw = user.createdAt;
-    const createdAt =
-      createdAtRaw instanceof Date
-        ? createdAtRaw.toISOString()
-        : typeof createdAtRaw === 'string'
-          ? createdAtRaw
-          : new Date().toISOString();
-
-    return {
-      id: typeof user.id === 'number' ? user.id : Number(user.id ?? 0),
-      name: typeof user.name === 'string' ? user.name : '',
-      email: typeof user.email === 'string' ? user.email : null,
-      createdAt,
-    };
+  private async fetchUserById(session: OrmSession, id: number | string): Promise<UserDto> {
+    const rows = await selectFromEntity(User)
+      .select(this.columnSelection)
+      .where(eq(this.table.columns.id, id))
+      .execute(session);
+    const row = rows[0];
+    if (!row) {
+      throw new NotFoundError('User not found');
+    }
+    return parseEntityView(userView, row);
   }
 
   private buildSearchCondition(input: Record<string, unknown>): ExpressionNode | undefined {
@@ -211,7 +208,7 @@ export class MetalOrmEntityUsersController {
         .select(this.columnSelection)
         .orderBy(this.table.columns.id, 'ASC')
         .execute(session);
-      return rows.map((row) => this.formatUser(row as Record<string, unknown>));
+      return parseEntityViewList(userView, rows);
     });
   }
 
@@ -246,7 +243,7 @@ export class MetalOrmEntityUsersController {
         queryBuilder = queryBuilder.where(condition);
       }
       const rows = await queryBuilder.execute(session);
-      return rows.map((row) => this.formatUser(row as Record<string, unknown>));
+      return parseEntityViewList(userView, rows);
     });
   }
 
@@ -259,11 +256,7 @@ export class MetalOrmEntityUsersController {
     await this.ready;
     const { id } = ctx.input.params;
     return this.withSession(async (session) => {
-      const user = await session.find(User, id);
-      if (!user) {
-        throw new NotFoundError('User not found');
-      }
-      return this.formatUser(user as unknown as Record<string, unknown>);
+      return this.fetchUserById(session, id);
     });
   }
 
@@ -281,7 +274,11 @@ export class MetalOrmEntityUsersController {
       user.email = body.email ?? null;
       await session.persist(user);
       await session.commit();
-      return this.formatUser(user as unknown as Record<string, unknown>);
+      const persistedId = (user as unknown as { id?: number | string }).id;
+      if (persistedId === undefined || persistedId === null) {
+        throw new NotFoundError('User not found');
+      }
+      return this.fetchUserById(session, persistedId as number | string);
     });
   }
 
@@ -307,7 +304,7 @@ export class MetalOrmEntityUsersController {
         user.email = body.email;
       }
       await session.commit();
-      return this.formatUser(user as unknown as Record<string, unknown>);
+      return this.fetchUserById(session, id);
     });
   }
 

@@ -115,6 +115,38 @@ export type EntitySchemaAggregates = {
   count: (id?: string) => SchemaRef;
 };
 
+export type SafeParseResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: z.ZodError };
+
+export function parseEntityView<T extends object, K extends readonly (keyof T)[]>(
+  view: EntitySchemaView<T, K>,
+  input: unknown,
+): EntitySelection<T, K> {
+  return view.responseSchema.parse(input) as EntitySelection<T, K>;
+}
+
+export function parseEntityViewList<T extends object, K extends readonly (keyof T)[]>(
+  view: EntitySchemaView<T, K>,
+  input: unknown,
+): Array<EntitySelection<T, K>> {
+  return view.listSchema.parse(input) as Array<EntitySelection<T, K>>;
+}
+
+export function safeParseEntityView<T extends object, K extends readonly (keyof T)[]>(
+  view: EntitySchemaView<T, K>,
+  input: unknown,
+): SafeParseResult<EntitySelection<T, K>> {
+  return view.responseSchema.safeParse(input) as SafeParseResult<EntitySelection<T, K>>;
+}
+
+export function safeParseEntityViewList<T extends object, K extends readonly (keyof T)[]>(
+  view: EntitySchemaView<T, K>,
+  input: unknown,
+): SafeParseResult<Array<EntitySelection<T, K>>> {
+  return view.listSchema.safeParse(input) as SafeParseResult<Array<EntitySelection<T, K>>>;
+}
+
 export type EntitySchemas<T extends object> = {
   table: TableDef;
   entityName: string;

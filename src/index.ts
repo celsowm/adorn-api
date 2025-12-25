@@ -32,6 +32,10 @@ export {
   defineEntityFields,
   entitySchemas,
   fieldsOf,
+  parseEntityView,
+  parseEntityViewList,
+  safeParseEntityView,
+  safeParseEntityViewList,
 } from './integrations/metal-orm/index.js';
 export type {
   CrudSchemaOptions,
@@ -39,6 +43,7 @@ export type {
   EntitySelection,
   EntityPick,
   EntitySchemas,
+  SafeParseResult,
   EntitySchemaOptions,
   EntitySchemaOverrides,
   EntitySchemaView,
