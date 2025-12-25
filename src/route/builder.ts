@@ -60,7 +60,7 @@ export class RouteBuilder<
   include(allowed: string[] | { allowed: string[]; maxDepth?: number }) {
     const policy: IncludePolicy = Array.isArray(allowed)
       ? { allowed }
-      : { allowed: allowed.allowed, maxDepth: allowed.maxDepth };
+      : Object.assign({ allowed: allowed.allowed }, allowed.maxDepth !== undefined ? { maxDepth: allowed.maxDepth } : {});
     this.includePolicy = policy;
     return this;
   }
@@ -130,11 +130,11 @@ export class RouteBuilder<
     }
 
     const opts: RouteOptions = {
-      params: this.paramsRef,
+      ...(this.paramsRef !== undefined ? { params: this.paramsRef } : {}),
       query: this.queryRef,
-      body: this.bodyRef,
+      ...(this.bodyRef !== undefined ? { body: this.bodyRef } : {}),
       response: this.responseRef,
-      includePolicy: this.includePolicy,
+      ...(this.includePolicy !== undefined ? { includePolicy: this.includePolicy } : {}),
     };
 
     return { method: this.method, path: this.path, opts } as any;

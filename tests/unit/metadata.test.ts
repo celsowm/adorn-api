@@ -4,7 +4,7 @@ import { ensureDecoratorMetadata } from '../../src/runtime/metadataPolyfill.js';
 describe('decorator metadata polyfill', () => {
   it('Symbol.metadata exists', () => {
     ensureDecoratorMetadata();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     expect((Symbol as any).metadata).toBeTruthy();
   });
 
@@ -23,7 +23,7 @@ describe('decorator metadata polyfill', () => {
     @Deco()
     class A {}
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const md = (A as any)[(Symbol as any).metadata] as any;
     expect(md[KEY]).toBe(123);
   });
