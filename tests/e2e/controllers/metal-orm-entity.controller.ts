@@ -5,10 +5,11 @@ import {
   Post,
   Put,
   Delete,
-  named,
-  p,
   EmptyQuery,
   EmptyResponse,
+  buildColumnSelection,
+  createCrudSchemaIds,
+  createMetalOrmZodSchemas,
 } from '../../../src/index.js';
 import type { RequestContext } from '../../../src/index.js';
 import {
@@ -29,49 +30,6 @@ import {
 import type { TableDef, ColumnDef, ExpressionNode, OrmSession } from 'metal-orm';
 import sqlite3 from 'sqlite3';
 import { SqlitePromiseClient } from './helpers/sqlite-client.js';
-
-const userSchema = z.object({
-  id: z.number().int(),
-  name: z.string(),
-  email: z.string().email().nullable(),
-  createdAt: z.string(),
-});
-
-const UserResponse = named('MetalOrmEntityUserResponse', userSchema);
-const UserListResponse = named('MetalOrmEntityUserListResponse', z.array(userSchema));
-const CountResponse = named('MetalOrmEntityUserCountResponse', z.object({ count: z.number().int() }));
-const UserParams = named('MetalOrmEntityUserParams', z.object({ id: p.int() }));
-const CreateUserBody = named(
-  'MetalOrmEntityCreateUserBody',
-  z.object({
-    name: z.string().min(1),
-    email: z.string().email().optional(),
-  }),
-);
-const UpdateUserBody = named(
-  'MetalOrmEntityUpdateUserBody',
-  z.object({
-    name: z.string().min(1).optional(),
-    email: z.string().email().optional().nullable(),
-  }),
-);
-const SearchQuery = named(
-  'MetalOrmEntityUserSearchQuery',
-  z
-    .object({
-      name: z.string().min(1).optional(),
-      email: z.string().email().optional(),
-    })
-    .passthrough(),
-);
-
-type UserDto = {
-  id: number;
-  name: string;
-  email: string | null;
-  createdAt: string;
-};
-
 @Entity({
   hooks: {
     beforeInsert(_ctx, entity) {
@@ -109,6 +67,51 @@ class User {
 
 bootstrapEntities();
 
+const rawUserTable = getTableDefFromEntity(User);
+if (!rawUserTable) {
+  throw new Error('User table metadata is not available');
+}
+const userTable = rawUserTable;
+
+const userSelectFields = ['id', 'name', 'email', 'createdAt'] as const;
+const userWriteFields = ['name', 'email'] as const;
+const userSearchFields = ['name', 'email'] as const;
+const userColumnSelection = buildColumnSelection(userTable, userSelectFields);
+
+const userSchemaIds = createCrudSchemaIds('MetalOrmEntity', 'User');
+const userSchemas = createMetalOrmZodSchemas({
+  ids: userSchemaIds,
+  table: userTable,
+  select: userSelectFields,
+  create: userWriteFields,
+  update: userWriteFields,
+  search: userSearchFields,
+  overrides: {
+    all: {
+      email: z.string().email(),
+    },
+    query: {
+      name: z.string().min(1),
+    },
+  },
+  queryPassthrough: true,
+});
+
+const UserResponse = userSchemas.response;
+const UserListResponse = userSchemas.list;
+const CountResponse = userSchemas.count;
+const UserParams = userSchemas.params;
+const CreateUserBody = userSchemas.createBody;
+const UpdateUserBody = userSchemas.updateBody;
+const SearchQuery = userSchemas.search;
+
+type UserDto = {
+  id: number;
+  name: string;
+  email: string | null;
+  createdAt: string;
+};
+
 @Controller('/metal-orm-entity-users')
 export class MetalOrmEntityUsersController {
   private readonly db: sqlite3.Database;
@@ -117,7 +120,7 @@ export class MetalOrmEntityUsersController {
   protected readonly ready: Promise<void>;
   private readonly table: TableDef;
   private readonly columnSelection: Record<string, ColumnDef>;
-  private readonly searchFields = ['name', 'email'];
+  private readonly searchFields = userSearchFields;
 
   constructor() {
     this.db = new sqlite3.Database(':memory:');
@@ -132,17 +135,8 @@ export class MetalOrmEntityUsersController {
       },
     });
 
-    const table = getTableDefFromEntity(User);
-    if (!table) {
-      throw new Error('User table metadata is not available');
-    }
-    this.table = table;
-    this.columnSelection = {
-      id: table.columns.id,
-      name: table.columns.name,
-      email: table.columns.email,
-      createdAt: table.columns.createdAt,
-    };
+    this.table = userTable;
+    this.columnSelection = userColumnSelection;
     this.ready = this.init();
   }
 

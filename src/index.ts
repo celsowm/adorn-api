@@ -23,3 +23,14 @@ export type { OpenApi31, OpenApiOptions } from './openapi/generate.js';
 
 export { MetalOrmCrudController, MetalOrmCrudBase, zodSchemaProvider } from './integrations/metal-orm/index.js';
 export type { MetalOrmCrudOptions, SchemaProvider } from './integrations/metal-orm/index.js';
+export {
+  buildColumnSelection,
+  createCrudSchemaIds,
+  createMetalOrmZodSchemas,
+} from './integrations/metal-orm/index.js';
+export type {
+  CrudSchemaOptions,
+  CrudSchemaOverrides,
+  CrudSchemaIds,
+  CrudZodSchemas,
+} from './integrations/metal-orm/index.js';
