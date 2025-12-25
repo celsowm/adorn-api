@@ -9,20 +9,79 @@ import {
   col,
   selectFromEntity,
   entityRef,
-  insertInto,
-  update,
-  deleteFrom,
-  count,
   and,
   eq,
+  Orm,
+  type OrmSession,
   SqliteDialect,
-  getTableDefFromEntity
+  createSqliteExecutor,
+  type SqliteClientLike
 } from 'metal-orm';
 import sqlite3 from 'sqlite3';
 
 ensureDecoratorMetadata();
 
-@Entity()
+class SqlitePromiseClient implements SqliteClientLike {
+  constructor(private readonly db: sqlite3.Database) {}
+
+  all(sql: string, params: unknown[] = []): Promise<Array<Record<string, unknown>>> {
+    return new Promise((resolve, reject) => {
+      this.db.all(sql, params, (err, rows) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(rows as Array<Record<string, unknown>>);
+      });
+    });
+  }
+
+  run(sql: string, params: unknown[] = []): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.db.run(sql, params, (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
+  }
+
+  async beginTransaction(): Promise<void> {
+    await this.run('BEGIN');
+  }
+
+  async commitTransaction(): Promise<void> {
+    await this.run('COMMIT');
+  }
+
+  async rollbackTransaction(): Promise<void> {
+    await this.run('ROLLBACK');
+  }
+}
+
+@Entity({
+  hooks: {
+    beforeInsert(_ctx, entity) {
+      const user = entity as User;
+      user.name = user.name.trim();
+      if (user.email) {
+        user.email = user.email.toLowerCase();
+      }
+      if (!user.createdAt) {
+        user.createdAt = new Date().toISOString();
+      }
+    },
+    beforeUpdate(_ctx, entity) {
+      const user = entity as User;
+      user.name = user.name.trim();
+      if (user.email) {
+        user.email = user.email.toLowerCase();
+      }
+    }
+  }
+})
 class User {
   @PrimaryKey(col.autoIncrement(col.int()))
   id!: number;
@@ -37,50 +96,51 @@ class User {
   createdAt?: string | null;
 }
 
-const Level3UserResponse = named('Level3UserResponse', z.object({
+const UserResponse = named('UserResponse', z.object({
   id: z.number().int(),
   name: z.string(),
   email: z.string().nullable().optional(),
   createdAt: z.string().nullable().optional()
 }));
-const Level3UserListResponse = named('Level3UserListResponse', z.array(Level3UserResponse.schema));
-const Level3UserCountResponse = named('Level3UserCountResponse', z.object({ count: z.number().int() }));
+const UserListResponse = named('UserListResponse', z.array(UserResponse.schema));
+const UserCountResponse = named('UserCountResponse', z.object({ count: z.number().int() }));
 
-const Level3CreateUserBody = named('Level3CreateUserBody', z.object({
+const CreateUserBody = named('CreateUserBody', z.object({
   name: z.string().min(1),
   email: z.string().email().optional()
 }));
 
-const Level3UpdateUserBody = named('Level3UpdateUserBody', z.object({
+const UpdateUserBody = named('UpdateUserBody', z.object({
   name: z.string().min(1),
   email: z.string().email().optional()
 }));
 
-const Level3UserSearchQuery = named('Level3UserSearchQuery', z.object({
+const UserSearchQuery = named('UserSearchQuery', z.object({
   name: z.string().optional(),
   email: z.string().optional()
 }));
 
-const Level3UserParams = named('Level3UserParams', z.object({ id: p.int() }));
+const UserParams = named('UserParams', z.object({ id: p.int() }));
 
-const getUsersTable = () => {
-  const table = getTableDefFromEntity(User);
-  if (!table) {
-    throw new Error('User entity metadata is not registered');
-  }
-  return table;
-};
-
-@Controller('/metal-orm-level3-users')
-export class MetalOrmLevel3UsersController {
+@Controller('/metal-orm-decorator-users')
+export class MetalOrmDecoratorUsersController {
   private readonly db: sqlite3.Database;
-  private readonly dialect: SqliteDialect;
+  private readonly orm: Orm;
   private readonly ready: Promise<void>;
-  private readonly usersTable = getUsersTable();
+  private readonly sqliteClient: SqlitePromiseClient;
 
   constructor() {
     this.db = new sqlite3.Database(':memory:');
-    this.dialect = new SqliteDialect();
+    this.sqliteClient = new SqlitePromiseClient(this.db);
+    const dialect = new SqliteDialect();
+    this.orm = new Orm({
+      dialect,
+      executorFactory: {
+        createExecutor: () => createSqliteExecutor(this.sqliteClient),
+        createTransactionalExecutor: () => createSqliteExecutor(this.sqliteClient),
+        dispose: async () => {}
+      },
+    });
     this.ready = this.init();
   }
 
@@ -94,275 +154,217 @@ export class MetalOrmLevel3UsersController {
       )
     `);
 
-    const now = new Date().toISOString();
-    const seedStmt = insertInto(this.usersTable)
-      .values([
-        { name: 'Alice', email: 'alice@example.com', createdAt: now },
-        { name: 'Bob', email: 'bob@example.com', createdAt: now }
-      ])
-      .compile(this.dialect);
+    await this.withSession(async (session) => {
+      const alice = new User();
+      alice.name = 'Alice';
+      alice.email = 'alice@example.com';
 
-    await this.runSql(seedStmt.sql, seedStmt.params ?? []);
+      const bob = new User();
+      bob.name = 'Bob';
+      bob.email = 'bob@example.com';
+
+      await session.persist(alice);
+      await session.persist(bob);
+      await session.commit();
+    });
   }
 
   private runSql(sql: string, params: unknown[] = []): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db.run(sql, params, (err) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve();
-      });
-    });
+    return this.sqliteClient.run(sql, params);
   }
 
-  private getRow<T>(sql: string, params: unknown[] = []): Promise<T | undefined> {
-    return new Promise((resolve, reject) => {
-      this.db.get(sql, params, (err, row) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(row as T | undefined);
-      });
-    });
-  }
-
-  private allRows<T>(sql: string, params: unknown[] = []): Promise<Array<T>> {
-    return new Promise((resolve, reject) => {
-      this.db.all(sql, params, (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(rows as Array<T>);
-      });
-    });
+  private async withSession<T>(fn: (session: OrmSession) => Promise<T>): Promise<T> {
+    const session = this.orm.createSession();
+    try {
+      return await fn(session);
+    } finally {
+      await session.dispose();
+    }
   }
 
   @Get('/', {
     query: EmptyQuery,
-    response: Level3UserListResponse,
+    response: UserListResponse,
   })
   async listUsers(_ctx: RequestContext): Promise<Array<{ id: number; name: string; email?: string | null; createdAt?: string | null }>> {
     await this.ready;
-    const u = entityRef(User);
+    return this.withSession(async (session) => {
+      const u = entityRef(User);
+      const users = await selectFromEntity(User)
+        .select('id', 'name', 'email', 'createdAt')
+        .orderBy(u.id, 'ASC')
+        .execute(session);
 
-    const query = selectFromEntity(User)
-      .select('id', 'name', 'email', 'createdAt')
-      .orderBy(u.id, 'ASC');
-
-    const compiled = query.compile(this.dialect);
-    const rows = await this.allRows<{
-      id: number;
-      name: string;
-      email?: string | null;
-      createdAt?: string | null;
-    }>(compiled.sql, compiled.params ?? []);
-
-    return rows;
+      return users.map((user) => ({
+        id: typeof user.id === 'number' ? user.id : Number(user.id),
+        name: user.name,
+        email: user.email ?? null,
+        createdAt: user.createdAt ?? null,
+      }));
+    });
   }
 
   @Get('/count', {
     query: EmptyQuery,
-    response: Level3UserCountResponse,
+    response: UserCountResponse,
   })
   async countUsers(_ctx: RequestContext): Promise<{ count: number }> {
     await this.ready;
-    const u = entityRef(User);
-
-    const query = selectFromEntity(User)
-      .select({ count: count(u.id) });
-
-    const compiled = query.compile(this.dialect);
-    const result = await this.getRow<{ count: number }>(compiled.sql, compiled.params ?? []);
-
-    return { count: result?.count ?? 0 };
+    return this.withSession(async (session) => {
+      const total = await selectFromEntity(User)
+        .select('id')
+        .count(session);
+      return { count: total };
+    });
   }
 
   @Get('/search', {
-    query: Level3UserSearchQuery,
-    response: Level3UserListResponse,
+    query: UserSearchQuery,
+    response: UserListResponse,
   })
   async searchUsers(ctx: RequestContext): Promise<Array<{ id: number; name: string; email?: string | null; createdAt?: string | null }>> {
     const { name, email } = ctx.input.query as { name?: string; email?: string };
     await this.ready;
-    const u = entityRef(User);
+    return this.withSession(async (session) => {
+      const u = entityRef(User);
 
-    let query = selectFromEntity(User)
-      .select('id', 'name', 'email', 'createdAt');
+      let query = selectFromEntity(User)
+        .select('id', 'name', 'email', 'createdAt');
 
-    if (name) {
-      query = query.where(eq(u.$.name, name));
-    }
+      if (name) {
+        query = query.where(eq(u.$.name, name));
+      }
 
-    if (email) {
-      const condition = name ? and(eq(u.$.name, name), eq(u.email, email)) : eq(u.email, email);
-      query = query.where(condition);
-    }
+      if (email) {
+        const condition = name ? and(eq(u.$.name, name), eq(u.email, email)) : eq(u.email, email);
+        query = query.where(condition);
+      }
 
-    const compiled = query.compile(this.dialect);
-    const rows = await this.allRows<{
-      id: number;
-      name: string;
-      email?: string | null;
-      createdAt?: string | null;
-    }>(compiled.sql, compiled.params ?? []);
-
-    return rows;
+      const users = await query.execute(session);
+      return users.map((user) => ({
+        id: typeof user.id === 'number' ? user.id : Number(user.id),
+        name: user.name,
+        email: user.email ?? null,
+        createdAt: user.createdAt ?? null,
+      }));
+    });
   }
 
   @Get('/{id}', {
-    params: Level3UserParams,
+    params: UserParams,
     query: EmptyQuery,
-    response: Level3UserResponse,
+    response: UserResponse,
   })
   async getUser(ctx: RequestContext): Promise<{ id: number; name: string; email?: string | null; createdAt?: string | null }> {
     const { id } = ctx.input.params as { id: number };
     await this.ready;
-    const u = entityRef(User);
+    return this.withSession(async (session) => {
+      const u = entityRef(User);
+      const users = await selectFromEntity(User)
+        .select('id', 'name', 'email', 'createdAt')
+        .where(eq(u.id, id))
+        .execute(session);
 
-    const query = selectFromEntity(User)
-      .select('id', 'name', 'email', 'createdAt')
-      .where(eq(u.id, id));
+      const user = users[0];
+      if (!user) {
+        throw new Error('User not found');
+      }
 
-    const compiled = query.compile(this.dialect);
-    const row = await this.getRow<{
-      id: number;
-      name: string;
-      email?: string | null;
-      createdAt?: string | null;
-    }>(compiled.sql, compiled.params ?? []);
-
-    if (!row) {
-      throw new Error('User not found');
-    }
-
-    return row;
+      return {
+        id: typeof user.id === 'number' ? user.id : Number(user.id),
+        name: user.name,
+        email: user.email ?? null,
+        createdAt: user.createdAt ?? null,
+      };
+    });
   }
 
   @Post('/', {
     query: EmptyQuery,
-    body: Level3CreateUserBody,
-    response: Level3UserResponse,
+    body: CreateUserBody,
+    response: UserResponse,
   })
   async createUser(ctx: RequestContext): Promise<{ id: number; name: string; email?: string | null; createdAt?: string | null }> {
     const { name, email } = ctx.input.body as { name: string; email?: string };
     await this.ready;
+    return this.withSession(async (session) => {
+      const user = new User();
+      user.name = name;
+      if (email !== undefined) {
+        user.email = email;
+      }
+      await session.persist(user);
+      await session.commit();
 
-    const createdAt = new Date().toISOString();
-    const insertStmt = insertInto(this.usersTable)
-      .values({ name, email: email || null, createdAt })
-      .returning(
-        this.usersTable.columns.id,
-        this.usersTable.columns.name,
-        this.usersTable.columns.email,
-        this.usersTable.columns.createdAt
-      )
-      .compile(this.dialect);
-
-    const result = await this.getRow<{
-      id: number;
-      name: string;
-      email: string | null;
-      createdAt: string;
-    }>(insertStmt.sql, insertStmt.params ?? []);
-
-    if (!result) {
-      throw new Error('Failed to create user');
-    }
-
-    return {
-      id: result.id,
-      name: result.name,
-      email: result.email,
-      createdAt: result.createdAt
-    };
+      return {
+        id: typeof user.id === 'number' ? user.id : Number(user.id),
+        name: user.name,
+        email: user.email ?? null,
+        createdAt: user.createdAt ?? null,
+      };
+    });
   }
 
   @Put('/{id}', {
-    params: Level3UserParams,
+    params: UserParams,
     query: EmptyQuery,
-    body: Level3UpdateUserBody,
-    response: Level3UserResponse,
+    body: UpdateUserBody,
+    response: UserResponse,
   })
   async updateUser(ctx: RequestContext): Promise<{ id: number; name: string; email?: string | null; createdAt?: string | null }> {
     const { id } = ctx.input.params as { id: number };
     const { name, email } = ctx.input.body as { name: string; email?: string };
     await this.ready;
-    const u = entityRef(User);
+    return this.withSession(async (session) => {
+      const u = entityRef(User);
+      const users = await selectFromEntity(User)
+        .select('id', 'name', 'email', 'createdAt')
+        .where(eq(u.id, id))
+        .execute(session);
 
-    const existsQuery = selectFromEntity(User)
-      .select({ count: count(u.id) })
-      .where(eq(u.id, id))
-      .compile(this.dialect);
+      const user = users[0];
+      if (!user) {
+        throw new Error('User not found');
+      }
 
-    const existsResult = await this.getRow<{ count: number }>(
-      existsQuery.sql,
-      existsQuery.params ?? [],
-    );
-    if (!existsResult || existsResult.count === 0) {
-      throw new Error('User not found');
-    }
+      user.name = name;
+      if (email !== undefined) {
+        user.email = email;
+      }
 
-    const updateStmt = update(this.usersTable)
-      .set({ name, email: email || null })
-      .where(eq(u.id, id))
-      .returning(
-        this.usersTable.columns.id,
-        this.usersTable.columns.name,
-        this.usersTable.columns.email,
-        this.usersTable.columns.createdAt
-      )
-      .compile(this.dialect);
+      await session.commit();
 
-    const result = await this.getRow<{
-      id: number;
-      name: string;
-      email: string | null;
-      createdAt: string;
-    }>(updateStmt.sql, updateStmt.params ?? []);
-
-    if (!result) {
-      throw new Error('Failed to update user');
-    }
-
-    return {
-      id: result.id,
-      name: result.name,
-      email: result.email,
-      createdAt: result.createdAt
-    };
+      return {
+        id: typeof user.id === 'number' ? user.id : Number(user.id),
+        name: user.name,
+        email: user.email ?? null,
+        createdAt: user.createdAt ?? null,
+      };
+    });
   }
 
   @Delete('/{id}', {
-    params: Level3UserParams,
+    params: UserParams,
     query: EmptyQuery,
     response: EmptyResponse,
   })
   async deleteUser(ctx: RequestContext): Promise<void> {
     const { id } = ctx.input.params as { id: number };
     await this.ready;
-    const u = entityRef(User);
+    await this.withSession(async (session) => {
+      const u = entityRef(User);
+      const users = await selectFromEntity(User)
+        .select('id', 'name', 'email', 'createdAt')
+        .where(eq(u.id, id))
+        .execute(session);
 
-    const existsQuery = selectFromEntity(User)
-      .select({ count: count(u.id) })
-      .where(eq(u.id, id))
-      .compile(this.dialect);
+      const user = users[0];
+      if (!user) {
+        throw new Error('User not found');
+      }
 
-    const existsResult = await this.getRow<{ count: number }>(
-      existsQuery.sql,
-      existsQuery.params ?? [],
-    );
-    if (!existsResult || existsResult.count === 0) {
-      throw new Error('User not found');
-    }
-
-    const deleteStmt = deleteFrom(this.usersTable)
-      .where(eq(u.id, id))
-      .compile(this.dialect);
-
-    await this.runSql(deleteStmt.sql, deleteStmt.params ?? []);
+      await session.remove(user);
+      await session.commit();
+    });
   }
 }

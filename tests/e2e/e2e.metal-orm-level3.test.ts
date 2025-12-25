@@ -2,15 +2,15 @@ import request from 'supertest';
 import { describe, it, expect } from 'vitest';
 import express from 'express';
 import { registerControllers } from '../../src/index.js';
-import { MetalOrmLevel3UsersController } from './controllers/metal-orm-level3.controller.js';
+import { MetalOrmDecoratorUsersController } from './controllers/metal-orm-level3.controller.js';
 
-function buildMetalOrmLevel3App() {
+function buildMetalOrmDecoratorApp() {
   const app = express();
   app.use(express.json());
 
-  const controller = new MetalOrmLevel3UsersController();
+  const controller = new MetalOrmDecoratorUsersController();
 
-  registerControllers(app, [MetalOrmLevel3UsersController], {
+  registerControllers(app, [MetalOrmDecoratorUsersController], {
     validateResponse: true,
     resolveController: () => controller,
   });
@@ -18,12 +18,12 @@ function buildMetalOrmLevel3App() {
   return app;
 }
 
-describe('metal-orm level 3 e2e with sqlite memory db', () => {
+describe('metal-orm decorator e2e with sqlite memory db', () => {
   it('should perform full CRUD operations using decorator entities', async () => {
-    const app = buildMetalOrmLevel3App();
+    const app = buildMetalOrmDecoratorApp();
 
     const postRes = await request(app)
-      .post('/metal-orm-level3-users')
+      .post('/metal-orm-decorator-users')
       .send({ name: 'Charlie', email: 'charlie@example.com' })
       .expect(200);
 
@@ -35,7 +35,7 @@ describe('metal-orm level 3 e2e with sqlite memory db', () => {
     });
 
     const getRes = await request(app)
-      .get('/metal-orm-level3-users/3')
+      .get('/metal-orm-decorator-users/3')
       .expect(200);
 
     expect(getRes.body).toEqual({
@@ -46,7 +46,7 @@ describe('metal-orm level 3 e2e with sqlite memory db', () => {
     });
 
     const listRes = await request(app)
-      .get('/metal-orm-level3-users')
+      .get('/metal-orm-decorator-users')
       .expect(200);
 
     expect(listRes.body).toHaveLength(3);
@@ -55,7 +55,7 @@ describe('metal-orm level 3 e2e with sqlite memory db', () => {
     expect(listRes.body[2].name).toBe('Charlie');
 
     const putRes = await request(app)
-      .put('/metal-orm-level3-users/3')
+      .put('/metal-orm-decorator-users/3')
       .send({ name: 'Charlotte', email: 'charlotte@example.com' })
       .expect(200);
 
@@ -67,44 +67,44 @@ describe('metal-orm level 3 e2e with sqlite memory db', () => {
     });
 
     const getUpdatedRes = await request(app)
-      .get('/metal-orm-level3-users/3')
+      .get('/metal-orm-decorator-users/3')
       .expect(200);
 
     expect(getUpdatedRes.body.name).toBe('Charlotte');
     expect(getUpdatedRes.body.email).toBe('charlotte@example.com');
 
     const countRes = await request(app)
-      .get('/metal-orm-level3-users/count')
+      .get('/metal-orm-decorator-users/count')
       .expect(200);
 
     expect(countRes.body).toEqual({ count: 3 });
 
     const searchRes = await request(app)
-      .get('/metal-orm-level3-users/search?name=Charlotte')
+      .get('/metal-orm-decorator-users/search?name=Charlotte')
       .expect(200);
 
     expect(searchRes.body).toHaveLength(1);
     expect(searchRes.body[0].name).toBe('Charlotte');
 
     await request(app)
-      .delete('/metal-orm-level3-users/3')
+      .delete('/metal-orm-decorator-users/3')
       .expect(204);
 
     await request(app)
-      .get('/metal-orm-level3-users/3')
+      .get('/metal-orm-decorator-users/3')
       .expect(500);
 
     const finalCountRes = await request(app)
-      .get('/metal-orm-level3-users/count')
+      .get('/metal-orm-decorator-users/count')
       .expect(200);
 
     expect(finalCountRes.body).toEqual({ count: 2 });
   });
 
   it('should return 400 for invalid body on POST', async () => {
-    const app = buildMetalOrmLevel3App();
+    const app = buildMetalOrmDecoratorApp();
     await request(app)
-      .post('/metal-orm-level3-users')
+      .post('/metal-orm-decorator-users')
       .send({ name: '' })
       .expect(400);
   });
