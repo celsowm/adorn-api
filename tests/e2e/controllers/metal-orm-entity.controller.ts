@@ -7,9 +7,7 @@ import {
   Delete,
   EmptyQuery,
   EmptyResponse,
-  buildColumnSelection,
-  createCrudSchemaIds,
-  createMetalOrmZodSchemas,
+  entitySchemas,
 } from '../../../src/index.js';
 import type { RequestContext, EntitySelection } from '../../../src/index.js';
 import {
@@ -23,7 +21,6 @@ import {
   count,
   eq,
   and,
-  getTableDefFromEntity,
   col,
   bootstrapEntities,
 } from 'metal-orm';
@@ -67,25 +64,8 @@ class User {
 
 bootstrapEntities();
 
-const rawUserTable = getTableDefFromEntity(User);
-if (!rawUserTable) {
-  throw new Error('User table metadata is not available');
-}
-const userTable = rawUserTable;
-
-const userSelectFields = ['id', 'name', 'email', 'createdAt'] as const;
-const userWriteFields = ['name', 'email'] as const;
-const userSearchFields = ['name', 'email'] as const;
-const userColumnSelection = buildColumnSelection(userTable, userSelectFields);
-
-const userSchemaIds = createCrudSchemaIds('MetalOrmEntity', 'User');
-const userSchemas = createMetalOrmZodSchemas({
-  ids: userSchemaIds,
-  table: userTable,
-  select: userSelectFields,
-  create: userWriteFields,
-  update: userWriteFields,
-  search: userSearchFields,
+const userSchemas = entitySchemas(User, {
+  idPrefix: 'MetalOrmEntity',
   overrides: {
     all: {
       email: z.string().email(),
@@ -94,18 +74,21 @@ const userSchemas = createMetalOrmZodSchemas({
       name: z.string().min(1),
     },
   },
-  queryPassthrough: true,
 });
 
-const UserResponse = userSchemas.response;
-const UserListResponse = userSchemas.list;
-const CountResponse = userSchemas.count;
-const UserParams = userSchemas.params;
-const CreateUserBody = userSchemas.createBody;
-const UpdateUserBody = userSchemas.updateBody;
-const SearchQuery = userSchemas.search;
+const userView = userSchemas.pick('id', 'name', 'email', 'createdAt');
+const userWrite = userSchemas.body('name', 'email');
+const userSearch = userSchemas.query('name', 'email');
 
-type UserDto = EntitySelection<User, typeof userSelectFields>;
+const UserResponse = userView.response();
+const UserListResponse = userView.list();
+const CountResponse = userSchemas.count();
+const UserParams = userSchemas.params();
+const CreateUserBody = userWrite.create();
+const UpdateUserBody = userWrite.partial().update();
+const SearchQuery = userSearch.schema();
+
+type UserDto = EntitySelection<User, typeof userView.fields>;
 
 @Controller('/metal-orm-entity-users')
 export class MetalOrmEntityUsersController {
@@ -115,7 +98,7 @@ export class MetalOrmEntityUsersController {
   protected readonly ready: Promise<void>;
   private readonly table: TableDef;
   private readonly columnSelection: Record<string, ColumnDef>;
-  private readonly searchFields = userSearchFields;
+  private readonly searchFields = userSearch.fields;
 
   constructor() {
     this.db = new sqlite3.Database(':memory:');
@@ -130,8 +113,8 @@ export class MetalOrmEntityUsersController {
       },
     });
 
-    this.table = userTable;
-    this.columnSelection = userColumnSelection;
+    this.table = userSchemas.table;
+    this.columnSelection = userView.selection;
     this.ready = this.init();
   }
 

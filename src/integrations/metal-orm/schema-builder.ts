@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { named, p, q, type SchemaRef } from '../../core/schema.js';
-import { normalizeColumnType } from 'metal-orm';
+import { getTableDefFromEntity, normalizeColumnType } from 'metal-orm';
 import type { ColumnDef, TableDef } from 'metal-orm';
 
 type ColumnOverrides = Record<string, z.ZodTypeAny>;
@@ -57,6 +57,68 @@ type OverrideSlot = keyof CrudSchemaOverrides;
 
 export type EntitySelection<T, K extends readonly (keyof T)[]> = {
   [P in K[number]]: Exclude<T[P], undefined>;
+};
+
+export function defineEntityFields<T>() {
+  return <K extends readonly (keyof T)[]>(...fields: K): K => fields;
+}
+
+export function fieldsOf<T>() {
+  return <K extends readonly (keyof T)[]>(...fields: K): K => fields;
+}
+
+export type EntitySchemaOverrides = Omit<CrudSchemaOverrides, 'create' | 'update'> & {
+  body?: ColumnOverrides;
+  create?: ColumnOverrides;
+  update?: ColumnOverrides;
+};
+
+export type EntitySchemaOptions = {
+  idPrefix?: string;
+  entityName?: string;
+  primaryKey?: string;
+  overrides?: EntitySchemaOverrides;
+  queryPassthrough?: boolean;
+};
+
+export type EntitySchemaView<T, K extends readonly (keyof T)[]> = {
+  fields: K;
+  selection: Record<string, ColumnDef>;
+  responseSchema: z.ZodObject<Record<string, z.ZodTypeAny>>;
+  listSchema: z.ZodArray<z.ZodTypeAny>;
+  response: (id?: string) => SchemaRef;
+  list: (id?: string) => SchemaRef;
+};
+
+export type EntitySchemaBody<T, K extends readonly (keyof T)[]> = {
+  fields: K;
+  zod: () => z.ZodTypeAny;
+  schema: (id?: string) => SchemaRef;
+  partial: () => EntitySchemaBody<T, K>;
+  array: () => EntitySchemaBody<T, K>;
+  create: (id?: string) => SchemaRef;
+  update: (id?: string) => SchemaRef;
+};
+
+export type EntitySchemaQuery<T, K extends readonly (keyof T)[]> = {
+  fields: K;
+  zod: () => z.ZodTypeAny;
+  schema: (id?: string) => SchemaRef;
+  passthrough: () => EntitySchemaQuery<T, K>;
+  strict: () => EntitySchemaQuery<T, K>;
+};
+
+export type EntitySchemas<T extends object> = {
+  table: TableDef;
+  entityName: string;
+  idPrefix: string;
+  baseId: string;
+  pick: <K extends readonly (keyof T)[]>(...fields: K) => EntitySchemaView<T, K>;
+  select: <K extends readonly (keyof T)[]>(...fields: K) => EntitySchemaView<T, K>;
+  params: <K extends readonly (keyof T)[]>(...fields: K) => SchemaRef;
+  body: <K extends readonly (keyof T)[]>(...fields: K) => EntitySchemaBody<T, K>;
+  query: <K extends readonly (keyof T)[]>(...fields: K) => EntitySchemaQuery<T, K>;
+  count: (id?: string) => SchemaRef;
 };
 
 export function createCrudSchemaIds(prefix: string, entityName: string): CrudSchemaIds {
@@ -151,6 +213,108 @@ export function createMetalOrmZodSchemas(options: CrudSchemaOptions): CrudZodSch
     createBody: named(options.ids.createBody, createBodySchema),
     updateBody: named(options.ids.updateBody, updateBodySchema),
     search: named(options.ids.search, searchSchema),
+  };
+}
+
+type EntityConstructor<T extends object = object> = new (...args: never[]) => T;
+
+export function entitySchemas<T extends object>(
+  target: EntityConstructor<T> | TableDef,
+  options: EntitySchemaOptions = {},
+): EntitySchemas<T> {
+  const table = resolveTargetTable(target);
+  const entityName = options.entityName ?? resolveEntityName(target, table);
+  const idPrefix = options.idPrefix ?? '';
+  const baseId = `${idPrefix}${entityName}`;
+  const overrides = options.overrides;
+  const primaryKey = options.primaryKey ?? findPrimaryKey(table);
+  const queryPassthrough = options.queryPassthrough ?? true;
+
+  const responseId = `${baseId}Response`;
+  const listId = `${baseId}ListResponse`;
+  const countId = `${baseId}CountResponse`;
+  const paramsId = `${baseId}Params`;
+  const bodyId = `${baseId}Body`;
+  const createBodyId = `${idPrefix}Create${entityName}Body`;
+  const updateBodyId = `${idPrefix}Update${entityName}Body`;
+  const searchId = `${baseId}SearchQuery`;
+
+  const countSchema = z.object({ count: z.number().int() });
+
+  const makeView = <K extends readonly (keyof T)[]>(fields: K): EntitySchemaView<T, K> => {
+    const fieldNames = fields as readonly string[];
+    const selection = buildColumnSelection(table, fieldNames);
+    const responseSchema = buildResponseSchema(table, fieldNames, overrides);
+    const listSchema = z.array(responseSchema);
+    return {
+      fields,
+      selection,
+      responseSchema,
+      listSchema,
+      response: (id = responseId) => named(id, responseSchema),
+      list: (id = listId) => named(id, listSchema),
+    };
+  };
+
+  const makeBody = <K extends readonly (keyof T)[]>(
+    fields: K,
+    config: { partial: boolean; array: boolean },
+  ): EntitySchemaBody<T, K> => {
+    const fieldNames = fields as readonly string[];
+    const objectSchema = buildBodySchema(table, fieldNames, overrides, config.partial);
+    const schema = config.array ? z.array(objectSchema) : objectSchema;
+    return {
+      fields,
+      zod: () => schema,
+      schema: (id = bodyId) => named(id, schema),
+      create: (id = createBodyId) => named(id, schema),
+      update: (id = updateBodyId) =>
+        makeBody(fields, { partial: true, array: config.array }).schema(id),
+      partial: () => makeBody(fields, { partial: true, array: config.array }),
+      array: () => makeBody(fields, { partial: config.partial, array: true }),
+    };
+  };
+
+  const makeQuery = <K extends readonly (keyof T)[]>(
+    fields: K,
+    passthrough: boolean,
+  ): EntitySchemaQuery<T, K> => {
+    const fieldNames = fields as readonly string[];
+    const objectSchema = buildQuerySchema(table, fieldNames, overrides, passthrough);
+    return {
+      fields,
+      zod: () => objectSchema,
+      schema: (id = searchId) => named(id, objectSchema),
+      passthrough: () => makeQuery(fields, true),
+      strict: () => makeQuery(fields, false),
+    };
+  };
+
+  const params = <K extends readonly (keyof T)[]>(...fields: K): SchemaRef => {
+    const resolved = (fields.length ? fields : [primaryKey]) as readonly (keyof T)[];
+    const fieldNames = resolved as readonly string[];
+    const schema = buildParamsSchema(table, fieldNames, overrides);
+    return named(paramsId, schema);
+  };
+
+  const pick = <K extends readonly (keyof T)[]>(...fields: K): EntitySchemaView<T, K> =>
+    makeView(fields);
+  const body = <K extends readonly (keyof T)[]>(...fields: K): EntitySchemaBody<T, K> =>
+    makeBody(fields, { partial: false, array: false });
+  const query = <K extends readonly (keyof T)[]>(...fields: K): EntitySchemaQuery<T, K> =>
+    makeQuery(fields, queryPassthrough);
+
+  return {
+    table,
+    entityName,
+    idPrefix,
+    baseId,
+    pick,
+    select: pick,
+    params,
+    body,
+    query,
+    count: (id = countId) => named(id, countSchema),
   };
 }
 
@@ -256,4 +420,107 @@ function baseScalarSchema(normalized: string): z.ZodTypeAny {
 
 function isTextType(normalized: string): boolean {
   return normalized === 'varchar' || normalized === 'text';
+}
+
+type EntityOverrideSlot = 'params' | 'query' | 'body' | 'response';
+
+function resolveEntitySchema(
+  slot: EntityOverrideSlot,
+  field: string,
+  overrides: EntitySchemaOverrides | undefined,
+  fallback: () => z.ZodTypeAny,
+): z.ZodTypeAny {
+  let override = overrides?.[slot]?.[field] ?? overrides?.all?.[field];
+  if (!override && slot === 'body') {
+    override = overrides?.create?.[field] ?? overrides?.update?.[field];
+  }
+  return override ?? fallback();
+}
+
+function buildResponseSchema(
+  table: TableDef,
+  fields: readonly string[],
+  overrides: EntitySchemaOverrides | undefined,
+): z.ZodObject<Record<string, z.ZodTypeAny>> {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const field of fields) {
+    const column = getColumn(table, field);
+    const base = resolveEntitySchema('response', field, overrides, () => baseResponseSchema(column));
+    shape[field] = column.notNull ? base : base.nullable();
+  }
+  return z.object(shape);
+}
+
+function buildBodySchema(
+  table: TableDef,
+  fields: readonly string[],
+  overrides: EntitySchemaOverrides | undefined,
+  partial: boolean,
+): z.ZodObject<Record<string, z.ZodTypeAny>> {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const field of fields) {
+    const column = getColumn(table, field);
+    const base = resolveEntitySchema('body', field, overrides, () => baseBodySchema(column));
+    if (partial) {
+      shape[field] = column.notNull ? base.optional() : base.nullable().optional();
+    } else {
+      shape[field] = column.notNull ? base : base.optional();
+    }
+  }
+  return z.object(shape);
+}
+
+function buildQuerySchema(
+  table: TableDef,
+  fields: readonly string[],
+  overrides: EntitySchemaOverrides | undefined,
+  passthrough: boolean,
+): z.ZodObject<Record<string, z.ZodTypeAny>> {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const field of fields) {
+    const column = getColumn(table, field);
+    const base = resolveEntitySchema('query', field, overrides, () => baseQuerySchema(column));
+    shape[field] = base.optional();
+  }
+  const schema = z.object(shape);
+  return passthrough ? schema.passthrough() : schema;
+}
+
+function buildParamsSchema(
+  table: TableDef,
+  fields: readonly string[],
+  overrides: EntitySchemaOverrides | undefined,
+): z.ZodObject<Record<string, z.ZodTypeAny>> {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const field of fields) {
+    const column = getColumn(table, field);
+    shape[field] = resolveEntitySchema('params', field, overrides, () => baseParamSchema(column));
+  }
+  return z.object(shape);
+}
+
+function isTableDef(target: unknown): target is TableDef {
+  return typeof target === 'object' && target !== null && 'columns' in target && 'name' in target;
+}
+
+function resolveTargetTable<T extends object>(target: EntityConstructor<T> | TableDef): TableDef {
+  if (isTableDef(target)) return target;
+  const table = getTableDefFromEntity(target);
+  if (!table) {
+    throw new Error(`Entity '${target.name}' is not registered with metal-orm decorators`);
+  }
+  return table;
+}
+
+function resolveEntityName<T extends object>(target: EntityConstructor<T> | TableDef, table: TableDef): string {
+  if (!isTableDef(target)) return target.name;
+  return table.name;
+}
+
+function findPrimaryKey(table: TableDef): string {
+  if (Array.isArray(table.primaryKey) && table.primaryKey.length) {
+    return table.primaryKey[0]!;
+  }
+  const pk = Object.values(table.columns).find((col) => col.primary);
+  return pk?.name ?? 'id';
 }

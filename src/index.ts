@@ -27,11 +27,20 @@ export {
   buildColumnSelection,
   createCrudSchemaIds,
   createMetalOrmZodSchemas,
+  defineEntityFields,
+  entitySchemas,
+  fieldsOf,
 } from './integrations/metal-orm/index.js';
 export type {
   CrudSchemaOptions,
   CrudSchemaOverrides,
   EntitySelection,
+  EntitySchemas,
+  EntitySchemaOptions,
+  EntitySchemaOverrides,
+  EntitySchemaView,
+  EntitySchemaBody,
+  EntitySchemaQuery,
   CrudSchemaIds,
   CrudZodSchemas,
 } from './integrations/metal-orm/index.js';
