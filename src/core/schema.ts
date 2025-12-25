@@ -13,7 +13,7 @@ export const EmptyBody = named('EmptyBody', z.any());
 export const EmptyResponse = named('EmptyResponse', z.any());
 
 // Coercion helpers (params and query tend to arrive as strings / string[])
-const coerceBoolean = (v: unknown) => {
+const coerceBoolean = (v: unknown): unknown => {
   if (typeof v === 'boolean') return v;
   if (typeof v === 'number') return v !== 0;
   if (typeof v !== 'string') return v;
@@ -24,15 +24,15 @@ const coerceBoolean = (v: unknown) => {
 };
 
 export const p = {
-  int: () => z.coerce.number().int(),
-  uuid: () => z.string().uuid(),
-  boolean: () => z.preprocess(coerceBoolean, z.boolean()),
+  int: (): z.ZodTypeAny => z.coerce.number().int(),
+  uuid: (): z.ZodTypeAny => z.string().uuid(),
+  boolean: (): z.ZodTypeAny => z.preprocess(coerceBoolean, z.boolean()),
 };
 
 export const q = {
-  int: () => z.coerce.number().int(),
-  boolean: () => z.preprocess(coerceBoolean, z.boolean()),
-  array: <T extends z.ZodTypeAny>(inner: T) =>
+  int: (): z.ZodTypeAny => z.coerce.number().int(),
+  boolean: (): z.ZodTypeAny => z.preprocess(coerceBoolean, z.boolean()),
+  array: <T extends z.ZodTypeAny>(inner: T): z.ZodTypeAny =>
     z.preprocess((v) => {
       if (v == null) return [];
       if (Array.isArray(v)) {
@@ -52,7 +52,7 @@ export const q = {
 
 export type ValidateSource = 'params' | 'query' | 'body' | 'response';
 
-export function validateOrThrow(ref: SchemaRef, value: unknown, source: ValidateSource) {
+export function validateOrThrow(ref: SchemaRef, value: unknown, source: ValidateSource): unknown {
   const parsed = ref.schema.safeParse(value);
   if (parsed.success) return parsed.data;
 

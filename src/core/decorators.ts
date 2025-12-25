@@ -10,7 +10,7 @@ export type ControllerOptions = {
   tags?: string[];
 };
 
-export function Controller(basePath: string, opts: ControllerOptions = {}) {
+export function Controller(basePath: string, opts: ControllerOptions = {}): <T extends Function>(value: T, context: ClassDecoratorContext) => T {
   return function <T extends Function>(value: T, context: ClassDecoratorContext) {
     writeControllerMeta(context.metadata, { basePath, tags: opts.tags ?? [] });
     return value;
@@ -26,7 +26,7 @@ export type RouteOptions = {
   guards?: Guard[];
 };
 
-function http(method: string, path: string, opts: RouteOptions) {
+function http(method: string, path: string, opts: RouteOptions): (value: Function, context: ClassMethodDecoratorContext) => void {
   return function (_value: Function, context: ClassMethodDecoratorContext) {
     if (context.kind !== 'method')
       throw new RouteConfigError(`@${method} can only decorate methods`);
@@ -58,8 +58,8 @@ function http(method: string, path: string, opts: RouteOptions) {
   };
 }
 
-export const Get = (path: string, opts: RouteOptions) => http('GET', path, opts);
-export const Post = (path: string, opts: RouteOptions) => http('POST', path, opts);
-export const Put = (path: string, opts: RouteOptions) => http('PUT', path, opts);
-export const Patch = (path: string, opts: RouteOptions) => http('PATCH', path, opts);
-export const Delete = (path: string, opts: RouteOptions) => http('DELETE', path, opts);
+export const Get = (path: string, opts: RouteOptions): (value: Function, context: ClassMethodDecoratorContext) => void => http('GET', path, opts);
+export const Post = (path: string, opts: RouteOptions): (value: Function, context: ClassMethodDecoratorContext) => void => http('POST', path, opts);
+export const Put = (path: string, opts: RouteOptions): (value: Function, context: ClassMethodDecoratorContext) => void => http('PUT', path, opts);
+export const Patch = (path: string, opts: RouteOptions): (value: Function, context: ClassMethodDecoratorContext) => void => http('PATCH', path, opts);
+export const Delete = (path: string, opts: RouteOptions): (value: Function, context: ClassMethodDecoratorContext) => void => http('DELETE', path, opts);

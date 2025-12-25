@@ -57,7 +57,7 @@ export class RouteBuilder<
   constructor(private method: TMethod, private path: string) {}
 
   /** Route-level include policy. If omitted and response builder exposes includes, adorn derives allowed includes automatically. */
-  include(allowed: string[] | { allowed: string[]; maxDepth?: number }) {
+  include(allowed: string[] | { allowed: string[]; maxDepth?: number }): this {
     const policy: IncludePolicy = Array.isArray(allowed)
       ? { allowed }
       : Object.assign({ allowed: allowed.allowed }, allowed.maxDepth !== undefined ? { maxDepth: allowed.maxDepth } : {});
@@ -66,7 +66,7 @@ export class RouteBuilder<
   }
 
   /** Manual params as fields (no z.object in app code). */
-  paramsFields<T extends Record<string, z.ZodTypeAny | SchemaRef>>(shape: T) {
+  paramsFields<T extends Record<string, z.ZodTypeAny | SchemaRef>>(shape: T): RouteBuilder<TMethod, SchemaRef, TQuery, TBody, TResponse> {
     const zshape: Record<string, z.ZodTypeAny> = {};
     for (const [k, v] of Object.entries(shape)) {
       zshape[k] = (v as any)?.schema ? (v as SchemaRef).schema : (v as z.ZodTypeAny);
@@ -77,14 +77,14 @@ export class RouteBuilder<
   }
 
   /** Params from SchemaRef / Zod schema / provider builder. */
-  params(schema: SchemaInput) {
+  params(schema: SchemaInput): RouteBuilder<TMethod, SchemaRef, TQuery, TBody, TResponse> {
     const id = autoSchemaId(this.method, this.path, "params");
     this.paramsRef = asSchemaRef(schema, id);
     return this as any as RouteBuilder<TMethod, SchemaRef, TQuery, TBody, TResponse>;
   }
 
   /** Query fields helper. */
-  queryFields<T extends Record<string, z.ZodTypeAny | SchemaRef>>(shape: T, passthrough = true) {
+  queryFields<T extends Record<string, z.ZodTypeAny | SchemaRef>>(shape: T, passthrough = true): RouteBuilder<TMethod, TParams, SchemaRef, TBody, TResponse> {
     const zshape: Record<string, z.ZodTypeAny> = {};
     for (const [k, v] of Object.entries(shape)) {
       zshape[k] = (v as any)?.schema ? (v as SchemaRef).schema : (v as z.ZodTypeAny);
@@ -95,19 +95,19 @@ export class RouteBuilder<
     return this as any as RouteBuilder<TMethod, TParams, SchemaRef, TBody, TResponse>;
   }
 
-  query(schema: SchemaInput) {
+  query(schema: SchemaInput): RouteBuilder<TMethod, TParams, SchemaRef, TBody, TResponse> {
     const id = autoSchemaId(this.method, this.path, "query");
     this.queryRef = asSchemaRef(schema, id);
     return this as any as RouteBuilder<TMethod, TParams, SchemaRef, TBody, TResponse>;
   }
 
-  body(schema: SchemaInput) {
+  body(schema: SchemaInput): RouteBuilder<TMethod, TParams, TQuery, SchemaRef, TResponse> {
     const id = autoSchemaId(this.method, this.path, "body");
     this.bodyRef = asSchemaRef(schema, id);
     return this as any as RouteBuilder<TMethod, TParams, TQuery, SchemaRef, TResponse>;
   }
 
-  response(schema: SchemaInput) {
+  response(schema: SchemaInput): RouteBuilder<TMethod, TParams, TQuery, TBody, SchemaRef> {
     const id = autoSchemaId(this.method, this.path, "response");
     this.responseRef = asSchemaRef(schema, id);
 
@@ -142,9 +142,9 @@ export class RouteBuilder<
 }
 
 export const route = {
-  get: (path: string) => new RouteBuilder("GET", path),
-  post: (path: string) => new RouteBuilder("POST", path),
-  put: (path: string) => new RouteBuilder("PUT", path),
-  patch: (path: string) => new RouteBuilder("PATCH", path),
-  delete: (path: string) => new RouteBuilder("DELETE", path),
+  get: (path: string): RouteBuilder<"GET"> => new RouteBuilder("GET", path),
+  post: (path: string): RouteBuilder<"POST"> => new RouteBuilder("POST", path),
+  put: (path: string): RouteBuilder<"PUT"> => new RouteBuilder("PUT", path),
+  patch: (path: string): RouteBuilder<"PATCH"> => new RouteBuilder("PATCH", path),
+  delete: (path: string): RouteBuilder<"DELETE"> => new RouteBuilder("DELETE", path),
 };

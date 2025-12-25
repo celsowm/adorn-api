@@ -41,9 +41,9 @@ export function registerControllers(
   app: Express,
   controllers: Function[],
   opts: RegisterOptions = {}
-) {
+): Express {
   const manifest = collectManifest(controllers);
-  const resolve = opts.resolveController ?? ((ctor) => new (ctor as any)());
+  const resolve = opts.resolveController ?? ((ctor: Function) => new (ctor as any)());
 
   for (const route of manifest.routes) {
     const expressPath = toExpressPath(route.path);

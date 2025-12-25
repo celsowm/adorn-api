@@ -16,7 +16,7 @@ export function parseInclude(raw: unknown): string[] {
   if (raw == null) return [];
   const items: string[] = [];
 
-  const push = (v: unknown) => {
+  const push = (v: unknown): void => {
     if (typeof v !== 'string') return;
     for (const part of v.split(',')) {
       const t = part.trim();

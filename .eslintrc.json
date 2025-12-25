@@ -62,6 +62,12 @@
         "@typescript-eslint/no-unsafe-member-access": "off",
         "@typescript-eslint/no-explicit-any": "off"
       }
+    },
+    {
+      "files": ["src/cli/**/*.ts"],
+      "rules": {
+        "no-undef": "off"
+      }
     }
   ]
 }

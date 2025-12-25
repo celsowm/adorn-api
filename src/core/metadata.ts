@@ -32,12 +32,12 @@ function getOrInitBag(metadata: unknown): Record<PropertyKey, unknown> {
   return Object.create(null) as Record<PropertyKey, unknown>;
 }
 
-export function writeControllerMeta(metadata: unknown, meta: ControllerMeta) {
+export function writeControllerMeta(metadata: unknown, meta: ControllerMeta): void {
   const bag = getOrInitBag(metadata);
   bag[ADORN_CONTROLLER] = meta;
 }
 
-export function pushRouteStub(metadata: unknown, route: RouteStub) {
+export function pushRouteStub(metadata: unknown, route: RouteStub): void {
   const bag = getOrInitBag(metadata);
   const existing = bag[ADORN_ROUTES];
   if (!Array.isArray(existing)) bag[ADORN_ROUTES] = [];

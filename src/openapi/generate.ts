@@ -57,7 +57,7 @@ function extractObjectPropertySchema(objectSchema: any, prop: string): any | und
 function buildParameters(
   route: RouteIR,
   componentsSchemas: Record<string, any>
-) {
+): any[] {
   const params: any[] = [];
 
   // Path params
@@ -121,7 +121,7 @@ function operationForRoute(
   route: RouteIR,
   components: Record<string, any>,
   tagsByController: Map<Function, string[] | undefined>
-) {
+): any {
   // Ensure core schemas are registered
   if (route.schemas.params) ensureComponent(route.schemas.params, components);
   ensureComponent(route.schemas.query, components);
