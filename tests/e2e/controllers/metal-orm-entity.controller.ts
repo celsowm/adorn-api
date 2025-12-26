@@ -23,6 +23,7 @@ import {
   SqliteDialect,
   createSqliteExecutor,
   selectFromEntity,
+  entityRef,
   count,
   eq,
   and,
@@ -30,7 +31,6 @@ import {
   bootstrapEntities,
 } from 'metal-orm';
 import type {
-  TableDef,
   ColumnDef,
   ExpressionNode,
   OrmSession,
@@ -205,8 +205,8 @@ export class MetalOrmEntityClientsController {
   private readonly sqliteClient: SqlitePromiseClient;
   protected readonly orm: Orm;
   protected readonly ready: Promise<void>;
-  private readonly table: TableDef;
   private readonly columnSelection: Record<string, ColumnDef>;
+  private readonly clientRef = entityRef(Client);
   private readonly searchFields = clientContract.query.fields;
 
   constructor() {
@@ -222,7 +222,6 @@ export class MetalOrmEntityClientsController {
       },
     });
 
-    this.table = clientContract.table;
     this.columnSelection = clientContract.selection;
     this.ready = this.init();
   }
@@ -315,6 +314,10 @@ export class MetalOrmEntityClientsController {
     return ids;
   }
 
+  private getColumnDef(field: string): ColumnDef | undefined {
+    return (this.clientRef.$ as Record<string, ColumnDef>)[field];
+  }
+
   private formatClient(client: ClientRow): ClientDtoWithServices {
     const dto = parseEntityView(clientContract.view, client);
     const serviceIds = this.extractServiceIds(client);
@@ -323,7 +326,7 @@ export class MetalOrmEntityClientsController {
 
   private async fetchClientById(session: OrmSession, id: number | string): Promise<ClientDtoWithServices> {
     const rows = await this.baseClientQuery()
-      .where(eq(this.table.columns.id, id))
+      .where(eq(this.clientRef.id, id))
       .execute(session);
     const client = rows[0];
     if (!client) {
@@ -337,7 +340,7 @@ export class MetalOrmEntityClientsController {
     for (const field of this.searchFields) {
       const value = input[field];
       if (value === undefined || value === null || value === '') continue;
-      const column = this.table.columns[field];
+      const column = this.getColumnDef(field);
       if (!column) continue;
       const next = eq(column, value as string | number | boolean);
       condition = condition ? and(condition, next) : next;
@@ -353,7 +356,7 @@ export class MetalOrmEntityClientsController {
     await this.ready;
     return this.withSession(async (session) => {
       const rows = await this.baseClientQuery()
-        .orderBy(this.table.columns.id, 'ASC')
+        .orderBy(this.clientRef.id, 'ASC')
         .execute(session);
       return rows.map((row) => this.formatClient(row));
     });
@@ -367,7 +370,7 @@ export class MetalOrmEntityClientsController {
     await this.ready;
     return this.withSession(async (session) => {
       const rows = (await selectFromEntity(Client)
-        .select({ count: count(this.table.columns.id) })
+        .select({ count: count(this.clientRef.id) })
         .execute(session)) as Array<{ count?: number | string | null }>;
       const value = rows[0]?.count;
       return { count: typeof value === 'number' ? value : Number(value ?? 0) };
@@ -382,7 +385,7 @@ export class MetalOrmEntityClientsController {
     await this.ready;
     const input = ctx.input.query;
     return this.withSession(async (session) => {
-      let queryBuilder = this.baseClientQuery().orderBy(this.table.columns.id, 'ASC');
+      let queryBuilder = this.baseClientQuery().orderBy(this.clientRef.id, 'ASC');
       const condition = this.buildSearchCondition(input);
       if (condition) {
         queryBuilder = queryBuilder.where(condition);
@@ -400,7 +403,7 @@ export class MetalOrmEntityClientsController {
     await this.ready;
     return this.withSession(async (session) => {
       const rows = await this.baseClientQuery()
-        .orderBy(this.table.columns.id, 'ASC')
+        .orderBy(this.clientRef.id, 'ASC')
         .execute(session);
       const clients = rows.map((row) => this.formatClient(row));
       let totalServiceLinks = 0;
