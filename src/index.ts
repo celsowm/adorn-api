@@ -23,37 +23,6 @@ export type { IncludeTree } from './core/include.js';
 export { generateOpenApi, generateOpenApiFromManifest } from './openapi/generate.js';
 export type { OpenApi31, OpenApiOptions } from './openapi/generate.js';
 
-export { MetalOrmCrudController, MetalOrmCrudBase, zodSchemaProvider } from './integrations/metal-orm/index.js';
+export { MetalOrmCrudController, MetalOrmCrudBase, simpleSchemaProvider } from './integrations/metal-orm/index.js';
 export type { MetalOrmCrudOptions, SchemaProvider } from './integrations/metal-orm/index.js';
-export {
-  buildColumnSelection,
-  createCrudSchemaIds,
-  createMetalOrmZodSchemas,
-  defineEntityFields,
-  entityContract,
-  entitySchemas,
-  fieldsOf,
-  parseEntityView,
-  parseEntityViewList,
-  safeParseEntityView,
-  safeParseEntityViewList,
-} from './integrations/metal-orm/index.js';
-export type {
-  CrudSchemaOptions,
-  CrudSchemaOverrides,
-  EntityContract,
-  EntityContractRefs,
-  EntityContractTypes,
-  EntitySelection,
-  EntityPick,
-  EntitySchemas,
-  SafeParseResult,
-  EntitySchemaOptions,
-  EntitySchemaOverrides,
-  EntitySchemaView,
-  EntitySchemaBody,
-  EntitySchemaQuery,
-  EntitySchemaAggregates,
-  CrudSchemaIds,
-  CrudZodSchemas,
-} from './integrations/metal-orm/index.js';
+export { defineEntityFields, fieldsOf } from './integrations/metal-orm/index.js';

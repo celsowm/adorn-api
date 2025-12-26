@@ -1,7 +1,7 @@
 import {
   MetalOrmCrudController,
   type RequestContext,
-  zodSchemaProvider,
+  simpleSchemaProvider,
   NotFoundError,
   RouteConfigError,
 } from '../../../src/index.js';
@@ -35,12 +35,8 @@ type UserUpdateBody = {
   email?: string | null;
 };
 
-const nameSchema = zodSchemaProvider.minLength
-  ? zodSchemaProvider.minLength(zodSchemaProvider.string(), 1)
-  : zodSchemaProvider.string();
-const emailSchema = zodSchemaProvider.email
-  ? zodSchemaProvider.email(zodSchemaProvider.string())
-  : zodSchemaProvider.string();
+const nameSchema = simpleSchemaProvider.minLength!(simpleSchemaProvider.string(), 1);
+const emailSchema = simpleSchemaProvider.email!(simpleSchemaProvider.string());
 
 @Entity({
   hooks: {
@@ -87,7 +83,7 @@ bootstrapEntities();
   create: { fields: ['name', 'email'] },
   update: { fields: ['name', 'email'] },
   notFoundMessage: 'User not found',
-  schemaProvider: zodSchemaProvider,
+  schemaProvider: simpleSchemaProvider,
   schemaOverrides: {
     body: {
       name: nameSchema,

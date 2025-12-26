@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import {
   Controller,
   Get,
@@ -7,13 +6,10 @@ import {
   Delete,
   EmptyQuery,
   EmptyResponse,
-  named,
-  entityContract,
-  fieldsOf,
-  parseEntityView,
   NotFoundError,
+  simpleSchemaProvider,
 } from '../../../src/index.js';
-import type { InferSchema, TypedRequestContext } from '../../../src/index.js';
+import type { TypedRequestContext } from '../../../src/index.js';
 import {
   Entity,
   Column,
@@ -24,6 +20,7 @@ import {
   createSqliteExecutor,
   selectFromEntity,
   entityRef,
+  esel,
   count,
   eq,
   and,
@@ -105,72 +102,80 @@ class Client {
 
 bootstrapEntities();
 
-const clientContract = entityContract(
-  Client,
-  {
-    idPrefix: 'MetalOrmEntity',
-    overrides: {
-      all: {
-        email: z.email(),
-      },
-      query: {
-        name: z.string().min(1),
-      },
-    },
-  },
-  {
-    view: fieldsOf<Client>()('id', 'name', 'email', 'createdAt'),
-    write: fieldsOf<Client>()('name', 'email'),
-    query: fieldsOf<Client>()('name', 'email'),
-    params: fieldsOf<Client>()('id'),
-  },
-);
+const schema = simpleSchemaProvider;
 
-const baseId = clientContract.schemas.baseId;
-const clientResponseSchema = clientContract.view.responseSchema.extend({
-  serviceIds: z.array(z.number().int()),
+const baseId = 'MetalOrmEntityClient';
+
+const intNumber = schema.int!(schema.number());
+const intParam = schema.coerceNumber!(intNumber);
+const email = schema.email!(schema.string());
+const serviceIdsSchema = schema.array(intNumber);
+
+const ClientResponseSchema = schema.object({
+  id: intNumber,
+  name: schema.string(),
+  email: schema.nullable(email),
+  createdAt: schema.string(),
+  serviceIds: serviceIdsSchema,
 });
-const clientListSchema = z.array(clientResponseSchema);
-const clientInsightsSchema = z.object({
-  totalClients: z.number().int(),
-  totalServiceLinks: z.number().int(),
-  averageServicesPerClient: z.number(),
-  topClients: z.array(
-    z.object({
-      id: z.number().int(),
-      name: z.string(),
-      serviceCount: z.number().int(),
-    }),
-  ),
-});
-const ClientResponse = named(`${baseId}Response`, clientResponseSchema);
-const ClientListResponse = named(`${baseId}ListResponse`, clientListSchema);
-const ClientInsightsResponse = named(`${baseId}InsightsResponse`, clientInsightsSchema);
-const CountResponse = clientContract.refs.count;
-const ClientParams = clientContract.refs.params;
-const createClientSchema = clientContract.write.zod().and(
-  z.object({
-    serviceIds: z.array(z.number().int()).optional(),
+const ClientListResponse = schema.toSchemaRef(`${baseId}ListResponse`, schema.array(ClientResponseSchema));
+const ClientResponse = schema.toSchemaRef(`${baseId}Response`, ClientResponseSchema);
+
+const ClientInsightsResponse = schema.toSchemaRef(
+  `${baseId}InsightsResponse`,
+  schema.object({
+    totalClients: intNumber,
+    totalServiceLinks: intNumber,
+    averageServicesPerClient: schema.number(),
+    topClients: schema.array(
+      schema.object({
+        id: intNumber,
+        name: schema.string(),
+        serviceCount: intNumber,
+      }),
+    ),
   }),
 );
-const updateClientSchema = clientContract.write.partial().zod().and(
-  z.object({
-    serviceIds: z.array(z.number().int()).optional(),
+
+const CountResponse = schema.toSchemaRef(`${baseId}CountResponse`, schema.object({ count: intNumber }));
+const ClientParams = schema.toSchemaRef(`${baseId}Params`, schema.object({ id: intParam }));
+const CreateClientBody = schema.toSchemaRef(
+  `${baseId}CreateBody`,
+  schema.object({
+    name: schema.minLength!(schema.string(), 1),
+    email: schema.optional(email),
+    serviceIds: schema.optional(serviceIdsSchema),
   }),
 );
-const CreateClientBody = named(
-  `${clientContract.schemas.idPrefix}Create${clientContract.schemas.entityName}Body`,
-  createClientSchema,
+const UpdateClientBody = schema.toSchemaRef(
+  `${baseId}UpdateBody`,
+  schema.object({
+    name: schema.optional(schema.minLength!(schema.string(), 1)),
+    email: schema.optional(schema.nullable(email)),
+    serviceIds: schema.optional(serviceIdsSchema),
+  }),
 );
-const UpdateClientBody = named(
-  `${clientContract.schemas.idPrefix}Update${clientContract.schemas.entityName}Body`,
-  updateClientSchema,
+const SearchQuery = schema.toSchemaRef(
+  `${baseId}SearchQuery`,
+  schema.object({
+    name: schema.optional(schema.minLength!(schema.string(), 1)),
+    email: schema.optional(email),
+  }),
 );
-const SearchQuery = clientContract.refs.query;
 
-type ClientDto = typeof clientContract.types.dto;
-type ClientDtoWithServices = ClientDto & { serviceIds: number[] };
-type ClientInsights = InferSchema<typeof ClientInsightsResponse>;
+type ClientDtoWithServices = {
+  id: number;
+  name: string;
+  email: string | null;
+  createdAt: string;
+  serviceIds: number[];
+};
+type ClientInsights = {
+  totalClients: number;
+  totalServiceLinks: number;
+  averageServicesPerClient: number;
+  topClients: Array<{ id: number; name: string; serviceCount: number }>;
+};
 type ClientCreateBody = {
   name: string;
   email?: string | null;
@@ -181,7 +186,7 @@ type ClientUpdateBody = {
   email?: string | null;
   serviceIds?: number[];
 };
-type EmptyQueryInput = InferSchema<typeof EmptyQuery>;
+type EmptyQueryInput = Record<string, unknown>;
 type ClientRow = {
   id: number | string;
   name: string;
@@ -189,15 +194,15 @@ type ClientRow = {
   createdAt?: string | null;
   services?: ManyToManyCollection<{ id?: number | string }>;
 };
-type ClientParamsCtx = TypedRequestContext<typeof clientContract.types.params, EmptyQueryInput, undefined>;
-type ClientSearchCtx = TypedRequestContext<{}, typeof clientContract.types.queryInput, undefined>;
+type ClientParamsCtx = TypedRequestContext<{ id: number }, Record<string, unknown>, undefined>;
+type ClientSearchCtx = TypedRequestContext<{}, { name?: string; email?: string }, undefined>;
 type ClientCreateCtx = TypedRequestContext<{}, EmptyQueryInput, ClientCreateBody>;
 type ClientUpdateCtx = TypedRequestContext<
-  typeof clientContract.types.params,
+  { id: number },
   EmptyQueryInput,
   ClientUpdateBody
 >;
-type ClientRemoveCtx = TypedRequestContext<typeof clientContract.types.params, EmptyQueryInput, undefined>;
+type ClientRemoveCtx = TypedRequestContext<{ id: number }, EmptyQueryInput, undefined>;
 
 @Controller('/metal-orm-entity-clients')
 export class MetalOrmEntityClientsController {
@@ -205,9 +210,9 @@ export class MetalOrmEntityClientsController {
   private readonly sqliteClient: SqlitePromiseClient;
   protected readonly orm: Orm;
   protected readonly ready: Promise<void>;
-  private readonly columnSelection: Record<string, ColumnDef>;
+  private readonly selection = esel(Client, 'id', 'name', 'email', 'createdAt');
   private readonly clientRef = entityRef(Client);
-  private readonly searchFields = clientContract.query.fields;
+  private readonly searchFields: ReadonlyArray<'name' | 'email'> = ['name', 'email'];
 
   constructor() {
     this.db = new sqlite3.Database(':memory:');
@@ -222,7 +227,6 @@ export class MetalOrmEntityClientsController {
       },
     });
 
-    this.columnSelection = clientContract.selection;
     this.ready = this.init();
   }
 
@@ -292,7 +296,7 @@ export class MetalOrmEntityClientsController {
 
   private baseClientQuery() {
     return selectFromEntity(Client)
-      .select(this.columnSelection)
+      .select(this.selection)
       .include('services', { columns: ['id'] });
   }
 
@@ -319,9 +323,18 @@ export class MetalOrmEntityClientsController {
   }
 
   private formatClient(client: ClientRow): ClientDtoWithServices {
-    const dto = parseEntityView(clientContract.view, client);
+    const rawId = client.id;
+    const id = typeof rawId === 'number' ? rawId : Number(rawId);
+    const emailValue = client.email ?? null;
+    const createdAtValue = client.createdAt ?? null;
     const serviceIds = this.extractServiceIds(client);
-    return { ...dto, serviceIds };
+    return {
+      id: Number.isFinite(id) ? id : 0,
+      name: client.name,
+      email: typeof emailValue === 'string' ? emailValue : emailValue ?? null,
+      createdAt: typeof createdAtValue === 'string' ? createdAtValue : '',
+      serviceIds,
+    };
   }
 
   private async fetchClientById(session: OrmSession, id: number | string): Promise<ClientDtoWithServices> {

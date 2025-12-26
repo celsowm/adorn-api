@@ -3,6 +3,8 @@ import type { ManifestIR, RouteIR } from '../core/ir.js';
 import type { SchemaRef } from '../core/schema.js';
 import { collectManifest } from '../core/ir.js';
 import { RouteConfigError } from '../core/errors.js';
+import type { SimpleSchema } from '../core/simple-schema.js';
+import { stripSimpleSchemaExtensions } from '../core/simple-schema.js';
 
 export type OpenApi31 = {
   openapi: '3.1.0';
@@ -24,6 +26,9 @@ function sanitizeComponentName(id: string): string {
 }
 
 function schemaToJsonSchema(ref: SchemaRef): any {
+  if (ref.provider === 'simple') {
+    return stripSimpleSchemaExtensions(ref.schema as SimpleSchema);
+  }
   if (ref.provider !== 'zod') {
     throw new RouteConfigError(`Unsupported schema provider: ${String((ref as any).provider)}`);
   }

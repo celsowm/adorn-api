@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { RouteConfigError, ValidationError } from './errors.js';
+import type { SimpleSchema } from './simple-schema.js';
+import { validateSimpleSchemaOrThrow } from './simple-schema.js';
 
 export type SchemaRef = { provider: string; id: string; schema: unknown };
 export type InferSchema<T extends { schema: unknown }> = z.infer<T['schema'] & z.ZodTypeAny>;
@@ -83,4 +85,8 @@ registerSchemaProvider('zod', (schema, value, source) => {
   }));
 
   throw new ValidationError('validation failed', issues);
+});
+
+registerSchemaProvider('simple', (schema, value, source) => {
+  return validateSimpleSchemaOrThrow(schema as SimpleSchema, value, source);
 });

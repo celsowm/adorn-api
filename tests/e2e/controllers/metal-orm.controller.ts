@@ -1,4 +1,4 @@
-import { MetalOrmCrudController, MetalOrmCrudBase, zodSchemaProvider } from '../../../src/index.js';
+import { MetalOrmCrudController, MetalOrmCrudBase, simpleSchemaProvider } from '../../../src/index.js';
 import {
   defineTable,
   col,
@@ -18,12 +18,8 @@ const users = defineTable('users', {
 
 users.columns.email.unique = true;
 
-const nameSchema = zodSchemaProvider.minLength
-  ? zodSchemaProvider.minLength(zodSchemaProvider.string(), 1)
-  : zodSchemaProvider.string();
-const emailSchema = zodSchemaProvider.email
-  ? zodSchemaProvider.email(zodSchemaProvider.string())
-  : zodSchemaProvider.string();
+const nameSchema = simpleSchemaProvider.minLength!(simpleSchemaProvider.string(), 1);
+const emailSchema = simpleSchemaProvider.email!(simpleSchemaProvider.string());
 
 @MetalOrmCrudController({
   basePath: '/metal-orm-users',
@@ -34,7 +30,7 @@ const emailSchema = zodSchemaProvider.email
   update: { fields: ['name', 'email'] },
   defaults: { createdAt: () => new Date().toISOString() },
   notFoundMessage: 'User not found',
-  schemaProvider: zodSchemaProvider,
+  schemaProvider: simpleSchemaProvider,
   schemaOverrides: {
     body: {
       name: nameSchema,

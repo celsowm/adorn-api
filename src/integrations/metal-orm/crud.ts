@@ -28,7 +28,7 @@ import {
   normalizeColumnType,
 } from 'metal-orm';
 import type { SchemaProvider } from './schema-provider.js';
-import { zodSchemaProvider } from './schema-provider.js';
+import { simpleSchemaProvider } from './schema-provider.js';
 
 ensureDecoratorMetadata();
 
@@ -328,7 +328,7 @@ function buildSchemas<TSchema>(
 }
 
 function createCrudDefinition<TSchema>(options: MetalOrmCrudOptions<TSchema>): CrudDefinition<TSchema> {
-  const provider = (options.schemaProvider ?? zodSchemaProvider) as SchemaProvider<TSchema>;
+  const provider = (options.schemaProvider ?? (simpleSchemaProvider as unknown as SchemaProvider<TSchema>));
   const target = resolveTarget(options.target);
   const primaryKey = options.id ?? findPrimaryKey(target.table);
   const selectColumns = options.select ?? Object.keys(target.table.columns);

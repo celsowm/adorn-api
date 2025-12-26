@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { named, type SchemaRef } from '../../core/schema.js';
+import type { SchemaRef } from '../../core/schema.js';
+import type { SimpleSchema } from '../../core/simple-schema.js';
 
 export type SchemaProvider<TSchema = unknown> = {
   id: string;
@@ -19,21 +19,57 @@ export type SchemaProvider<TSchema = unknown> = {
   toSchemaRef(id: string, schema: TSchema): SchemaRef;
 };
 
-export const zodSchemaProvider: SchemaProvider<z.ZodTypeAny> = {
-  id: 'zod',
-  string: () => z.string(),
-  number: () => z.number(),
-  boolean: () => z.boolean(),
-  any: () => z.any(),
-  array: (schema) => z.array(schema),
-  object: (shape) => z.object(shape),
-  optional: (schema) => schema.optional(),
-  nullable: (schema) => schema.nullable(),
-  int: (schema) => (schema as z.ZodNumber).int(),
-  uuid: (schema) => (schema as z.ZodString).uuid(),
-  email: (schema) => (schema as z.ZodString).email(),
-  minLength: (schema, min) => (schema as z.ZodString).min(min),
-  coerceNumber: (schema) =>
-    z.preprocess((value) => (typeof value === 'string' ? Number(value) : value), schema),
-  toSchemaRef: (id, schema) => named(id, schema),
+type OptionalMarker = { 'x-adorn-optional'?: true };
+
+function isOptionalSchema(schema: SimpleSchema): boolean {
+  return schema['x-adorn-optional'] === true;
+}
+
+function stripOptionalMarker(schema: SimpleSchema): SimpleSchema {
+  if (!isOptionalSchema(schema)) return schema;
+  const { ['x-adorn-optional']: _opt, ...rest } = schema;
+  return rest;
+}
+
+function mapAnyOf(schema: SimpleSchema, fn: (s: SimpleSchema) => SimpleSchema): SimpleSchema {
+  if (!schema.anyOf) return fn(schema);
+  return { ...schema, anyOf: schema.anyOf.map((s) => mapAnyOf(s, fn)) };
+}
+
+function setType(schema: SimpleSchema, type: string): SimpleSchema {
+  return { ...schema, type };
+}
+
+export const simpleSchemaProvider: SchemaProvider<SimpleSchema> = {
+  id: 'simple',
+  string: () => ({ type: 'string' }),
+  number: () => ({ type: 'number' }),
+  boolean: () => ({ type: 'boolean' }),
+  any: () => ({ type: 'any' }),
+  array: (schema) => ({ type: 'array', items: schema }),
+  object: (shape) => {
+    const properties: Record<string, SimpleSchema> = {};
+    const required: string[] = [];
+    for (const [key, schema] of Object.entries(shape)) {
+      const optional = isOptionalSchema(schema);
+      properties[key] = stripOptionalMarker(schema);
+      if (!optional) required.push(key);
+    }
+    return {
+      type: 'object',
+      properties,
+      required: required.length ? required : undefined,
+      additionalProperties: true,
+    };
+  },
+  optional: (schema) => ({ ...schema, 'x-adorn-optional': true }),
+  nullable: (schema) => ({ anyOf: [schema, { type: 'null' }] }),
+  int: (schema) => mapAnyOf(schema, (s) => (s.type === 'number' ? setType(s, 'integer') : s)),
+  uuid: (schema) => mapAnyOf(schema, (s) => (s.type === 'string' ? { ...s, format: 'uuid' } : s)),
+  email: (schema) => mapAnyOf(schema, (s) => (s.type === 'string' ? { ...s, format: 'email' } : s)),
+  minLength: (schema, min) =>
+    mapAnyOf(schema, (s) => (s.type === 'string' ? { ...s, minLength: min } : s)),
+  coerceNumber: (schema) => ({ ...schema, 'x-adorn-coerce': 'number' }),
+  toSchemaRef: (id, schema) => ({ provider: 'simple', id, schema }),
 };
+

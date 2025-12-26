@@ -1,4 +1,4 @@
-import { MetalOrmCrudController, MetalOrmCrudBase, zodSchemaProvider } from '../../../src/index.js';
+import { MetalOrmCrudController, MetalOrmCrudBase, simpleSchemaProvider } from '../../../src/index.js';
 import {
   Entity,
   Column,
@@ -11,12 +11,8 @@ import {
 import sqlite3 from 'sqlite3';
 import { SqlitePromiseClient } from './helpers/sqlite-client.js';
 
-const nameSchema = zodSchemaProvider.minLength
-  ? zodSchemaProvider.minLength(zodSchemaProvider.string(), 1)
-  : zodSchemaProvider.string();
-const emailSchema = zodSchemaProvider.email
-  ? zodSchemaProvider.email(zodSchemaProvider.string())
-  : zodSchemaProvider.string();
+const nameSchema = simpleSchemaProvider.minLength!(simpleSchemaProvider.string(), 1);
+const emailSchema = simpleSchemaProvider.email!(simpleSchemaProvider.string());
 
 @Entity({
   hooks: {
@@ -61,7 +57,7 @@ class User {
   create: { fields: ['name', 'email'] },
   update: { fields: ['name', 'email'] },
   notFoundMessage: 'User not found',
-  schemaProvider: zodSchemaProvider,
+  schemaProvider: simpleSchemaProvider,
   schemaOverrides: {
     body: {
       name: nameSchema,
