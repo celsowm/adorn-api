@@ -7,10 +7,10 @@ import {
   Delete,
   EmptyQuery,
   EmptyResponse,
+  named,
   entityContract,
   fieldsOf,
   parseEntityView,
-  parseEntityViewList,
   NotFoundError,
 } from '../../../src/index.js';
 import type { InferSchema, TypedRequestContext } from '../../../src/index.js';
@@ -18,6 +18,7 @@ import {
   Entity,
   Column,
   PrimaryKey,
+  BelongsToMany,
   Orm,
   SqliteDialect,
   createSqliteExecutor,
@@ -28,31 +29,59 @@ import {
   col,
   bootstrapEntities,
 } from 'metal-orm';
-import type { TableDef, ColumnDef, ExpressionNode, OrmSession } from 'metal-orm';
+import type {
+  TableDef,
+  ColumnDef,
+  ExpressionNode,
+  OrmSession,
+  ManyToManyCollection,
+} from 'metal-orm';
 import sqlite3 from 'sqlite3';
 import { SqlitePromiseClient } from './helpers/sqlite-client.js';
+
+@Entity()
+class Service {
+  @PrimaryKey(col.autoIncrement(col.int()))
+  id!: number;
+
+  @Column(col.notNull(col.varchar(255)))
+  name!: string;
+}
+
+@Entity()
+class ClientService {
+  @PrimaryKey(col.autoIncrement(col.int()))
+  id!: number;
+
+  @Column(col.notNull(col.int()))
+  clientId!: number;
+
+  @Column(col.notNull(col.int()))
+  serviceId!: number;
+}
+
 @Entity({
   hooks: {
     beforeInsert(_ctx, entity) {
-      const user = entity as User;
-      user.name = user.name.trim();
-      if (user.email) {
-        user.email = user.email.toLowerCase();
+      const client = entity as Client;
+      client.name = client.name.trim();
+      if (client.email) {
+        client.email = client.email.toLowerCase();
       }
-      if (!user.createdAt) {
-        user.createdAt = new Date().toISOString();
+      if (!client.createdAt) {
+        client.createdAt = new Date().toISOString();
       }
     },
     beforeUpdate(_ctx, entity) {
-      const user = entity as User;
-      user.name = user.name.trim();
-      if (user.email) {
-        user.email = user.email.toLowerCase();
+      const client = entity as Client;
+      client.name = client.name.trim();
+      if (client.email) {
+        client.email = client.email.toLowerCase();
       }
     },
   },
 })
-class User {
+class Client {
   @PrimaryKey(col.autoIncrement(col.int()))
   id!: number;
 
@@ -64,17 +93,25 @@ class User {
 
   @Column(col.timestamp())
   createdAt?: string;
+
+  @BelongsToMany({
+    target: () => Service,
+    pivotTable: () => ClientService,
+    pivotForeignKeyToRoot: 'clientId',
+    pivotForeignKeyToTarget: 'serviceId',
+  })
+  services!: ManyToManyCollection<Service, ClientService>;
 }
 
 bootstrapEntities();
 
-const userContract = entityContract(
-  User,
+const clientContract = entityContract(
+  Client,
   {
     idPrefix: 'MetalOrmEntity',
     overrides: {
       all: {
-        email: z.string().email(),
+        email: z.email(),
       },
       query: {
         name: z.string().min(1),
@@ -82,42 +119,81 @@ const userContract = entityContract(
     },
   },
   {
-    view: fieldsOf<User>()('id', 'name', 'email', 'createdAt'),
-    write: fieldsOf<User>()('name', 'email'),
-    query: fieldsOf<User>()('name', 'email'),
-    params: fieldsOf<User>()('id'),
+    view: fieldsOf<Client>()('id', 'name', 'email', 'createdAt'),
+    write: fieldsOf<Client>()('name', 'email'),
+    query: fieldsOf<Client>()('name', 'email'),
+    params: fieldsOf<Client>()('id'),
   },
 );
 
-const UserResponse = userContract.refs.response;
-const UserListResponse = userContract.refs.list;
-const CountResponse = userContract.refs.count;
-const UserParams = userContract.refs.params;
-const CreateUserBody = userContract.refs.body;
-const UpdateUserBody = userContract.refs.bodyPartial;
-const SearchQuery = userContract.refs.query;
+const baseId = clientContract.schemas.baseId;
+const clientResponseSchema = clientContract.view.responseSchema.extend({
+  serviceIds: z.array(z.number().int()),
+});
+const clientListSchema = z.array(clientResponseSchema);
+const ClientResponse = named(`${baseId}Response`, clientResponseSchema);
+const ClientListResponse = named(`${baseId}ListResponse`, clientListSchema);
+const CountResponse = clientContract.refs.count;
+const ClientParams = clientContract.refs.params;
+const createClientSchema = clientContract.write.zod().and(
+  z.object({
+    serviceIds: z.array(z.number().int()).optional(),
+  }),
+);
+const updateClientSchema = clientContract.write.partial().zod().and(
+  z.object({
+    serviceIds: z.array(z.number().int()).optional(),
+  }),
+);
+const CreateClientBody = named(
+  `${clientContract.schemas.idPrefix}Create${clientContract.schemas.entityName}Body`,
+  createClientSchema,
+);
+const UpdateClientBody = named(
+  `${clientContract.schemas.idPrefix}Update${clientContract.schemas.entityName}Body`,
+  updateClientSchema,
+);
+const SearchQuery = clientContract.refs.query;
 
-type UserDto = typeof userContract.types.dto;
+type ClientDto = typeof clientContract.types.dto;
+type ClientDtoWithServices = ClientDto & { serviceIds: number[] };
+type ClientCreateBody = {
+  name: string;
+  email?: string | null;
+  serviceIds?: number[];
+};
+type ClientUpdateBody = {
+  name?: string;
+  email?: string | null;
+  serviceIds?: number[];
+};
 type EmptyQueryInput = InferSchema<typeof EmptyQuery>;
-type UserParamsCtx = TypedRequestContext<typeof userContract.types.params, EmptyQueryInput, undefined>;
-type UserSearchCtx = TypedRequestContext<{}, typeof userContract.types.queryInput, undefined>;
-type UserCreateCtx = TypedRequestContext<{}, EmptyQueryInput, typeof userContract.types.body>;
-type UserUpdateCtx = TypedRequestContext<
-  typeof userContract.types.params,
+type ClientRow = {
+  id: number | string;
+  name: string;
+  email?: string | null;
+  createdAt?: string | null;
+  services?: ManyToManyCollection<{ id?: number | string }>;
+};
+type ClientParamsCtx = TypedRequestContext<typeof clientContract.types.params, EmptyQueryInput, undefined>;
+type ClientSearchCtx = TypedRequestContext<{}, typeof clientContract.types.queryInput, undefined>;
+type ClientCreateCtx = TypedRequestContext<{}, EmptyQueryInput, ClientCreateBody>;
+type ClientUpdateCtx = TypedRequestContext<
+  typeof clientContract.types.params,
   EmptyQueryInput,
-  typeof userContract.types.bodyPartial
+  ClientUpdateBody
 >;
-type UserRemoveCtx = TypedRequestContext<typeof userContract.types.params, EmptyQueryInput, undefined>;
+type ClientRemoveCtx = TypedRequestContext<typeof clientContract.types.params, EmptyQueryInput, undefined>;
 
-@Controller('/metal-orm-entity-users')
-export class MetalOrmEntityUsersController {
+@Controller('/metal-orm-entity-clients')
+export class MetalOrmEntityClientsController {
   private readonly db: sqlite3.Database;
   private readonly sqliteClient: SqlitePromiseClient;
   protected readonly orm: Orm;
   protected readonly ready: Promise<void>;
   private readonly table: TableDef;
   private readonly columnSelection: Record<string, ColumnDef>;
-  private readonly searchFields = userContract.query.fields;
+  private readonly searchFields = clientContract.query.fields;
 
   constructor() {
     this.db = new sqlite3.Database(':memory:');
@@ -132,30 +208,56 @@ export class MetalOrmEntityUsersController {
       },
     });
 
-    this.table = userContract.table;
-    this.columnSelection = userContract.selection;
+    this.table = clientContract.table;
+    this.columnSelection = clientContract.selection;
     this.ready = this.init();
   }
 
   private async init(): Promise<void> {
     await this.runSql(`
-      CREATE TABLE users (
+      CREATE TABLE clients (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         email TEXT UNIQUE,
         createdAt TEXT NOT NULL
       )
     `);
+    await this.runSql(`
+      CREATE TABLE services (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
+      )
+    `);
+    await this.runSql(`
+      CREATE TABLE client_services (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        clientId INTEGER NOT NULL,
+        serviceId INTEGER NOT NULL
+      )
+    `);
 
     const now = new Date().toISOString();
     await this.runSql(
       `
-        INSERT INTO users (name, email, createdAt) VALUES
+        INSERT INTO clients (name, email, createdAt) VALUES
           ('Alice', 'alice@example.com', ?),
           ('Bob', 'bob@example.com', ?)
       `,
       [now, now],
     );
+    await this.runSql(`
+      INSERT INTO services (name) VALUES
+        ('Consulting'),
+        ('Support'),
+        ('Delivery')
+    `);
+    await this.runSql(`
+      INSERT INTO client_services (clientId, serviceId) VALUES
+        (1, 1),
+        (1, 2),
+        (2, 2),
+        (2, 3)
+    `);
   }
 
   private runSql(sql: string, params: unknown[] = []): Promise<void> {
@@ -175,16 +277,45 @@ export class MetalOrmEntityUsersController {
     }
   }
 
-  private async fetchUserById(session: OrmSession, id: number | string): Promise<UserDto> {
-    const rows = await selectFromEntity(User)
+  private baseClientQuery() {
+    return selectFromEntity(Client)
       .select(this.columnSelection)
+      .include('services', { columns: ['id'] });
+  }
+
+  private extractServiceIds(client: ClientRow): number[] {
+    const services = client.services;
+    if (!services || typeof services.getItems !== 'function') {
+      return [];
+    }
+    const ids: number[] = [];
+    for (const service of services.getItems() ?? []) {
+      const rawId = (service as { id?: number | string }).id;
+      if (rawId === undefined || rawId === null) continue;
+      const value = typeof rawId === 'number' ? rawId : Number(rawId);
+      if (Number.isFinite(value)) {
+        ids.push(value);
+      }
+    }
+    ids.sort((a, b) => a - b);
+    return ids;
+  }
+
+  private formatClient(client: ClientRow): ClientDtoWithServices {
+    const dto = parseEntityView(clientContract.view, client);
+    const serviceIds = this.extractServiceIds(client);
+    return { ...dto, serviceIds };
+  }
+
+  private async fetchClientById(session: OrmSession, id: number | string): Promise<ClientDtoWithServices> {
+    const rows = await this.baseClientQuery()
       .where(eq(this.table.columns.id, id))
       .execute(session);
-    const row = rows[0];
-    if (!row) {
-      throw new NotFoundError('User not found');
+    const client = rows[0];
+    if (!client) {
+      throw new NotFoundError('Client not found');
     }
-    return parseEntityView(userContract.view, row);
+    return this.formatClient(client);
   }
 
   private buildSearchCondition(input: Record<string, unknown>): ExpressionNode | undefined {
@@ -202,16 +333,15 @@ export class MetalOrmEntityUsersController {
 
   @Get('/', {
     query: EmptyQuery,
-    response: UserListResponse,
+    response: ClientListResponse,
   })
-  async list(): Promise<UserDto[]> {
+  async list(): Promise<ClientDtoWithServices[]> {
     await this.ready;
     return this.withSession(async (session) => {
-      const rows = await selectFromEntity(User)
-        .select(this.columnSelection)
+      const rows = await this.baseClientQuery()
         .orderBy(this.table.columns.id, 'ASC')
         .execute(session);
-      return parseEntityViewList(userContract.view, rows);
+      return rows.map((row) => this.formatClient(row));
     });
   }
 
@@ -222,7 +352,7 @@ export class MetalOrmEntityUsersController {
   async count(): Promise<{ count: number }> {
     await this.ready;
     return this.withSession(async (session) => {
-      const rows = (await selectFromEntity(User)
+      const rows = (await selectFromEntity(Client)
         .select({ count: count(this.table.columns.id) })
         .execute(session)) as Array<{ count?: number | string | null }>;
       const value = rows[0]?.count;
@@ -232,99 +362,105 @@ export class MetalOrmEntityUsersController {
 
   @Get('/search', {
     query: SearchQuery,
-    response: UserListResponse,
+    response: ClientListResponse,
   })
-  async search(ctx: UserSearchCtx): Promise<UserDto[]> {
+  async search(ctx: ClientSearchCtx): Promise<ClientDtoWithServices[]> {
     await this.ready;
     const input = ctx.input.query;
     return this.withSession(async (session) => {
-      let queryBuilder = selectFromEntity(User)
-        .select(this.columnSelection)
-        .orderBy(this.table.columns.id, 'ASC');
+      let queryBuilder = this.baseClientQuery().orderBy(this.table.columns.id, 'ASC');
       const condition = this.buildSearchCondition(input);
       if (condition) {
         queryBuilder = queryBuilder.where(condition);
       }
       const rows = await queryBuilder.execute(session);
-      return parseEntityViewList(userContract.view, rows);
+      return Promise.all(rows.map((row) => this.formatClient(row)));
     });
   }
 
   @Get('/{id}', {
-    params: UserParams,
+    params: ClientParams,
     query: EmptyQuery,
-    response: UserResponse,
+    response: ClientResponse,
   })
-  async get(ctx: UserParamsCtx): Promise<UserDto> {
+  async get(ctx: ClientParamsCtx): Promise<ClientDtoWithServices> {
     await this.ready;
     const { id } = ctx.input.params;
     return this.withSession(async (session) => {
-      return this.fetchUserById(session, id);
+      return this.fetchClientById(session, id);
     });
   }
 
   @Post('/', {
     query: EmptyQuery,
-    body: CreateUserBody,
-    response: UserResponse,
+    body: CreateClientBody,
+    response: ClientResponse,
   })
-  async create(ctx: UserCreateCtx): Promise<UserDto> {
+  async create(ctx: ClientCreateCtx): Promise<ClientDtoWithServices> {
     await this.ready;
     const body = ctx.input.body;
     return this.withSession(async (session) => {
-      const user = new User();
-      user.name = body.name;
-      user.email = body.email ?? null;
-      await session.persist(user);
-      await session.commit();
-      const persistedId = (user as unknown as { id?: number | string }).id;
-      if (persistedId === undefined || persistedId === null) {
-        throw new NotFoundError('User not found');
+      const payload: Record<string, unknown> = {
+        name: body.name,
+        email: body.email ?? null,
+      };
+      if (body.serviceIds !== undefined) {
+        payload.services = body.serviceIds;
       }
-      return this.fetchUserById(session, persistedId as number | string);
+      const client = await session.saveGraph(Client, payload, {
+        pruneMissing: body.serviceIds !== undefined,
+      });
+      const persistedId = (client as unknown as { id?: number | string }).id;
+      if (persistedId === undefined || persistedId === null) {
+        throw new NotFoundError('Client not found');
+      }
+      return this.fetchClientById(session, persistedId as number | string);
     });
   }
 
   @Put('/{id}', {
-    params: UserParams,
+    params: ClientParams,
     query: EmptyQuery,
-    body: UpdateUserBody,
-    response: UserResponse,
+    body: UpdateClientBody,
+    response: ClientResponse,
   })
-  async update(ctx: UserUpdateCtx): Promise<UserDto> {
+  async update(ctx: ClientUpdateCtx): Promise<ClientDtoWithServices> {
     await this.ready;
     const { id } = ctx.input.params;
     const body = ctx.input.body;
     return this.withSession(async (session) => {
-      const user = await session.find(User, id);
-      if (!user) {
-        throw new NotFoundError('User not found');
+      const client = await session.find(Client, id);
+      if (!client) {
+        throw new NotFoundError('Client not found');
       }
       if (body.name !== undefined) {
-        user.name = body.name;
+        client.name = body.name;
       }
       if (body.email !== undefined) {
-        user.email = body.email;
+        client.email = body.email;
+      }
+      if (body.serviceIds !== undefined) {
+        await client.services.syncByIds(body.serviceIds);
       }
       await session.commit();
-      return this.fetchUserById(session, id);
+      return this.fetchClientById(session, id);
     });
   }
 
   @Delete('/{id}', {
-    params: UserParams,
+    params: ClientParams,
     query: EmptyQuery,
     response: EmptyResponse,
   })
-  async remove(ctx: UserRemoveCtx): Promise<void> {
+  async remove(ctx: ClientRemoveCtx): Promise<void> {
     await this.ready;
     const { id } = ctx.input.params;
     return this.withSession(async (session) => {
-      const user = await session.find(User, id);
-      if (!user) {
-        throw new NotFoundError('User not found');
+      const client = await session.find(Client, id);
+      if (!client) {
+        throw new NotFoundError('Client not found');
       }
-      await session.remove(user);
+      await session.remove(client);
       await session.commit();
     });
   }
