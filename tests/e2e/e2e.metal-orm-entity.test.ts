@@ -32,7 +32,10 @@ describe('metal-orm entity controller e2e with sqlite memory db', () => {
       name: 'Charlie',
       email: 'charlie@example.com',
       createdAt: expect.any(String),
-      serviceIds: [1, 3],
+      services: [
+        { id: 1, name: 'Consulting' },
+        { id: 3, name: 'Delivery' },
+      ],
     });
 
     const getRes = await request(app)
@@ -44,7 +47,10 @@ describe('metal-orm entity controller e2e with sqlite memory db', () => {
       name: 'Charlie',
       email: 'charlie@example.com',
       createdAt: expect.any(String),
-      serviceIds: [1, 3],
+      services: [
+        { id: 1, name: 'Consulting' },
+        { id: 3, name: 'Delivery' },
+      ],
     });
 
     const listRes = await request(app)
@@ -52,9 +58,18 @@ describe('metal-orm entity controller e2e with sqlite memory db', () => {
       .expect(200);
 
     expect(listRes.body).toHaveLength(3);
-    expect(listRes.body[0]).toMatchObject({ name: 'Alice', serviceIds: [1, 2] });
-    expect(listRes.body[1]).toMatchObject({ name: 'Bob', serviceIds: [2, 3] });
-    expect(listRes.body[2]).toMatchObject({ name: 'Charlie', serviceIds: [1, 3] });
+    expect(listRes.body[0].services).toEqual([
+      { id: 1, name: 'Consulting' },
+      { id: 2, name: 'Support' },
+    ]);
+    expect(listRes.body[1].services).toEqual([
+      { id: 2, name: 'Support' },
+      { id: 3, name: 'Delivery' },
+    ]);
+    expect(listRes.body[2].services).toEqual([
+      { id: 1, name: 'Consulting' },
+      { id: 3, name: 'Delivery' },
+    ]);
 
     const putRes = await request(app)
       .put('/metal-orm-entity-clients/3')
@@ -66,7 +81,7 @@ describe('metal-orm entity controller e2e with sqlite memory db', () => {
       name: 'Charlotte',
       email: 'charlotte@example.com',
       createdAt: expect.any(String),
-      serviceIds: [2],
+      services: [{ id: 2, name: 'Support' }],
     });
 
     const getUpdatedRes = await request(app)
@@ -75,7 +90,7 @@ describe('metal-orm entity controller e2e with sqlite memory db', () => {
 
     expect(getUpdatedRes.body.name).toBe('Charlotte');
     expect(getUpdatedRes.body.email).toBe('charlotte@example.com');
-    expect(getUpdatedRes.body.serviceIds).toEqual([2]);
+    expect(getUpdatedRes.body.services).toEqual([{ id: 2, name: 'Support' }]);
 
     const countRes = await request(app)
       .get('/metal-orm-entity-clients/count')
@@ -89,7 +104,7 @@ describe('metal-orm entity controller e2e with sqlite memory db', () => {
 
     expect(searchRes.body).toHaveLength(1);
     expect(searchRes.body[0].name).toBe('Charlotte');
-    expect(searchRes.body[0].serviceIds).toEqual([2]);
+    expect(searchRes.body[0].services).toEqual([{ id: 2, name: 'Support' }]);
 
     await request(app)
       .delete('/metal-orm-entity-clients/3')
@@ -127,7 +142,7 @@ describe('metal-orm entity controller e2e with sqlite memory db', () => {
       name: 'No Email Client',
       email: null,
       createdAt: expect.any(String),
-      serviceIds: [],
+      services: [],
     });
 
     const getRes = await request(app)
@@ -135,7 +150,7 @@ describe('metal-orm entity controller e2e with sqlite memory db', () => {
       .expect(200);
 
     expect(getRes.body.email).toBeNull();
-    expect(getRes.body.serviceIds).toEqual([]);
+    expect(getRes.body.services).toEqual([]);
   });
 
   it('should test search by email', async () => {
@@ -148,7 +163,10 @@ describe('metal-orm entity controller e2e with sqlite memory db', () => {
     expect(searchRes.body).toHaveLength(1);
     expect(searchRes.body[0].name).toBe('Alice');
     expect(searchRes.body[0].email).toBe('alice@example.com');
-    expect(searchRes.body[0].serviceIds).toEqual([1, 2]);
+    expect(searchRes.body[0].services).toEqual([
+      { id: 1, name: 'Consulting' },
+      { id: 2, name: 'Support' },
+    ]);
   });
 
   it('should test search by name and email', async () => {
@@ -161,7 +179,10 @@ describe('metal-orm entity controller e2e with sqlite memory db', () => {
     expect(searchRes.body).toHaveLength(1);
     expect(searchRes.body[0].name).toBe('Alice');
     expect(searchRes.body[0].email).toBe('alice@example.com');
-    expect(searchRes.body[0].serviceIds).toEqual([1, 2]);
+    expect(searchRes.body[0].services).toEqual([
+      { id: 1, name: 'Consulting' },
+      { id: 2, name: 'Support' },
+    ]);
   });
 
   it('should return insights for clients and services', async () => {

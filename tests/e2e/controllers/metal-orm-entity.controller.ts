@@ -110,13 +110,18 @@ const intNumber = schema.int!(schema.number());
 const intParam = schema.coerceNumber!(intNumber);
 const email = schema.email!(schema.string());
 const serviceIdsSchema = schema.array(intNumber);
+const ServiceResponseSchema = schema.object({
+  id: intNumber,
+  name: schema.string(),
+});
+const ServicesSchema = schema.array(ServiceResponseSchema);
 
 const ClientResponseSchema = schema.object({
   id: intNumber,
   name: schema.string(),
   email: schema.nullable(email),
   createdAt: schema.string(),
-  serviceIds: serviceIdsSchema,
+  services: ServicesSchema,
 });
 const ClientListResponse = schema.toSchemaRef(`${baseId}ListResponse`, schema.array(ClientResponseSchema));
 const ClientResponse = schema.toSchemaRef(`${baseId}Response`, ClientResponseSchema);
@@ -163,12 +168,16 @@ const SearchQuery = schema.toSchemaRef(
   }),
 );
 
+type ServiceDto = {
+  id: number;
+  name: string;
+};
 type ClientDtoWithServices = {
   id: number;
   name: string;
   email: string | null;
   createdAt: string;
-  serviceIds: number[];
+  services: ServiceDto[];
 };
 type ClientInsights = {
   totalClients: number;
@@ -192,7 +201,7 @@ type ClientRow = {
   name: string;
   email?: string | null;
   createdAt?: string | null;
-  services?: ManyToManyCollection<{ id?: number | string }>;
+  services?: ManyToManyCollection<Record<string, unknown>, ClientService>;
 };
 type ClientParamsCtx = TypedRequestContext<{ id: number }, Record<string, unknown>, undefined>;
 type ClientSearchCtx = TypedRequestContext<{}, { name?: string; email?: string }, undefined>;
@@ -297,25 +306,35 @@ export class MetalOrmEntityClientsController {
   private baseClientQuery() {
     return selectFromEntity(Client)
       .select(this.selection)
-      .include('services', { columns: ['id'] });
+      .include('services', { columns: ['id', 'name'] });
   }
 
-  private extractServiceIds(client: ClientRow): number[] {
+  private extractServices(client: ClientRow): ServiceDto[] {
     const services = client.services;
     if (!services || typeof services.getItems !== 'function') {
       return [];
     }
-    const ids: number[] = [];
+    const dtos: ServiceDto[] = [];
     for (const service of services.getItems() ?? []) {
-      const rawId = (service as { id?: number | string }).id;
+      const rawService = service as Record<string, unknown>;
+      const rawId = rawService.id;
       if (rawId === undefined || rawId === null) continue;
       const value = typeof rawId === 'number' ? rawId : Number(rawId);
-      if (Number.isFinite(value)) {
-        ids.push(value);
-      }
+      if (!Number.isFinite(value)) continue;
+      const nameRaw = rawService.name;
+      const name =
+        typeof nameRaw === 'string'
+          ? nameRaw
+          : nameRaw === undefined || nameRaw === null
+            ? ''
+            : String(nameRaw);
+      dtos.push({
+        id: value,
+        name,
+      });
     }
-    ids.sort((a, b) => a - b);
-    return ids;
+    dtos.sort((a, b) => a.id - b.id);
+    return dtos;
   }
 
   private getColumnDef(field: string): ColumnDef | undefined {
@@ -327,13 +346,12 @@ export class MetalOrmEntityClientsController {
     const id = typeof rawId === 'number' ? rawId : Number(rawId);
     const emailValue = client.email ?? null;
     const createdAtValue = client.createdAt ?? null;
-    const serviceIds = this.extractServiceIds(client);
     return {
       id: Number.isFinite(id) ? id : 0,
       name: client.name,
       email: typeof emailValue === 'string' ? emailValue : emailValue ?? null,
       createdAt: typeof createdAtValue === 'string' ? createdAtValue : '',
-      serviceIds,
+      services: this.extractServices(client),
     };
   }
 
@@ -346,6 +364,10 @@ export class MetalOrmEntityClientsController {
       throw new NotFoundError('Client not found');
     }
     return this.formatClient(client);
+  }
+
+  private fetchFreshClient(id: number | string): Promise<ClientDtoWithServices> {
+    return this.withSession((session) => this.fetchClientById(session, id));
   }
 
   private buildSearchCondition(input: Record<string, unknown>): ExpressionNode | undefined {
@@ -421,7 +443,7 @@ export class MetalOrmEntityClientsController {
       const clients = rows.map((row) => this.formatClient(row));
       let totalServiceLinks = 0;
       const topClients = clients.map((client) => {
-        const serviceCount = client.serviceIds.length;
+        const serviceCount = client.services.length;
         totalServiceLinks += serviceCount;
         const idValue = typeof client.id === 'number' ? client.id : Number(client.id);
         return {
@@ -481,7 +503,8 @@ export class MetalOrmEntityClientsController {
       if (persistedId === undefined || persistedId === null) {
         throw new NotFoundError('Client not found');
       }
-      return this.fetchClientById(session, persistedId as number | string);
+      await session.commit();
+      return this.fetchFreshClient(persistedId as number | string);
     });
   }
 
@@ -510,7 +533,7 @@ export class MetalOrmEntityClientsController {
         await client.services.syncByIds(body.serviceIds);
       }
       await session.commit();
-      return this.fetchClientById(session, id);
+      return this.fetchFreshClient(id);
     });
   }
 
