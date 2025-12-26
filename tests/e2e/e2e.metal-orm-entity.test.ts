@@ -163,4 +163,22 @@ describe('metal-orm entity controller e2e with sqlite memory db', () => {
     expect(searchRes.body[0].email).toBe('alice@example.com');
     expect(searchRes.body[0].serviceIds).toEqual([1, 2]);
   });
+
+  it('should return insights for clients and services', async () => {
+    const app = buildMetalOrmEntityApp();
+
+    const insightsRes = await request(app)
+      .get('/metal-orm-entity-clients/insights')
+      .expect(200);
+
+    expect(insightsRes.body).toEqual({
+      totalClients: 2,
+      totalServiceLinks: 4,
+      averageServicesPerClient: 2,
+      topClients: [
+        { id: 1, name: 'Alice', serviceCount: 2 },
+        { id: 2, name: 'Bob', serviceCount: 2 },
+      ],
+    });
+  });
 });

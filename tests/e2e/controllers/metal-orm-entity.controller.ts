@@ -131,8 +131,21 @@ const clientResponseSchema = clientContract.view.responseSchema.extend({
   serviceIds: z.array(z.number().int()),
 });
 const clientListSchema = z.array(clientResponseSchema);
+const clientInsightsSchema = z.object({
+  totalClients: z.number().int(),
+  totalServiceLinks: z.number().int(),
+  averageServicesPerClient: z.number(),
+  topClients: z.array(
+    z.object({
+      id: z.number().int(),
+      name: z.string(),
+      serviceCount: z.number().int(),
+    }),
+  ),
+});
 const ClientResponse = named(`${baseId}Response`, clientResponseSchema);
 const ClientListResponse = named(`${baseId}ListResponse`, clientListSchema);
+const ClientInsightsResponse = named(`${baseId}InsightsResponse`, clientInsightsSchema);
 const CountResponse = clientContract.refs.count;
 const ClientParams = clientContract.refs.params;
 const createClientSchema = clientContract.write.zod().and(
@@ -157,6 +170,7 @@ const SearchQuery = clientContract.refs.query;
 
 type ClientDto = typeof clientContract.types.dto;
 type ClientDtoWithServices = ClientDto & { serviceIds: number[] };
+type ClientInsights = InferSchema<typeof ClientInsightsResponse>;
 type ClientCreateBody = {
   name: string;
   email?: string | null;
@@ -375,6 +389,43 @@ export class MetalOrmEntityClientsController {
       }
       const rows = await queryBuilder.execute(session);
       return Promise.all(rows.map((row) => this.formatClient(row)));
+    });
+  }
+
+  @Get('/insights', {
+    query: EmptyQuery,
+    response: ClientInsightsResponse,
+  })
+  async insights(): Promise<ClientInsights> {
+    await this.ready;
+    return this.withSession(async (session) => {
+      const rows = await this.baseClientQuery()
+        .orderBy(this.table.columns.id, 'ASC')
+        .execute(session);
+      const clients = rows.map((row) => this.formatClient(row));
+      let totalServiceLinks = 0;
+      const topClients = clients.map((client) => {
+        const serviceCount = client.serviceIds.length;
+        totalServiceLinks += serviceCount;
+        const idValue = typeof client.id === 'number' ? client.id : Number(client.id);
+        return {
+          id: Number.isFinite(idValue) ? idValue : 0,
+          name: client.name,
+          serviceCount,
+        };
+      });
+      topClients.sort((a, b) => {
+        if (b.serviceCount !== a.serviceCount) return b.serviceCount - a.serviceCount;
+        return a.name.localeCompare(b.name);
+      });
+
+      const totalClients = clients.length;
+      return {
+        totalClients,
+        totalServiceLinks,
+        averageServicesPerClient: totalClients === 0 ? 0 : totalServiceLinks / totalClients,
+        topClients: topClients.slice(0, 3),
+      };
     });
   }
 
