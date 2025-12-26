@@ -16,7 +16,7 @@ export type SchemaProvider<TSchema = unknown> = {
   email?(schema: TSchema): TSchema;
   minLength?(schema: TSchema, min: number): TSchema;
   coerceNumber?(schema: TSchema): TSchema;
-  toSchemaRef(id: string, schema: TSchema): SchemaRef;
+  toSchemaRef<T = unknown>(id: string, schema: TSchema): SchemaRef<T>;
 };
 
 type OptionalMarker = { 'x-adorn-optional'?: true };
@@ -70,6 +70,6 @@ export const simpleSchemaProvider: SchemaProvider<SimpleSchema> = {
   minLength: (schema, min) =>
     mapAnyOf(schema, (s) => (s.type === 'string' ? { ...s, minLength: min } : s)),
   coerceNumber: (schema) => ({ ...schema, 'x-adorn-coerce': 'number' }),
-  toSchemaRef: (id, schema) => ({ provider: 'simple', id, schema }),
+  toSchemaRef: <T = unknown>(id: string, schema: SimpleSchema) =>
+    ({ provider: 'simple', id, schema }) as SchemaRef<T>,
 };
-

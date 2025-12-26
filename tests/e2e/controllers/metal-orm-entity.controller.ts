@@ -9,7 +9,7 @@ import {
   NotFoundError,
   simpleSchemaProvider,
 } from '../../../src/index.js';
-import type { TypedRequestContext } from '../../../src/index.js';
+import type { InferSchema, TypedRequestContext } from '../../../src/index.js';
 import {
   Entity,
   Column,
@@ -123,10 +123,24 @@ const ClientResponseSchema = schema.object({
   createdAt: schema.string(),
   services: ServicesSchema,
 });
-const ClientListResponse = schema.toSchemaRef(`${baseId}ListResponse`, schema.array(ClientResponseSchema));
-const ClientResponse = schema.toSchemaRef(`${baseId}Response`, ClientResponseSchema);
+const ClientResponse = schema.toSchemaRef<{
+  id: number;
+  name: string;
+  email: string | null;
+  createdAt: string;
+  services: Array<{ id: number; name: string }>;
+}>(`${baseId}Response`, ClientResponseSchema);
+const ClientListResponse = schema.toSchemaRef<Array<InferSchema<typeof ClientResponse>>>(
+  `${baseId}ListResponse`,
+  schema.array(ClientResponseSchema),
+);
 
-const ClientInsightsResponse = schema.toSchemaRef(
+const ClientInsightsResponse = schema.toSchemaRef<{
+  totalClients: number;
+  totalServiceLinks: number;
+  averageServicesPerClient: number;
+  topClients: Array<{ id: number; name: string; serviceCount: number }>;
+}>(
   `${baseId}InsightsResponse`,
   schema.object({
     totalClients: intNumber,
@@ -142,9 +156,19 @@ const ClientInsightsResponse = schema.toSchemaRef(
   }),
 );
 
-const CountResponse = schema.toSchemaRef(`${baseId}CountResponse`, schema.object({ count: intNumber }));
-const ClientParams = schema.toSchemaRef(`${baseId}Params`, schema.object({ id: intParam }));
-const CreateClientBody = schema.toSchemaRef(
+const CountResponse = schema.toSchemaRef<{ count: number }>(
+  `${baseId}CountResponse`,
+  schema.object({ count: intNumber }),
+);
+const ClientParams = schema.toSchemaRef<{ id: number }>(
+  `${baseId}Params`,
+  schema.object({ id: intParam }),
+);
+const CreateClientBody = schema.toSchemaRef<{
+  name: string;
+  email?: string | null;
+  serviceIds?: number[];
+}>(
   `${baseId}CreateBody`,
   schema.object({
     name: schema.minLength!(schema.string(), 1),
@@ -152,7 +176,11 @@ const CreateClientBody = schema.toSchemaRef(
     serviceIds: schema.optional(serviceIdsSchema),
   }),
 );
-const UpdateClientBody = schema.toSchemaRef(
+const UpdateClientBody = schema.toSchemaRef<{
+  name?: string;
+  email?: string | null;
+  serviceIds?: number[];
+}>(
   `${baseId}UpdateBody`,
   schema.object({
     name: schema.optional(schema.minLength!(schema.string(), 1)),
@@ -160,7 +188,10 @@ const UpdateClientBody = schema.toSchemaRef(
     serviceIds: schema.optional(serviceIdsSchema),
   }),
 );
-const SearchQuery = schema.toSchemaRef(
+const SearchQuery = schema.toSchemaRef<{
+  name?: string;
+  email?: string;
+}>(
   `${baseId}SearchQuery`,
   schema.object({
     name: schema.optional(schema.minLength!(schema.string(), 1)),
@@ -168,33 +199,13 @@ const SearchQuery = schema.toSchemaRef(
   }),
 );
 
-type ServiceDto = {
-  id: number;
-  name: string;
-};
-type ClientDtoWithServices = {
-  id: number;
-  name: string;
-  email: string | null;
-  createdAt: string;
-  services: ServiceDto[];
-};
-type ClientInsights = {
-  totalClients: number;
-  totalServiceLinks: number;
-  averageServicesPerClient: number;
-  topClients: Array<{ id: number; name: string; serviceCount: number }>;
-};
-type ClientCreateBody = {
-  name: string;
-  email?: string | null;
-  serviceIds?: number[];
-};
-type ClientUpdateBody = {
-  name?: string;
-  email?: string | null;
-  serviceIds?: number[];
-};
+type ClientDtoWithServices = InferSchema<typeof ClientResponse>;
+type ServiceDto = ClientDtoWithServices['services'][number];
+type ClientInsights = InferSchema<typeof ClientInsightsResponse>;
+type ClientCreateBody = InferSchema<typeof CreateClientBody>;
+type ClientUpdateBody = InferSchema<typeof UpdateClientBody>;
+type ClientSearchQuery = InferSchema<typeof SearchQuery>;
+type ClientParamsInput = InferSchema<typeof ClientParams>;
 type EmptyQueryInput = Record<string, unknown>;
 type ClientRow = {
   id: number | string;
@@ -203,15 +214,12 @@ type ClientRow = {
   createdAt?: string | null;
   services?: ManyToManyCollection<Record<string, unknown>, ClientService>;
 };
-type ClientParamsCtx = TypedRequestContext<{ id: number }, Record<string, unknown>, undefined>;
-type ClientSearchCtx = TypedRequestContext<{}, { name?: string; email?: string }, undefined>;
-type ClientCreateCtx = TypedRequestContext<{}, EmptyQueryInput, ClientCreateBody>;
-type ClientUpdateCtx = TypedRequestContext<
-  { id: number },
-  EmptyQueryInput,
-  ClientUpdateBody
->;
-type ClientRemoveCtx = TypedRequestContext<{ id: number }, EmptyQueryInput, undefined>;
+type RequestCtx<P, Q = EmptyQueryInput, B = undefined> = TypedRequestContext<P, Q, B>;
+type ClientParamsCtx = RequestCtx<ClientParamsInput>;
+type ClientSearchCtx = RequestCtx<{}, ClientSearchQuery>;
+type ClientCreateCtx = RequestCtx<{}, EmptyQueryInput, ClientCreateBody>;
+type ClientUpdateCtx = RequestCtx<ClientParamsInput, EmptyQueryInput, ClientUpdateBody>;
+type ClientRemoveCtx = RequestCtx<ClientParamsInput>;
 
 @Controller('/metal-orm-entity-clients')
 export class MetalOrmEntityClientsController {

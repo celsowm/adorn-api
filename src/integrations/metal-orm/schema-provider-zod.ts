@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { named, type SchemaRef } from '../../core/schema.js';
+import { named } from '../../core/schema.js';
 import type { SchemaProvider } from './schema-provider.js';
 
 export const zodSchemaProvider: SchemaProvider<z.ZodTypeAny> = {
@@ -18,6 +18,5 @@ export const zodSchemaProvider: SchemaProvider<z.ZodTypeAny> = {
   minLength: (schema, min) => (schema as z.ZodString).min(min),
   coerceNumber: (schema) =>
     z.preprocess((value) => (typeof value === 'string' ? Number(value) : value), schema),
-  toSchemaRef: (id, schema) => named(id, schema) as SchemaRef,
+  toSchemaRef: <T = unknown>(id: string, schema: z.ZodTypeAny) => named<T>(id, schema),
 };
-

@@ -3,8 +3,14 @@ import { RouteConfigError, ValidationError } from './errors.js';
 import type { SimpleSchema } from './simple-schema.js';
 import { validateSimpleSchemaOrThrow } from './simple-schema.js';
 
-export type SchemaRef = { provider: string; id: string; schema: unknown };
-export type InferSchema<T extends { schema: unknown }> = z.infer<T['schema'] & z.ZodTypeAny>;
+export type SchemaRef<T = unknown> = {
+  provider: string;
+  id: string;
+  schema: unknown;
+} & (unknown extends T ? {} : { __type: T });
+export type InferSchema<T extends { schema: unknown }> = T extends { __type: infer R }
+  ? R
+  : z.infer<T['schema'] & z.ZodTypeAny>;
 
 type SchemaValidator = (schema: unknown, value: unknown, source: ValidateSource) => unknown;
 
@@ -14,8 +20,8 @@ export function registerSchemaProvider(id: string, validate: SchemaValidator): v
   schemaProviders.set(id, validate);
 }
 
-export function named(id: string, schema: z.ZodTypeAny): SchemaRef {
-  return { provider: 'zod', id, schema };
+export function named<T = unknown>(id: string, schema: z.ZodTypeAny): SchemaRef<T> {
+  return { provider: 'zod', id, schema } as SchemaRef<T>;
 }
 
 export const EmptyQuery = named('EmptyQuery', z.object({}).passthrough());
