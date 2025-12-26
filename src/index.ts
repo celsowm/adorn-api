@@ -9,8 +9,18 @@ export type { RouteOptions, ControllerOptions } from './core/decorators.js';
 export { ValidationError, RouteConfigError, HttpError, NotFoundError } from './core/errors.js';
 export type { ValidationIssue, ErrorEnvelope } from './core/errors.js';
 
-export { named, p, q, EmptyQuery, EmptyParams, EmptyBody, EmptyResponse, registerSchemaProvider } from './core/schema.js';
+export {
+  named,
+  p,
+  q,
+  EmptyQuery,
+  EmptyParams,
+  EmptyBody,
+  EmptyResponse,
+  registerSchemaProvider,
+} from './core/schema.js';
 export type { SchemaRef, InferSchema, SchemaTypeMap } from './core/schema.js';
+export type { RequireDefined } from './core/types.js';
 
 export { collectManifest } from './core/ir.js';
 export type { ManifestIR, RouteIR, ControllerIR } from './core/ir.js';

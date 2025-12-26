@@ -10,7 +10,7 @@ import {
   buildEntitySchemaShapes,
   defineEntityApi,
 } from '../../../src/index.js';
-import type { InferApiTypes } from '../../../src/index.js';
+import type { InferApiTypes, RequireDefined } from '../../../src/index.js';
 import {
   Entity,
   Column,
@@ -28,12 +28,7 @@ import {
   col,
   bootstrapEntities,
 } from 'metal-orm';
-import type {
-  ColumnDef,
-  ExpressionNode,
-  OrmSession,
-  ManyToManyCollection,
-} from 'metal-orm';
+import type { ColumnDef, ExpressionNode, OrmSession, ManyToManyCollection } from 'metal-orm';
 import sqlite3 from 'sqlite3';
 import { SqlitePromiseClient } from './helpers/sqlite-client.js';
 
@@ -153,36 +148,16 @@ const clientShapes = buildEntitySchemaShapes({
   },
 });
 
-type ClientServiceDto = {
-  id: number;
-  name: string;
-};
-type ClientDtoWithServices = {
-  id: number;
-  name: string;
-  email: string | null;
-  createdAt: string;
-  services: ClientServiceDto[];
-};
-type ClientCreateBody = {
-  name: string;
-  email?: string | null;
-  serviceIds?: number[];
-};
-type ClientUpdateBody = {
-  name?: string;
-  email?: string | null;
-  serviceIds?: number[];
-};
-type ClientSearchQuery = {
-  name?: string;
-  email?: string;
-};
-type ClientParamsInput = {
-  id: number;
-};
+type ServiceDto = Pick<Service, 'id' | 'name'>;
+type ClientDtoWithServices = RequireDefined<
+  Pick<Client, 'id' | 'name' | 'email' | 'createdAt'>,
+  'email' | 'createdAt'
+> & { services: ServiceDto[] };
+type ClientCreateBody = Pick<Client, 'name' | 'email'> & { serviceIds?: number[] };
+type ClientUpdateBody = Partial<Pick<Client, 'name' | 'email'>> & { serviceIds?: number[] };
+type ClientSearchQuery = Partial<Record<'name' | 'email', string>>;
 type ClientApiTypeHints = {
-  params: ClientParamsInput;
+  params: Pick<Client, 'id'>;
   response: ClientDtoWithServices;
   create: ClientCreateBody;
   update: ClientUpdateBody;
@@ -205,9 +180,9 @@ const ClientInsightsResponse = schema.toSchemaRef<{
         id: intNumber,
         name: schema.string(),
         serviceCount: intNumber,
-      }),
+      })
     ),
-  }),
+  })
 );
 
 const ClientApi = defineEntityApi({
@@ -221,7 +196,6 @@ const ClientApi = defineEntityApi({
   types: {} as ClientApiTypeHints,
 });
 type ClientApiTypes = InferApiTypes<typeof ClientApi>;
-type ServiceDto = ClientDtoWithServices['services'][number];
 type ClientInsights = ClientApiTypes['DTO']['insights'];
 type ClientParamsCtx = ClientApiTypes['Context']['Get'];
 type ClientSearchCtx = ClientApiTypes['Context']['Search'];
@@ -292,7 +266,7 @@ export class MetalOrmEntityClientsController {
           ('Alice', 'alice@example.com', ?),
           ('Bob', 'bob@example.com', ?)
       `,
-      [now, now],
+      [now, now]
     );
     await this.runSql(`
       INSERT INTO services (name) VALUES
@@ -372,16 +346,17 @@ export class MetalOrmEntityClientsController {
     return {
       id: Number.isFinite(id) ? id : 0,
       name: client.name,
-      email: typeof emailValue === 'string' ? emailValue : emailValue ?? null,
+      email: typeof emailValue === 'string' ? emailValue : (emailValue ?? null),
       createdAt: typeof createdAtValue === 'string' ? createdAtValue : '',
       services: this.extractServices(client),
     };
   }
 
-  private async fetchClientById(session: OrmSession, id: number | string): Promise<ClientDtoWithServices> {
-    const rows = await this.baseClientQuery()
-      .where(eq(this.clientRef.id, id))
-      .execute(session);
+  private async fetchClientById(
+    session: OrmSession,
+    id: number | string
+  ): Promise<ClientDtoWithServices> {
+    const rows = await this.baseClientQuery().where(eq(this.clientRef.id, id)).execute(session);
     const client = rows[0];
     if (!client) {
       throw new NotFoundError('Client not found');
@@ -413,9 +388,7 @@ export class MetalOrmEntityClientsController {
   async list(): Promise<ClientDtoWithServices[]> {
     await this.ready;
     return this.withSession(async (session) => {
-      const rows = await this.baseClientQuery()
-        .orderBy(this.clientRef.id, 'ASC')
-        .execute(session);
+      const rows = await this.baseClientQuery().orderBy(this.clientRef.id, 'ASC').execute(session);
       return rows.map((row) => this.formatClient(row));
     });
   }
@@ -460,9 +433,7 @@ export class MetalOrmEntityClientsController {
   async insights(): Promise<ClientInsights> {
     await this.ready;
     return this.withSession(async (session) => {
-      const rows = await this.baseClientQuery()
-        .orderBy(this.clientRef.id, 'ASC')
-        .execute(session);
+      const rows = await this.baseClientQuery().orderBy(this.clientRef.id, 'ASC').execute(session);
       const clients = rows.map((row) => this.formatClient(row));
       let totalServiceLinks = 0;
       const topClients = clients.map((client) => {
