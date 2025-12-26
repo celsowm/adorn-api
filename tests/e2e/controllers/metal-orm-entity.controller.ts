@@ -8,8 +8,9 @@ import {
   EmptyResponse,
   NotFoundError,
   simpleSchemaProvider,
+  buildEntitySchemaShapes,
 } from '../../../src/index.js';
-import type { InferSchema, TypedRequestContext } from '../../../src/index.js';
+import type { InferSchema, SchemaTypeMap, TypedRequestContext } from '../../../src/index.js';
 import {
   Entity,
   Column,
@@ -106,9 +107,11 @@ const schema = simpleSchemaProvider;
 
 const baseId = 'MetalOrmEntityClient';
 
+const schemaId = (suffix: string) => `${baseId}${suffix}`;
+
 const intNumber = schema.int!(schema.number());
-const intParam = schema.coerceNumber!(intNumber);
-const email = schema.email!(schema.string());
+const nameSchema = schema.minLength!(schema.string(), 1);
+const emailSchema = schema.email!(schema.string());
 const serviceIdsSchema = schema.array(intNumber);
 const ServiceResponseSchema = schema.object({
   id: intNumber,
@@ -116,22 +119,50 @@ const ServiceResponseSchema = schema.object({
 });
 const ServicesSchema = schema.array(ServiceResponseSchema);
 
-const ClientResponseSchema = schema.object({
-  id: intNumber,
-  name: schema.string(),
-  email: schema.nullable(email),
-  createdAt: schema.string(),
-  services: ServicesSchema,
+const clientShapes = buildEntitySchemaShapes({
+  target: Client,
+  provider: schema,
+  select: ['id', 'name', 'email', 'createdAt'],
+  create: ['name', 'email'],
+  update: ['name', 'email'],
+  search: ['name', 'email'],
+  responseOptional: false,
+  responseNullable: false,
+  overrides: {
+    response: {
+      email: schema.nullable(emailSchema),
+      createdAt: schema.string(),
+    },
+    create: {
+      name: nameSchema,
+      email: emailSchema,
+    },
+    update: {
+      name: schema.optional(nameSchema),
+      email: schema.nullable(emailSchema),
+    },
+    search: {
+      name: nameSchema,
+      email: emailSchema,
+    },
+  },
+  extras: {
+    response: { services: ServicesSchema },
+    create: { serviceIds: schema.optional(serviceIdsSchema) },
+    update: { serviceIds: schema.optional(serviceIdsSchema) },
+  },
 });
+
+const ClientResponseSchema = schema.object(clientShapes.response);
 const ClientResponse = schema.toSchemaRef<{
   id: number;
   name: string;
   email: string | null;
   createdAt: string;
   services: Array<{ id: number; name: string }>;
-}>(`${baseId}Response`, ClientResponseSchema);
+}>(schemaId('Response'), ClientResponseSchema);
 const ClientListResponse = schema.toSchemaRef<Array<InferSchema<typeof ClientResponse>>>(
-  `${baseId}ListResponse`,
+  schemaId('ListResponse'),
   schema.array(ClientResponseSchema),
 );
 
@@ -141,7 +172,7 @@ const ClientInsightsResponse = schema.toSchemaRef<{
   averageServicesPerClient: number;
   topClients: Array<{ id: number; name: string; serviceCount: number }>;
 }>(
-  `${baseId}InsightsResponse`,
+  schemaId('InsightsResponse'),
   schema.object({
     totalClients: intNumber,
     totalServiceLinks: intNumber,
@@ -157,56 +188,56 @@ const ClientInsightsResponse = schema.toSchemaRef<{
 );
 
 const CountResponse = schema.toSchemaRef<{ count: number }>(
-  `${baseId}CountResponse`,
+  schemaId('CountResponse'),
   schema.object({ count: intNumber }),
 );
 const ClientParams = schema.toSchemaRef<{ id: number }>(
-  `${baseId}Params`,
-  schema.object({ id: intParam }),
+  schemaId('Params'),
+  schema.object(clientShapes.params),
 );
 const CreateClientBody = schema.toSchemaRef<{
   name: string;
   email?: string | null;
   serviceIds?: number[];
 }>(
-  `${baseId}CreateBody`,
-  schema.object({
-    name: schema.minLength!(schema.string(), 1),
-    email: schema.optional(email),
-    serviceIds: schema.optional(serviceIdsSchema),
-  }),
+  schemaId('CreateBody'),
+  schema.object(clientShapes.create),
 );
 const UpdateClientBody = schema.toSchemaRef<{
   name?: string;
   email?: string | null;
   serviceIds?: number[];
 }>(
-  `${baseId}UpdateBody`,
-  schema.object({
-    name: schema.optional(schema.minLength!(schema.string(), 1)),
-    email: schema.optional(schema.nullable(email)),
-    serviceIds: schema.optional(serviceIdsSchema),
-  }),
+  schemaId('UpdateBody'),
+  schema.object(clientShapes.update),
 );
 const SearchQuery = schema.toSchemaRef<{
   name?: string;
   email?: string;
 }>(
-  `${baseId}SearchQuery`,
-  schema.object({
-    name: schema.optional(schema.minLength!(schema.string(), 1)),
-    email: schema.optional(email),
-  }),
+  schemaId('SearchQuery'),
+  schema.object(clientShapes.search),
 );
 
-type ClientDtoWithServices = InferSchema<typeof ClientResponse>;
+type ClientSchemaRefs = {
+  response: typeof ClientResponse;
+  insights: typeof ClientInsightsResponse;
+  create: typeof CreateClientBody;
+  update: typeof UpdateClientBody;
+  search: typeof SearchQuery;
+  params: typeof ClientParams;
+  emptyQuery: typeof EmptyQuery;
+};
+
+type ClientSchemaTypes = SchemaTypeMap<ClientSchemaRefs>;
+type ClientDtoWithServices = ClientSchemaTypes['response'];
 type ServiceDto = ClientDtoWithServices['services'][number];
-type ClientInsights = InferSchema<typeof ClientInsightsResponse>;
-type ClientCreateBody = InferSchema<typeof CreateClientBody>;
-type ClientUpdateBody = InferSchema<typeof UpdateClientBody>;
-type ClientSearchQuery = InferSchema<typeof SearchQuery>;
-type ClientParamsInput = InferSchema<typeof ClientParams>;
-type EmptyQueryInput = Record<string, unknown>;
+type ClientInsights = ClientSchemaTypes['insights'];
+type ClientCreateBody = ClientSchemaTypes['create'];
+type ClientUpdateBody = ClientSchemaTypes['update'];
+type ClientSearchQuery = ClientSchemaTypes['search'];
+type ClientParamsInput = ClientSchemaTypes['params'];
+type EmptyQueryInput = ClientSchemaTypes['emptyQuery'];
 type ClientRow = {
   id: number | string;
   name: string;

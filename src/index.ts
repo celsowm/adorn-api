@@ -10,7 +10,7 @@ export { ValidationError, RouteConfigError, HttpError, NotFoundError } from './c
 export type { ValidationIssue, ErrorEnvelope } from './core/errors.js';
 
 export { named, p, q, EmptyQuery, EmptyParams, EmptyBody, EmptyResponse, registerSchemaProvider } from './core/schema.js';
-export type { SchemaRef, InferSchema } from './core/schema.js';
+export type { SchemaRef, InferSchema, SchemaTypeMap } from './core/schema.js';
 
 export { collectManifest } from './core/ir.js';
 export type { ManifestIR, RouteIR, ControllerIR } from './core/ir.js';
@@ -26,3 +26,10 @@ export type { OpenApi31, OpenApiOptions } from './openapi/generate.js';
 export { MetalOrmCrudController, MetalOrmCrudBase, simpleSchemaProvider } from './integrations/metal-orm/index.js';
 export type { MetalOrmCrudOptions, SchemaProvider } from './integrations/metal-orm/index.js';
 export { defineEntityFields, fieldsOf } from './integrations/metal-orm/index.js';
+export { buildEntitySchemaShapes } from './integrations/metal-orm/index.js';
+export type {
+  EntitySchemaShapeOptions,
+  EntitySchemaShapes,
+  EntitySchemaOverrides,
+  EntitySchemaExtras,
+} from './integrations/metal-orm/index.js';

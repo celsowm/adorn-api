@@ -11,6 +11,9 @@ export type SchemaRef<T = unknown> = {
 export type InferSchema<T extends { schema: unknown }> = T extends { __type: infer R }
   ? R
   : z.infer<T['schema'] & z.ZodTypeAny>;
+export type SchemaTypeMap<T extends Record<string, SchemaRef>> = {
+  [K in keyof T]: InferSchema<T[K]>;
+};
 
 type SchemaValidator = (schema: unknown, value: unknown, source: ValidateSource) => unknown;
 

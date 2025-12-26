@@ -33,6 +33,7 @@ import { simpleSchemaProvider } from './schema-provider.js';
 ensureDecoratorMetadata();
 
 type EntityConstructor<T extends object = object> = new (...args: never[]) => T;
+type EntityField<T extends object> = keyof T & string;
 
 type CrudSchemaOverrides<TSchema> = {
   params?: Record<string, TSchema>;
@@ -41,16 +42,16 @@ type CrudSchemaOverrides<TSchema> = {
   response?: Record<string, TSchema>;
 };
 
-export type MetalOrmCrudOptions<TSchema = unknown> = {
+export type MetalOrmCrudOptions<TSchema = unknown, TEntity extends object = object> = {
   basePath: string;
   tags?: string[];
-  target: EntityConstructor<object> | TableDef;
+  target: EntityConstructor<TEntity> | TableDef;
   schemaProvider?: SchemaProvider<TSchema>;
-  id?: string;
-  select?: string[];
-  create?: { fields?: string[] };
-  update?: { fields?: string[] };
-  search?: { fields?: string[] };
+  id?: EntityField<TEntity>;
+  select?: ReadonlyArray<EntityField<TEntity>>;
+  create?: { fields?: ReadonlyArray<EntityField<TEntity>> };
+  update?: { fields?: ReadonlyArray<EntityField<TEntity>> };
+  search?: { fields?: ReadonlyArray<EntityField<TEntity>> };
   defaults?: Record<string, () => unknown>;
   schemaOverrides?: CrudSchemaOverrides<TSchema>;
   notFoundMessage?: string;
@@ -327,7 +328,9 @@ function buildSchemas<TSchema>(
   };
 }
 
-function createCrudDefinition<TSchema>(options: MetalOrmCrudOptions<TSchema>): CrudDefinition<TSchema> {
+function createCrudDefinition<TSchema, TEntity extends object>(
+  options: MetalOrmCrudOptions<TSchema, TEntity>,
+): CrudDefinition<TSchema> {
   const provider = (options.schemaProvider ?? (simpleSchemaProvider as unknown as SchemaProvider<TSchema>));
   const target = resolveTarget(options.target);
   const primaryKey = options.id ?? findPrimaryKey(target.table);
@@ -377,6 +380,12 @@ function getCrudMetadata<TSchema>(ctor: Function): CrudDefinition<TSchema> {
   return def;
 }
 
+export function MetalOrmCrudController<TSchema, TEntity extends object>(
+  options: MetalOrmCrudOptions<TSchema, TEntity> & { target: EntityConstructor<TEntity> },
+): <T extends Function>(value: T, context: ClassDecoratorContext) => T;
+export function MetalOrmCrudController<TSchema>(
+  options: MetalOrmCrudOptions<TSchema> & { target: TableDef },
+): <T extends Function>(value: T, context: ClassDecoratorContext) => T;
 export function MetalOrmCrudController<TSchema = unknown>(
   options: MetalOrmCrudOptions<TSchema>,
 ): <T extends Function>(value: T, context: ClassDecoratorContext) => T {
