@@ -23,8 +23,19 @@ export type { IncludeTree } from './core/include.js';
 export { generateOpenApi, generateOpenApiFromManifest } from './openapi/generate.js';
 export type { OpenApi31, OpenApiOptions } from './openapi/generate.js';
 
-export { MetalOrmCrudController, MetalOrmCrudBase, simpleSchemaProvider } from './integrations/metal-orm/index.js';
-export type { MetalOrmCrudOptions, SchemaProvider } from './integrations/metal-orm/index.js';
+export {
+  MetalOrmCrudController,
+  MetalOrmCrudBase,
+  simpleSchemaProvider,
+  defineEntityApi,
+} from './integrations/metal-orm/index.js';
+export type {
+  MetalOrmCrudOptions,
+  SchemaProvider,
+  EntityApiOptions,
+  EntityApiRefs,
+  InferApiTypes,
+} from './integrations/metal-orm/index.js';
 export { defineEntityFields, fieldsOf } from './integrations/metal-orm/index.js';
 export { buildEntitySchemaShapes } from './integrations/metal-orm/index.js';
 export type {

@@ -4,13 +4,13 @@ import {
   Post,
   Put,
   Delete,
-  EmptyQuery,
   EmptyResponse,
   NotFoundError,
   simpleSchemaProvider,
   buildEntitySchemaShapes,
+  defineEntityApi,
 } from '../../../src/index.js';
-import type { InferSchema, SchemaTypeMap, TypedRequestContext } from '../../../src/index.js';
+import type { InferApiTypes } from '../../../src/index.js';
 import {
   Entity,
   Column,
@@ -153,18 +153,41 @@ const clientShapes = buildEntitySchemaShapes({
   },
 });
 
-const ClientResponseSchema = schema.object(clientShapes.response);
-const ClientResponse = schema.toSchemaRef<{
+type ClientServiceDto = {
+  id: number;
+  name: string;
+};
+type ClientDtoWithServices = {
   id: number;
   name: string;
   email: string | null;
   createdAt: string;
-  services: Array<{ id: number; name: string }>;
-}>(schemaId('Response'), ClientResponseSchema);
-const ClientListResponse = schema.toSchemaRef<Array<InferSchema<typeof ClientResponse>>>(
-  schemaId('ListResponse'),
-  schema.array(ClientResponseSchema),
-);
+  services: ClientServiceDto[];
+};
+type ClientCreateBody = {
+  name: string;
+  email?: string | null;
+  serviceIds?: number[];
+};
+type ClientUpdateBody = {
+  name?: string;
+  email?: string | null;
+  serviceIds?: number[];
+};
+type ClientSearchQuery = {
+  name?: string;
+  email?: string;
+};
+type ClientParamsInput = {
+  id: number;
+};
+type ClientApiTypeHints = {
+  params: ClientParamsInput;
+  response: ClientDtoWithServices;
+  create: ClientCreateBody;
+  update: ClientUpdateBody;
+  search: ClientSearchQuery;
+};
 
 const ClientInsightsResponse = schema.toSchemaRef<{
   totalClients: number;
@@ -187,70 +210,31 @@ const ClientInsightsResponse = schema.toSchemaRef<{
   }),
 );
 
-const CountResponse = schema.toSchemaRef<{ count: number }>(
-  schemaId('CountResponse'),
-  schema.object({ count: intNumber }),
-);
-const ClientParams = schema.toSchemaRef<{ id: number }>(
-  schemaId('Params'),
-  schema.object(clientShapes.params),
-);
-const CreateClientBody = schema.toSchemaRef<{
-  name: string;
-  email?: string | null;
-  serviceIds?: number[];
-}>(
-  schemaId('CreateBody'),
-  schema.object(clientShapes.create),
-);
-const UpdateClientBody = schema.toSchemaRef<{
-  name?: string;
-  email?: string | null;
-  serviceIds?: number[];
-}>(
-  schemaId('UpdateBody'),
-  schema.object(clientShapes.update),
-);
-const SearchQuery = schema.toSchemaRef<{
-  name?: string;
-  email?: string;
-}>(
-  schemaId('SearchQuery'),
-  schema.object(clientShapes.search),
-);
-
-type ClientSchemaRefs = {
-  response: typeof ClientResponse;
-  insights: typeof ClientInsightsResponse;
-  create: typeof CreateClientBody;
-  update: typeof UpdateClientBody;
-  search: typeof SearchQuery;
-  params: typeof ClientParams;
-  emptyQuery: typeof EmptyQuery;
-};
-
-type ClientSchemaTypes = SchemaTypeMap<ClientSchemaRefs>;
-type ClientDtoWithServices = ClientSchemaTypes['response'];
+const ClientApi = defineEntityApi({
+  baseId,
+  provider: schema,
+  shapes: clientShapes,
+  schemaId,
+  extras: {
+    insights: ClientInsightsResponse,
+  },
+  types: {} as ClientApiTypeHints,
+});
+type ClientApiTypes = InferApiTypes<typeof ClientApi>;
 type ServiceDto = ClientDtoWithServices['services'][number];
-type ClientInsights = ClientSchemaTypes['insights'];
-type ClientCreateBody = ClientSchemaTypes['create'];
-type ClientUpdateBody = ClientSchemaTypes['update'];
-type ClientSearchQuery = ClientSchemaTypes['search'];
-type ClientParamsInput = ClientSchemaTypes['params'];
-type EmptyQueryInput = ClientSchemaTypes['emptyQuery'];
+type ClientInsights = ClientApiTypes['DTO']['insights'];
+type ClientParamsCtx = ClientApiTypes['Context']['Get'];
+type ClientSearchCtx = ClientApiTypes['Context']['Search'];
+type ClientCreateCtx = ClientApiTypes['Context']['Create'];
+type ClientUpdateCtx = ClientApiTypes['Context']['Update'];
+type ClientRemoveCtx = ClientApiTypes['Context']['Remove'];
 type ClientRow = {
   id: number | string;
   name: string;
   email?: string | null;
   createdAt?: string | null;
-  services?: ManyToManyCollection<Record<string, unknown>, ClientService>;
+  services?: ManyToManyCollection<Record<string, unknown>, object | undefined>;
 };
-type RequestCtx<P, Q = EmptyQueryInput, B = undefined> = TypedRequestContext<P, Q, B>;
-type ClientParamsCtx = RequestCtx<ClientParamsInput>;
-type ClientSearchCtx = RequestCtx<{}, ClientSearchQuery>;
-type ClientCreateCtx = RequestCtx<{}, EmptyQueryInput, ClientCreateBody>;
-type ClientUpdateCtx = RequestCtx<ClientParamsInput, EmptyQueryInput, ClientUpdateBody>;
-type ClientRemoveCtx = RequestCtx<ClientParamsInput>;
 
 @Controller('/metal-orm-entity-clients')
 export class MetalOrmEntityClientsController {
@@ -423,8 +407,8 @@ export class MetalOrmEntityClientsController {
   }
 
   @Get('/', {
-    query: EmptyQuery,
-    response: ClientListResponse,
+    query: ClientApi.emptyQuery,
+    response: ClientApi.list,
   })
   async list(): Promise<ClientDtoWithServices[]> {
     await this.ready;
@@ -437,8 +421,8 @@ export class MetalOrmEntityClientsController {
   }
 
   @Get('/count', {
-    query: EmptyQuery,
-    response: CountResponse,
+    query: ClientApi.emptyQuery,
+    response: ClientApi.count,
   })
   async count(): Promise<{ count: number }> {
     await this.ready;
@@ -452,8 +436,8 @@ export class MetalOrmEntityClientsController {
   }
 
   @Get('/search', {
-    query: SearchQuery,
-    response: ClientListResponse,
+    query: ClientApi.search,
+    response: ClientApi.list,
   })
   async search(ctx: ClientSearchCtx): Promise<ClientDtoWithServices[]> {
     await this.ready;
@@ -470,8 +454,8 @@ export class MetalOrmEntityClientsController {
   }
 
   @Get('/insights', {
-    query: EmptyQuery,
-    response: ClientInsightsResponse,
+    query: ClientApi.emptyQuery,
+    response: ClientApi.insights,
   })
   async insights(): Promise<ClientInsights> {
     await this.ready;
@@ -507,9 +491,9 @@ export class MetalOrmEntityClientsController {
   }
 
   @Get('/{id}', {
-    params: ClientParams,
-    query: EmptyQuery,
-    response: ClientResponse,
+    params: ClientApi.params,
+    query: ClientApi.emptyQuery,
+    response: ClientApi.response,
   })
   async get(ctx: ClientParamsCtx): Promise<ClientDtoWithServices> {
     await this.ready;
@@ -520,9 +504,9 @@ export class MetalOrmEntityClientsController {
   }
 
   @Post('/', {
-    query: EmptyQuery,
-    body: CreateClientBody,
-    response: ClientResponse,
+    query: ClientApi.emptyQuery,
+    body: ClientApi.create,
+    response: ClientApi.response,
   })
   async create(ctx: ClientCreateCtx): Promise<ClientDtoWithServices> {
     await this.ready;
@@ -548,10 +532,10 @@ export class MetalOrmEntityClientsController {
   }
 
   @Put('/{id}', {
-    params: ClientParams,
-    query: EmptyQuery,
-    body: UpdateClientBody,
-    response: ClientResponse,
+    params: ClientApi.params,
+    query: ClientApi.emptyQuery,
+    body: ClientApi.update,
+    response: ClientApi.response,
   })
   async update(ctx: ClientUpdateCtx): Promise<ClientDtoWithServices> {
     await this.ready;
@@ -577,8 +561,8 @@ export class MetalOrmEntityClientsController {
   }
 
   @Delete('/{id}', {
-    params: ClientParams,
-    query: EmptyQuery,
+    params: ClientApi.params,
+    query: ClientApi.emptyQuery,
     response: EmptyResponse,
   })
   async remove(ctx: ClientRemoveCtx): Promise<void> {

@@ -10,3 +10,5 @@ export type {
   EntitySchemaOverrides,
   EntitySchemaExtras,
 } from './schema-builder.js';
+export { defineEntityApi } from './entity-api.js';
+export type { EntityApiOptions, EntityApiRefs, InferApiTypes } from './entity-api.js';

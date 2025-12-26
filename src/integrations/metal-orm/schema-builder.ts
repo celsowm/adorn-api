@@ -211,14 +211,8 @@ function isUuidType(col: ColumnDef): boolean {
   return normalizeColumnType(col.type) === 'uuid';
 }
 
-export function buildEntitySchemaShapes<TSchema, TEntity extends object>(
-  options: EntitySchemaShapeOptions<TSchema, TEntity> & { target: EntityConstructor<TEntity> },
-): EntitySchemaShapes<TSchema>;
-export function buildEntitySchemaShapes<TSchema>(
-  options: EntitySchemaShapeOptions<TSchema> & { target: TableDef },
-): EntitySchemaShapes<TSchema>;
-export function buildEntitySchemaShapes<TSchema = unknown>(
-  options: EntitySchemaShapeOptions<TSchema>,
+export function buildEntitySchemaShapes<TSchema = unknown, TEntity extends object = object>(
+  options: EntitySchemaShapeOptions<TSchema, TEntity>,
 ): EntitySchemaShapes<TSchema> {
   const provider = options.provider ?? (simpleSchemaProvider as unknown as SchemaProvider<TSchema>);
   const table = resolveTable(options.target);
