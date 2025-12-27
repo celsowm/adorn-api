@@ -1,1 +1,1 @@
-// placeholder for src\express.ts
+export * from './adapters/express/index';
