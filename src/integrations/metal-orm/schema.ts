@@ -11,6 +11,7 @@ import {
   type ExpressionNode,
   type RelationDef,
   RelationKinds,
+  type SelectableKeys,
   type TableDef,
   tableRef,
 } from 'metal-orm';
@@ -21,12 +22,6 @@ import { EmptyResponse, named } from '../../core/schema.js';
 import type { SimpleSchema } from '../../core/simple-schema.js';
 
 export type EntityCtor<TEntity extends object = object> = new (...args: never[]) => TEntity;
-
-export type EntityRowLike<TEntity = unknown> = TEntity extends abstract new (
-  ...args: never[]
-) => infer R
-  ? Partial<R>
-  : Record<string, unknown>;
 
 export type EntityFieldSpec = {
   schema?: z.ZodTypeAny;
@@ -42,12 +37,59 @@ export type EntityRelationSpec = {
   schema?: z.ZodTypeAny;
 };
 
-export type EntityFields<TEntity extends object = object> = {
+export type EntityFields<
+  TEntity extends object = object,
+  TColumns extends Record<string, EntityFieldSpec> = Record<string, EntityFieldSpec>,
+  TRelations extends Record<string, EntityRelationSpec> = Record<string, EntityRelationSpec>,
+> = {
   entity: EntityCtor<TEntity>;
   table: TableDef;
-  columns: Record<string, EntityFieldSpec>;
-  relations: Record<string, EntityRelationSpec>;
+  columns: TColumns;
+  relations: TRelations;
 };
+
+type EntityFieldSpecs = Record<string, EntityFieldSpec | EntityRelationSpec>;
+
+type ColumnsFromFieldSpecs<TFields extends EntityFieldSpecs> = {
+  [K in keyof TFields as TFields[K] extends EntityRelationSpec ? never : K]: EntityFieldSpec;
+};
+
+type RelationsFromFieldSpecs<TFields extends EntityFieldSpecs> = {
+  [K in keyof TFields as TFields[K] extends EntityRelationSpec ? K : never]: EntityRelationSpec;
+};
+
+type NormalizedEntityFields<TEntity extends object, TFields> =
+  TFields extends EntityFields<TEntity, infer TColumns, infer TRelations>
+    ? EntityFields<TEntity, TColumns, TRelations>
+    : TFields extends EntityFieldSpecs
+      ? EntityFields<TEntity, ColumnsFromFieldSpecs<TFields>, RelationsFromFieldSpecs<TFields>>
+      : EntityFields<TEntity>;
+
+type EntityInstanceType<TEntity> = TEntity extends EntityCtor<infer R> ? R : TEntity;
+
+type RelationValue<T> = T extends { getItems(): infer I }
+  ? I
+  : T extends { get(): infer I }
+    ? I
+    : T;
+
+type EntityRowShape<TEntity> = TEntity extends object
+  ? Pick<TEntity, SelectableKeys<TEntity> & keyof TEntity>
+  : Record<string, unknown>;
+
+type EntityRelationValues<TEntity, TRelations extends Record<string, EntityRelationSpec>> = {
+  [K in keyof TRelations]: K extends keyof TEntity ? RelationValue<TEntity[K]> : unknown;
+};
+
+export type EntityRowLike<
+  TEntity = unknown,
+  TFields extends EntityFields<any, any, any> | undefined = undefined,
+> = EntityInstanceType<TEntity> extends object
+  ? Partial<EntityRowShape<EntityInstanceType<TEntity>>> &
+      (TFields extends EntityFields<any, any, infer TRelations>
+        ? Partial<EntityRelationValues<EntityInstanceType<TEntity>, TRelations>>
+        : {})
+  : Record<string, unknown>;
 
 export type EntitySchemaOverrides = {
   row?: Record<string, z.ZodTypeAny>;
@@ -83,8 +125,9 @@ export type EntityApiOptions<
   TUpdateBody extends z.ZodTypeAny = z.ZodTypeAny,
   TListResponse extends z.ZodTypeAny = z.ZodTypeAny,
   TItemResponse extends z.ZodTypeAny = z.ZodTypeAny,
+  TFields extends EntityFields<TEntity> | EntityFieldSpecs | undefined = undefined,
 > = {
-  fields?: EntityFields<TEntity> | Record<string, EntityFieldSpec | EntityRelationSpec>;
+  fields?: TFields;
   idParam?: string;
   idSchema?: TIdSchema;
   include?: IncludePolicy | boolean;
@@ -168,7 +211,10 @@ export type EntityApiTypes<TRefs extends EntityApiRefs> = {
 
 export type InferApiTypes<TApi extends { refs: EntityApiRefs }> = EntityApiTypes<TApi['refs']>;
 
-export type EntityApiDto<TEntity = unknown> = EntityRowLike<TEntity>;
+export type EntityApiDto<
+  TEntity = unknown,
+  TFields extends EntityFields<any, any, any> | undefined = undefined,
+> = EntityRowLike<TEntity, TFields>;
 
 export type EntityApiCtx<TRefs, TKey extends keyof TRefs> = TypedRequestContext<
   TRefs[TKey] extends { params: SchemaRef } ? InferApiSchema<TRefs[TKey]['params']> : {},
@@ -192,9 +238,17 @@ export function fieldsOf<TEntity extends object>(
   };
 }
 
+export function defineEntityFields<TEntity extends object, TFields extends EntityFields<TEntity>>(
+  entity: EntityCtor<TEntity>,
+  fields: TFields
+): TFields;
+export function defineEntityFields<TEntity extends object, TFields extends EntityFieldSpecs>(
+  entity: EntityCtor<TEntity>,
+  fields: TFields
+): EntityFields<TEntity, ColumnsFromFieldSpecs<TFields>, RelationsFromFieldSpecs<TFields>>;
 export function defineEntityFields<TEntity extends object>(
   entity: EntityCtor<TEntity>,
-  fields?: EntityFields<TEntity> | Record<string, EntityFieldSpec | EntityRelationSpec>
+  fields?: EntityFields<TEntity> | EntityFieldSpecs
 ): EntityFields<TEntity> {
   if (isEntityFields(fields)) return fields;
 
@@ -297,6 +351,7 @@ export function defineEntityApi<
   TUpdateBody extends z.ZodTypeAny = z.ZodTypeAny,
   TListResponse extends z.ZodTypeAny = z.ZodTypeAny,
   TItemResponse extends z.ZodTypeAny = z.ZodTypeAny,
+  TFields extends EntityFields<TEntity> | EntityFieldSpecs | undefined = undefined,
 >(
   entity: EntityCtor<TEntity>,
   options: EntityApiOptions<
@@ -307,7 +362,8 @@ export function defineEntityApi<
     TCreateBody,
     TUpdateBody,
     TListResponse,
-    TItemResponse
+    TItemResponse,
+    TFields
   > = {}
 ): {
   refs: EntityApiRefsFromSchemas<
@@ -319,11 +375,14 @@ export function defineEntityApi<
     TListResponse,
     TItemResponse
   >;
-  fields: EntityFields<TEntity>;
+  fields: NormalizedEntityFields<TEntity, TFields>;
   shapes: EntitySchemaShapes;
   includePolicy?: IncludePolicy;
 } {
-  const fields = defineEntityFields(entity, options.fields);
+  const fields = defineEntityFields(
+    entity,
+    options.fields as EntityFields<TEntity> | EntityFieldSpecs | undefined
+  ) as NormalizedEntityFields<TEntity, TFields>;
   const shapes = buildEntitySchemaShapes(fields, options.shapes);
   const apiName = options.name ?? entity.name;
 
@@ -462,7 +521,7 @@ function resolveEntityTable<TEntity extends object>(entity: EntityCtor<TEntity>)
 }
 
 function isEntityFields<TEntity extends object>(
-  value: EntityFields<TEntity> | Record<string, EntityFieldSpec | EntityRelationSpec> | undefined
+  value: EntityFields<TEntity> | EntityFieldSpecs | undefined
 ): value is EntityFields<TEntity> {
   return Boolean(value && typeof value === 'object' && 'table' in value && 'columns' in value);
 }

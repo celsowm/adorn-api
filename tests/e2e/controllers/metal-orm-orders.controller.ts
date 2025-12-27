@@ -25,27 +25,25 @@ import {
   Post,
   Put,
   defineEntityApi,
-  defineEntityFields,
   extractEntityDtos,
   named,
   type EntityApiCtx,
 } from '../../../src/index.js';
 import { Order } from '../entities.js';
 
-const orderFields = defineEntityFields(Order, {
-  id: { readOnly: true },
-  user_id: {},
-  total: {},
-  status: {},
-  user: { relation: true },
-});
-
 const orderApi = defineEntityApi(Order, {
   idSchema: z.coerce.number().int(),
   listQuery: z.object({ status: z.string().optional() }),
-  fields: orderFields,
+  fields: {
+    id: { readOnly: true },
+    user_id: {},
+    total: {},
+    status: {},
+    user: { relation: true },
+  },
   include: { allowed: ['user'], maxDepth: 1 },
 });
+const orderFields = orderApi.fields;
 
 const orderReportResponse = named(
   'OrderReportResponse',

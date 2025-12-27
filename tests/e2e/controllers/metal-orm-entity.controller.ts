@@ -14,26 +14,24 @@ import {
   NotFoundError,
   Post,
   defineEntityApi,
-  defineEntityFields,
   extractEntityDtos,
   EmptyBody,
   type EntityApiCtx,
 } from '../../../src/index.js';
 import { User } from '../entities.js';
 
-const userFields = defineEntityFields(User, {
-  id: { readOnly: true },
-  name: {},
-  email: {},
-  active: {},
-  posts: { relation: true },
-});
-
 export const userApi = defineEntityApi(User, {
   idSchema: z.coerce.number().int(),
-  fields: userFields,
+  fields: {
+    id: { readOnly: true },
+    name: {},
+    email: {},
+    active: {},
+    posts: { relation: true },
+  },
   include: { allowed: ['posts'], maxDepth: 1 },
 });
+const userFields = userApi.fields;
 
 @Controller('/users')
 export class MetalOrmEntityController {

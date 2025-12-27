@@ -30,37 +30,55 @@ export function getLoadedItems<T>(value: T): LoadedItems<T> {
   return value as LoadedItems<T>;
 }
 
-export function pickEntityRow<TEntity extends object>(
+export function pickEntityRow<TEntity extends object, TFields extends EntityFields<TEntity>>(
   entity: TEntity,
-  fields: EntityFields
-): EntityRowLike<TEntity> {
+  fields: TFields
+): EntityRowLike<TEntity, TFields> {
   const out: Record<string, unknown> = {};
   for (const name of Object.keys(fields.columns)) {
     out[name] = (entity as any)[name];
   }
-  return out as EntityRowLike<TEntity>;
+  return out as EntityRowLike<TEntity, TFields>;
 }
 
-export function extractEntityDtos<TEntity extends object>(
-  items: TEntity | TEntity[],
-  fields: EntityFields
-): EntityRowLike<TEntity> | EntityRowLike<TEntity>[] {
-  const toDto = (entity: TEntity): EntityRowLike<TEntity> => {
+type EntityValue<TEntity extends object> = TEntity | DecoratedEntityInstance<TEntity>;
+
+type EntityFromFields<TFields extends EntityFields<any>> = TFields extends EntityFields<infer TEntity>
+  ? TEntity
+  : never;
+
+export function extractEntityDtos<TFields extends EntityFields<any>>(
+  items: EntityValue<EntityFromFields<TFields>>,
+  fields: TFields
+): EntityRowLike<EntityFromFields<TFields>, TFields>;
+export function extractEntityDtos<TFields extends EntityFields<any>>(
+  items: EntityValue<EntityFromFields<TFields>>[],
+  fields: TFields
+): EntityRowLike<EntityFromFields<TFields>, TFields>[];
+export function extractEntityDtos<TFields extends EntityFields<any>>(
+  items: EntityValue<EntityFromFields<TFields>> | EntityValue<EntityFromFields<TFields>>[],
+  fields: TFields
+): EntityRowLike<EntityFromFields<TFields>, TFields> | EntityRowLike<EntityFromFields<TFields>, TFields>[] {
+  type TEntity = EntityFromFields<TFields>;
+  const toDto = (entity: TEntity): EntityRowLike<TEntity, TFields> => {
     const out: Record<string, unknown> = pickEntityRow(entity, fields);
     for (const name of Object.keys(fields.relations)) {
       const raw = (entity as any)[name];
       if (raw === undefined) continue;
       out[name] = getLoadedItems(raw);
     }
-    return out as EntityRowLike<TEntity>;
+    return out as EntityRowLike<TEntity, TFields>;
   };
 
   return Array.isArray(items) ? items.map(toDto) : toDto(items);
 }
 
-export type MetalOrmCrudOptions<TEntity extends object> = {
+export type MetalOrmCrudOptions<
+  TEntity extends object,
+  TFields extends EntityFields<TEntity> = EntityFields<TEntity>,
+> = {
   entity: EntityCtor<TEntity>;
-  fields?: EntityFields<TEntity> | Record<string, EntityFieldSpec | EntityRelationSpec>;
+  fields?: TFields | Record<string, EntityFieldSpec | EntityRelationSpec>;
   autoCommit?: boolean;
 };
 
@@ -69,35 +87,56 @@ type CrudQueryOptions = {
   dto?: boolean;
 };
 
-export class MetalOrmCrudBase<TEntity extends object> {
+export class MetalOrmCrudBase<
+  TEntity extends object,
+  TFields extends EntityFields<TEntity> = EntityFields<TEntity>,
+> {
   protected readonly entity: EntityCtor<TEntity>;
   protected readonly table: TableDef;
-  protected readonly fields: EntityFields<TEntity>;
+  protected readonly fields: TFields;
   protected readonly autoCommit: boolean;
 
-  constructor(options: MetalOrmCrudOptions<TEntity>) {
+  constructor(options: MetalOrmCrudOptions<TEntity, TFields>) {
     this.entity = options.entity;
-    this.fields = defineEntityFields(options.entity, options.fields);
+    this.fields = defineEntityFields(options.entity, options.fields) as TFields;
     this.table = this.fields.table;
     this.autoCommit = Boolean(options.autoCommit);
   }
 
   async list(
     session: OrmSession,
+    options?: CrudQueryOptions & { dto?: false }
+  ): Promise<DecoratedEntityInstance<TEntity>[]>;
+  async list(
+    session: OrmSession,
+    options: CrudQueryOptions & { dto: true }
+  ): Promise<EntityRowLike<TEntity, TFields>[]>;
+  async list(
+    session: OrmSession,
     options: CrudQueryOptions = {}
-  ): Promise<DecoratedEntityInstance<TEntity>[] | EntityRowLike<TEntity>[]> {
+  ): Promise<DecoratedEntityInstance<TEntity>[] | EntityRowLike<TEntity, TFields>[]> {
     const qb = this.applyIncludes(selectFromEntity(this.entity), options.include);
     const items = await qb.execute(session);
     return options.dto
-      ? (extractEntityDtos(items, this.fields) as EntityRowLike<TEntity>[])
+      ? (extractEntityDtos(items, this.fields) as EntityRowLike<TEntity, TFields>[])
       : (items as DecoratedEntityInstance<TEntity>[]);
   }
 
   async findById(
     session: OrmSession,
     id: unknown,
+    options?: CrudQueryOptions & { dto?: false }
+  ): Promise<DecoratedEntityInstance<TEntity> | null>;
+  async findById(
+    session: OrmSession,
+    id: unknown,
+    options: CrudQueryOptions & { dto: true }
+  ): Promise<EntityRowLike<TEntity, TFields> | null>;
+  async findById(
+    session: OrmSession,
+    id: unknown,
     options: CrudQueryOptions = {}
-  ): Promise<DecoratedEntityInstance<TEntity> | EntityRowLike<TEntity> | null> {
+  ): Promise<DecoratedEntityInstance<TEntity> | EntityRowLike<TEntity, TFields> | null> {
     const pk = resolvePrimaryKey(this.table);
     if (!pk) throw new Error(`Entity ${this.entity.name} has no primary key`);
     const ref = entityRef(this.entity) as any;
@@ -111,7 +150,7 @@ export class MetalOrmCrudBase<TEntity extends object> {
       .execute(session);
     if (!item) return null;
     return options.dto
-      ? (extractEntityDtos(item, this.fields) as EntityRowLike<TEntity>)
+      ? (extractEntityDtos(item, this.fields) as EntityRowLike<TEntity, TFields>)
       : (item as DecoratedEntityInstance<TEntity>);
   }
 
@@ -162,7 +201,10 @@ export class MetalOrmCrudBase<TEntity extends object> {
   }
 }
 
-export class MetalOrmCrudController<TEntity extends object> extends MetalOrmCrudBase<TEntity> {}
+export class MetalOrmCrudController<
+  TEntity extends object,
+  TFields extends EntityFields<TEntity> = EntityFields<TEntity>,
+> extends MetalOrmCrudBase<TEntity, TFields> {}
 
 function resolvePrimaryKey(table: TableDef): string | undefined {
   if (table.primaryKey?.length) return table.primaryKey[0];
