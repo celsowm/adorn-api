@@ -200,7 +200,7 @@ export class MetalOrmFlexibleUsersController {
     return this.withSession(async (session) => {
       const results = (await selectFromEntity(User)
         .select({ count: count(this.table.columns.id) })
-        .execute(session)) as Array<{ count?: number | string | null }>;
+        .executePlain(session)) as Array<{ count?: number | string | null }>;
       const value = results[0]?.count;
       return { count: typeof value === 'number' ? value : Number(value ?? 0) };
     });

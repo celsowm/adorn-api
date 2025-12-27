@@ -10,13 +10,13 @@ import {
   buildEntitySchemaShapes,
   defineEntityApi,
   coerceEntityId,
-  extractEntityDtos,
+  getLoadedItems,
+  buildEntitySearchCondition,
 } from '../../../src/index.js';
 import type {
   EntityApiCtx,
   EntityApiDto,
   RequireDefined,
-  EntityRowLike,
 } from '../../../src/index.js';
 import {
   Entity,
@@ -31,11 +31,10 @@ import {
   esel,
   count,
   eq,
-  and,
   col,
   bootstrapEntities,
 } from 'metal-orm';
-import type { ColumnDef, ExpressionNode, OrmSession, ManyToManyCollection } from 'metal-orm';
+import type { ExpressionNode, OrmSession, ManyToManyCollection } from 'metal-orm';
 import sqlite3 from 'sqlite3';
 import { SqlitePromiseClient } from './helpers/sqlite-client.js';
 
@@ -205,7 +204,6 @@ const ClientApi = defineEntityApi({
   },
   types: {} as ClientApiTypeHints,
 });
-type ClientRow = EntityRowLike<Client>;
 
 @Controller('/metal-orm-entity-clients')
 export class MetalOrmEntityClientsController {
@@ -303,25 +301,32 @@ export class MetalOrmEntityClientsController {
       .include('services', { columns: ['id', 'name'] });
   }
 
-  private extractServices(client: ClientRow): ServiceDto[] {
-    const dtos = extractEntityDtos(Service, client.services, ['id', 'name'] as const);
+  private formatService(service: Service): ServiceDto {
+    return {
+      id: coerceEntityId(Service, service.id) ?? 0,
+      name: service.name,
+    };
+  }
+
+  private extractServices(client: Client): ServiceDto[] {
+    const items = getLoadedItems<Service>(client.services);
+    const dtos = items.map((service) => this.formatService(service));
     dtos.sort((a, b) => a.id - b.id);
     return dtos;
   }
 
-  private getColumnDef(field: string): ColumnDef | undefined {
-    return (this.clientRef.$ as Record<string, ColumnDef>)[field];
-  }
-
-  private formatClient(client: ClientRow): ClientDtoWithServices {
+  private formatClient(client: Client): ClientDtoWithServices {
     const id = coerceEntityId(Client, client.id) ?? 0;
-    const emailValue = client.email ?? null;
-    const createdAtValue = client.createdAt ?? null;
     return {
       id,
       name: client.name,
-      email: typeof emailValue === 'string' ? emailValue : (emailValue ?? null),
-      createdAt: typeof createdAtValue === 'string' ? createdAtValue : '',
+      email: typeof client.email === 'string' ? client.email : client.email ?? null,
+      createdAt:
+        typeof client.createdAt === 'string'
+          ? client.createdAt
+          : client.createdAt instanceof Date
+            ? client.createdAt.toISOString()
+            : '',
       services: this.extractServices(client),
     };
   }
@@ -343,16 +348,7 @@ export class MetalOrmEntityClientsController {
   }
 
   private buildSearchCondition(input: Record<string, unknown>): ExpressionNode | undefined {
-    let condition: ExpressionNode | undefined;
-    for (const field of this.searchFields) {
-      const value = input[field];
-      if (value === undefined || value === null || value === '') continue;
-      const column = this.getColumnDef(field);
-      if (!column) continue;
-      const next = eq(column, value as string | number | boolean);
-      condition = condition ? and(condition, next) : next;
-    }
-    return condition;
+    return buildEntitySearchCondition(Client, input, this.searchFields);
   }
 
   @Get('/', {
@@ -376,7 +372,7 @@ export class MetalOrmEntityClientsController {
     return this.withSession(async (session) => {
       const rows = (await selectFromEntity(Client)
         .select({ count: count(this.clientRef.id) })
-        .execute(session)) as Array<{ count?: number | string | null }>;
+        .executePlain(session)) as Array<{ count?: number | string | null }>;
       const value = rows[0]?.count;
       return { count: typeof value === 'number' ? value : Number(value ?? 0) };
     });
@@ -396,7 +392,7 @@ export class MetalOrmEntityClientsController {
         queryBuilder = queryBuilder.where(condition);
       }
       const rows = await queryBuilder.execute(session);
-      return Promise.all(rows.map((row) => this.formatClient(row)));
+      return rows.map((row) => this.formatClient(row));
     });
   }
 
