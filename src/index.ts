@@ -38,6 +38,11 @@ export {
   MetalOrmCrudBase,
   simpleSchemaProvider,
   defineEntityApi,
+  getLoadedItems,
+  coerceEntityField,
+  coerceEntityId,
+  pickEntityRow,
+  extractEntityDtos,
 } from './integrations/metal-orm/index.js';
 export type {
   MetalOrmCrudOptions,
@@ -45,6 +50,7 @@ export type {
   EntityApiOptions,
   EntityApiRefs,
   InferApiTypes,
+  LoadedItems,
 } from './integrations/metal-orm/index.js';
 export { defineEntityFields, fieldsOf } from './integrations/metal-orm/index.js';
 export { buildEntitySchemaShapes } from './integrations/metal-orm/index.js';

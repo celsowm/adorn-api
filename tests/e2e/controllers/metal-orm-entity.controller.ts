@@ -9,6 +9,8 @@ import {
   simpleSchemaProvider,
   buildEntitySchemaShapes,
   defineEntityApi,
+  coerceEntityId,
+  extractEntityDtos,
 } from '../../../src/index.js';
 import type { InferApiTypes, RequireDefined } from '../../../src/index.js';
 import {
@@ -108,11 +110,14 @@ const intNumber = schema.int!(schema.number());
 const nameSchema = schema.minLength!(schema.string(), 1);
 const emailSchema = schema.email!(schema.string());
 const serviceIdsSchema = schema.array(intNumber);
-const ServiceResponseSchema = schema.object({
-  id: intNumber,
-  name: schema.string(),
+const serviceShapes = buildEntitySchemaShapes({
+  target: Service,
+  provider: schema,
+  select: ['id', 'name'],
+  responseOptional: false,
+  responseNullable: false,
 });
-const ServicesSchema = schema.array(ServiceResponseSchema);
+const ServicesSchema = schema.array(schema.object(serviceShapes.response));
 
 const clientShapes = buildEntitySchemaShapes({
   target: Client,
@@ -307,29 +312,7 @@ export class MetalOrmEntityClientsController {
   }
 
   private extractServices(client: ClientRow): ServiceDto[] {
-    const services = client.services;
-    if (!services || typeof services.getItems !== 'function') {
-      return [];
-    }
-    const dtos: ServiceDto[] = [];
-    for (const service of services.getItems() ?? []) {
-      const rawService = service as Record<string, unknown>;
-      const rawId = rawService.id;
-      if (rawId === undefined || rawId === null) continue;
-      const value = typeof rawId === 'number' ? rawId : Number(rawId);
-      if (!Number.isFinite(value)) continue;
-      const nameRaw = rawService.name;
-      const name =
-        typeof nameRaw === 'string'
-          ? nameRaw
-          : nameRaw === undefined || nameRaw === null
-            ? ''
-            : String(nameRaw);
-      dtos.push({
-        id: value,
-        name,
-      });
-    }
+    const dtos = extractEntityDtos(Service, client.services, ['id', 'name'] as const);
     dtos.sort((a, b) => a.id - b.id);
     return dtos;
   }
@@ -339,12 +322,11 @@ export class MetalOrmEntityClientsController {
   }
 
   private formatClient(client: ClientRow): ClientDtoWithServices {
-    const rawId = client.id;
-    const id = typeof rawId === 'number' ? rawId : Number(rawId);
+    const id = coerceEntityId(Client, client.id) ?? 0;
     const emailValue = client.email ?? null;
     const createdAtValue = client.createdAt ?? null;
     return {
-      id: Number.isFinite(id) ? id : 0,
+      id,
       name: client.name,
       email: typeof emailValue === 'string' ? emailValue : (emailValue ?? null),
       createdAt: typeof createdAtValue === 'string' ? createdAtValue : '',
@@ -354,7 +336,7 @@ export class MetalOrmEntityClientsController {
 
   private async fetchClientById(
     session: OrmSession,
-    id: number | string
+    id: number
   ): Promise<ClientDtoWithServices> {
     const rows = await this.baseClientQuery().where(eq(this.clientRef.id, id)).execute(session);
     const client = rows[0];
@@ -364,7 +346,7 @@ export class MetalOrmEntityClientsController {
     return this.formatClient(client);
   }
 
-  private fetchFreshClient(id: number | string): Promise<ClientDtoWithServices> {
+  private fetchFreshClient(id: number): Promise<ClientDtoWithServices> {
     return this.withSession((session) => this.fetchClientById(session, id));
   }
 
@@ -494,11 +476,12 @@ export class MetalOrmEntityClientsController {
         pruneMissing: body.serviceIds !== undefined,
       });
       const persistedId = (client as unknown as { id?: number | string }).id;
-      if (persistedId === undefined || persistedId === null) {
+      const id = coerceEntityId(Client, persistedId);
+      if (id === undefined) {
         throw new NotFoundError('Client not found');
       }
       await session.commit();
-      return this.fetchFreshClient(persistedId as number | string);
+      return this.fetchFreshClient(id);
     });
   }
 

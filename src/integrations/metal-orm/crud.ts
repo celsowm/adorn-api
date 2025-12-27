@@ -42,7 +42,10 @@ type CrudSchemaOverrides<TSchema> = {
   response?: Record<string, TSchema>;
 };
 
-export type MetalOrmCrudOptions<TSchema = unknown, TEntity extends object = object> = {
+export type MetalOrmCrudOptions<
+  TSchema = unknown,
+  TEntity extends object = Record<string, unknown>,
+> = {
   basePath: string;
   tags?: string[];
   target: EntityConstructor<TEntity> | TableDef;
@@ -249,8 +252,8 @@ function isUuidType(col: ColumnDef): boolean {
   return normalizeColumnType(col.type) === 'uuid';
 }
 
-function buildSchemas<TSchema>(
-  options: MetalOrmCrudOptions<TSchema>,
+function buildSchemas<TSchema, TEntity extends object>(
+  options: MetalOrmCrudOptions<TSchema, TEntity>,
   target: CrudTarget,
   primaryKey: string,
   selectColumns: string[],
@@ -334,10 +337,14 @@ function createCrudDefinition<TSchema, TEntity extends object>(
   const provider = (options.schemaProvider ?? (simpleSchemaProvider as unknown as SchemaProvider<TSchema>));
   const target = resolveTarget(options.target);
   const primaryKey = options.id ?? findPrimaryKey(target.table);
-  const selectColumns = options.select ?? Object.keys(target.table.columns);
-  const createFields = options.create?.fields ?? defaultWriteFields(target.table, { includePrimary: false });
-  const updateFields = options.update?.fields ?? defaultWriteFields(target.table, { includePrimary: false });
-  const searchFields = options.search?.fields ?? [];
+  const selectColumns = options.select ? [...options.select] : Object.keys(target.table.columns);
+  const createFields = options.create?.fields
+    ? [...options.create.fields]
+    : defaultWriteFields(target.table, { includePrimary: false });
+  const updateFields = options.update?.fields
+    ? [...options.update.fields]
+    : defaultWriteFields(target.table, { includePrimary: false });
+  const searchFields = options.search?.fields ? [...options.search.fields] : [];
   const defaults = options.defaults ?? {};
   const notFoundMessage = options.notFoundMessage ?? 'Not found';
 
@@ -381,13 +388,13 @@ function getCrudMetadata<TSchema>(ctor: Function): CrudDefinition<TSchema> {
 }
 
 export function MetalOrmCrudController<TSchema, TEntity extends object>(
-  options: MetalOrmCrudOptions<TSchema, TEntity> & { target: EntityConstructor<TEntity> },
+  options: Omit<MetalOrmCrudOptions<TSchema, TEntity>, 'target'> & { target: EntityConstructor<TEntity> },
 ): <T extends Function>(value: T, context: ClassDecoratorContext) => T;
 export function MetalOrmCrudController<TSchema>(
-  options: MetalOrmCrudOptions<TSchema> & { target: TableDef },
+  options: Omit<MetalOrmCrudOptions<TSchema, Record<string, unknown>>, 'target'> & { target: TableDef },
 ): <T extends Function>(value: T, context: ClassDecoratorContext) => T;
-export function MetalOrmCrudController<TSchema = unknown>(
-  options: MetalOrmCrudOptions<TSchema>,
+export function MetalOrmCrudController<TSchema = unknown, TEntity extends object = Record<string, unknown>>(
+  options: MetalOrmCrudOptions<TSchema, TEntity>,
 ): <T extends Function>(value: T, context: ClassDecoratorContext) => T {
   return function <T extends Function>(value: T, context: ClassDecoratorContext): T {
     const def = createCrudDefinition(options);
