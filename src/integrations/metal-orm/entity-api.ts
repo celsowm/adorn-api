@@ -93,6 +93,20 @@ export type InferApiTypes<
   };
 };
 
+export type EntityApiTypes<
+  TRefs extends StandardEntityRefs & Record<string, SchemaRef>,
+> = InferApiTypes<TRefs>;
+
+export type EntityApiDto<
+  TRefs extends StandardEntityRefs & Record<string, SchemaRef>,
+  K extends keyof EntityApiTypes<TRefs>['DTO'],
+> = EntityApiTypes<TRefs>['DTO'][K];
+
+export type EntityApiCtx<
+  TRefs extends StandardEntityRefs & Record<string, SchemaRef>,
+  K extends keyof EntityApiTypes<TRefs>['Context'],
+> = EntityApiTypes<TRefs>['Context'][K];
+
 export function defineEntityApi<
   TSchema = unknown,
   TShapes extends EntitySchemaShapes<TSchema> = EntitySchemaShapes<TSchema>,

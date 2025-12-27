@@ -51,6 +51,9 @@ export type {
   EntityApiOptions,
   EntityApiRefs,
   InferApiTypes,
+  EntityApiTypes,
+  EntityApiDto,
+  EntityApiCtx,
   LoadedItems,
 } from './integrations/metal-orm/index.js';
 export { defineEntityFields, fieldsOf } from './integrations/metal-orm/index.js';

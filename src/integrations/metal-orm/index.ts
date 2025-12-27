@@ -20,4 +20,11 @@ export type {
 } from './schema-builder.js';
 export type { LoadedItems } from './row-helpers.js';
 export { defineEntityApi } from './entity-api.js';
-export type { EntityApiOptions, EntityApiRefs, InferApiTypes } from './entity-api.js';
+export type {
+  EntityApiOptions,
+  EntityApiRefs,
+  InferApiTypes,
+  EntityApiTypes,
+  EntityApiDto,
+  EntityApiCtx,
+} from './entity-api.js';

@@ -12,7 +12,7 @@ import {
   coerceEntityId,
   extractEntityDtos,
 } from '../../../src/index.js';
-import type { InferApiTypes, RequireDefined } from '../../../src/index.js';
+import type { EntityApiCtx, EntityApiDto, RequireDefined } from '../../../src/index.js';
 import {
   Entity,
   Column,
@@ -200,13 +200,6 @@ const ClientApi = defineEntityApi({
   },
   types: {} as ClientApiTypeHints,
 });
-type ClientApiTypes = InferApiTypes<typeof ClientApi>;
-type ClientInsights = ClientApiTypes['DTO']['insights'];
-type ClientParamsCtx = ClientApiTypes['Context']['Get'];
-type ClientSearchCtx = ClientApiTypes['Context']['Search'];
-type ClientCreateCtx = ClientApiTypes['Context']['Create'];
-type ClientUpdateCtx = ClientApiTypes['Context']['Update'];
-type ClientRemoveCtx = ClientApiTypes['Context']['Remove'];
 type ClientRow = {
   id: number | string;
   name: string;
@@ -394,7 +387,7 @@ export class MetalOrmEntityClientsController {
     query: ClientApi.search,
     response: ClientApi.list,
   })
-  async search(ctx: ClientSearchCtx): Promise<ClientDtoWithServices[]> {
+  async search(ctx: EntityApiCtx<typeof ClientApi, 'Search'>): Promise<ClientDtoWithServices[]> {
     await this.ready;
     const input = ctx.input.query;
     return this.withSession(async (session) => {
@@ -412,7 +405,7 @@ export class MetalOrmEntityClientsController {
     query: ClientApi.emptyQuery,
     response: ClientApi.insights,
   })
-  async insights(): Promise<ClientInsights> {
+  async insights(): Promise<EntityApiDto<typeof ClientApi, 'insights'>> {
     await this.ready;
     return this.withSession(async (session) => {
       const rows = await this.baseClientQuery().orderBy(this.clientRef.id, 'ASC').execute(session);
@@ -448,7 +441,7 @@ export class MetalOrmEntityClientsController {
     query: ClientApi.emptyQuery,
     response: ClientApi.response,
   })
-  async get(ctx: ClientParamsCtx): Promise<ClientDtoWithServices> {
+  async get(ctx: EntityApiCtx<typeof ClientApi, 'Get'>): Promise<ClientDtoWithServices> {
     await this.ready;
     const { id } = ctx.input.params;
     return this.withSession(async (session) => {
@@ -461,7 +454,7 @@ export class MetalOrmEntityClientsController {
     body: ClientApi.create,
     response: ClientApi.response,
   })
-  async create(ctx: ClientCreateCtx): Promise<ClientDtoWithServices> {
+  async create(ctx: EntityApiCtx<typeof ClientApi, 'Create'>): Promise<ClientDtoWithServices> {
     await this.ready;
     const body = ctx.input.body;
     return this.withSession(async (session) => {
@@ -491,7 +484,7 @@ export class MetalOrmEntityClientsController {
     body: ClientApi.update,
     response: ClientApi.response,
   })
-  async update(ctx: ClientUpdateCtx): Promise<ClientDtoWithServices> {
+  async update(ctx: EntityApiCtx<typeof ClientApi, 'Update'>): Promise<ClientDtoWithServices> {
     await this.ready;
     const { id } = ctx.input.params;
     const body = ctx.input.body;
@@ -519,7 +512,7 @@ export class MetalOrmEntityClientsController {
     query: ClientApi.emptyQuery,
     response: EmptyResponse,
   })
-  async remove(ctx: ClientRemoveCtx): Promise<void> {
+  async remove(ctx: EntityApiCtx<typeof ClientApi, 'Remove'>): Promise<void> {
     await this.ready;
     const { id } = ctx.input.params;
     return this.withSession(async (session) => {
