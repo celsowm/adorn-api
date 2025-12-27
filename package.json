@@ -1,0 +1,16 @@
+{
+  "name": "adorn-api",
+  "version": "0.1.0",
+  "description": "Scaffold for the Adorn API project.",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "echo \"No tests yet\""
+  },
+  "keywords": [],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
