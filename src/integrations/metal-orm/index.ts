@@ -28,3 +28,4 @@ export type {
   EntityApiDto,
   EntityApiCtx,
 } from './entity-api.js';
+export type { EntityRowLike } from './row-types.js';

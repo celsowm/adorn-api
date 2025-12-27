@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "express": "^5.2.1",
-    "metal-orm": "^1.0.60",
+    "metal-orm": "^1.0.62",
     "zod": "^4.2.1"
   },
   "devDependencies": {

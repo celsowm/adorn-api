@@ -64,3 +64,4 @@ export type {
   EntitySchemaOverrides,
   EntitySchemaExtras,
 } from './integrations/metal-orm/index.js';
+export type { EntityRowLike } from './integrations/metal-orm/index.js';

@@ -12,7 +12,12 @@ import {
   coerceEntityId,
   extractEntityDtos,
 } from '../../../src/index.js';
-import type { EntityApiCtx, EntityApiDto, RequireDefined } from '../../../src/index.js';
+import type {
+  EntityApiCtx,
+  EntityApiDto,
+  RequireDefined,
+  EntityRowLike,
+} from '../../../src/index.js';
 import {
   Entity,
   Column,
@@ -200,13 +205,7 @@ const ClientApi = defineEntityApi({
   },
   types: {} as ClientApiTypeHints,
 });
-type ClientRow = {
-  id: number | string;
-  name: string;
-  email?: string | null;
-  createdAt?: string | null;
-  services?: ManyToManyCollection<Record<string, unknown>, object | undefined>;
-};
+type ClientRow = EntityRowLike<Client>;
 
 @Controller('/metal-orm-entity-clients')
 export class MetalOrmEntityClientsController {
