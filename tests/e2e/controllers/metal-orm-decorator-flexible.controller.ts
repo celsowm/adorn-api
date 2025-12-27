@@ -4,6 +4,7 @@ import {
   simpleSchemaProvider,
   NotFoundError,
   RouteConfigError,
+  buildEntitySearchCondition,
 } from '../../../src/index.js';
 import {
   Entity,
@@ -13,13 +14,11 @@ import {
   col,
   count,
   createSqliteExecutor,
-  eq,
   esel,
   getTableDefFromEntity,
   selectFromEntity,
   SqliteDialect,
   bootstrapEntities,
-  and,
 } from 'metal-orm';
 import type { ExpressionNode, OrmSession, TableDef } from 'metal-orm';
 import sqlite3 from 'sqlite3';
@@ -98,7 +97,7 @@ export class MetalOrmFlexibleUsersController {
   private readonly sqliteClient: SqlitePromiseClient;
   private readonly table: TableDef;
   private readonly selection = esel(User, 'id', 'name', 'email', 'createdAt');
-  private readonly searchFields = ['name', 'email'];
+  private readonly searchFields = ['name', 'email'] as const;
 
   constructor() {
     this.db = new sqlite3.Database(':memory:');
@@ -182,16 +181,7 @@ export class MetalOrmFlexibleUsersController {
   }
 
   private buildSearchCondition(input: PartialStringRecord): ExpressionNode | undefined {
-    let condition: ExpressionNode | undefined;
-    for (const field of this.searchFields) {
-      const value = input[field];
-      if (value === undefined || value === null || value === '') continue;
-      const column = this.table.columns[field];
-      if (!column) continue;
-      const next = eq(column, value as string | number | boolean);
-      condition = condition ? and(condition, next) : next;
-    }
-    return condition;
+    return buildEntitySearchCondition(User, input, this.searchFields);
   }
 
   async list(_ctx: RequestContext): Promise<Record<string, unknown>[]> {

@@ -43,6 +43,7 @@ export {
   coerceEntityId,
   pickEntityRow,
   extractEntityDtos,
+  buildEntitySearchCondition,
 } from './integrations/metal-orm/index.js';
 export type {
   MetalOrmCrudOptions,

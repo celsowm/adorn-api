@@ -11,6 +11,7 @@ export {
   pickEntityRow,
   extractEntityDtos,
 } from './row-helpers.js';
+export { buildEntitySearchCondition } from './search-helpers.js';
 export type {
   EntitySchemaShapeOptions,
   EntitySchemaShapes,
