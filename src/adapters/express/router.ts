@@ -1,8 +1,13 @@
 import type { NextFunction, Request, Response, Router } from 'express';
 import type { Registry, RouteEntry, ControllerCtor } from '../../core/registry/types';
 import { createExpressContext } from './transport/request';
-import { sendJson } from './transport/response';
+import { sendJson, sendReply } from './transport/response';
 import { bindArgs } from '../../core/binding/binder';
+import { ValidationError } from '../../core/errors/validation-error';
+import type { Schema } from '../../validation/native/schema';
+import type { ResponsesSpec } from '../../contracts/responses';
+import { isReply } from '../../contracts/reply';
+import { pickSuccessStatus } from '../../core/responses/pickStatus';
 
 export type ControllerFactory = (ctor: ControllerCtor, req: Request, res: Response) => any;
 
@@ -86,17 +91,49 @@ export function applyRegistryToExpressRouter(
 
         const ctx = createExpressContext(req, res);
 
-        const args = bindArgs(r, handler, ctx, {
+        const { args, prepared } = bindArgs(r, handler, ctx, {
           passContext,
           coerce: 'smart',
           csv: true,
         });
 
+        const validate = (r.options as { validate?: {
+          params?: Schema<any>;
+          query?: Schema<any>;
+          body?: Schema<any>;
+        } } | undefined)?.validate;
+
+        if (validate?.params) {
+          const res = validate.params.parse(prepared.params, ['params']);
+          if (!res.ok) throw ValidationError.fromIssues(res.issues, 'Params validation failed');
+          prepared.params = res.value;
+        }
+
+        if (validate?.query) {
+          const res = validate.query.parse(prepared.query, ['query']);
+          if (!res.ok) throw ValidationError.fromIssues(res.issues, 'Query validation failed');
+          prepared.query = res.value;
+        }
+
+        if (validate?.body) {
+          const res = validate.body.parse(prepared.body, ['body']);
+          if (!res.ok) throw ValidationError.fromIssues(res.issues, 'Body validation failed');
+          prepared.body = res.value;
+        }
+
         const result = await handler.apply(controller, args);
 
         if (res.headersSent) return;
 
-        sendJson(res, 200, result);
+        if (isReply(result)) {
+          sendReply(res, result);
+          return;
+        }
+
+        const routeOptions = (r.options ?? {}) as { responses?: ResponsesSpec; successStatus?: number };
+        const status = pickSuccessStatus(r.method, routeOptions.responses, routeOptions.successStatus);
+
+        sendJson(res, status, result);
       }),
     );
   }

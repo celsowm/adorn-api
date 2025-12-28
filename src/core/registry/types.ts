@@ -1,4 +1,4 @@
-import type { ControllerMeta, RouteMeta } from '../../metadata/keys';
+import type { BindingsMeta, ControllerMeta, RouteMeta } from '../../metadata/keys';
 
 export type ControllerCtor<T = any> = new (...args: any[]) => T;
 
@@ -30,6 +30,7 @@ export type RouteEntry = {
    * Whatever the decorator carried (docs/security/etc). Compiler can refine later.
    */
   options?: unknown;
+  bindings?: BindingsMeta;
 };
 
 export type Registry = {

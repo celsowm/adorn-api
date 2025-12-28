@@ -1,25 +1,8 @@
 import type { NextFunction, Request, Response } from 'express';
+import { toProblemDetails } from '../../../core/errors/problem';
 
-type MaybeHttpError = {
-  status?: number;
-  statusCode?: number;
-  message?: string;
-  details?: unknown;
-};
+export function adornErrorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
+  const problem = toProblemDetails(err, req.originalUrl || req.path);
 
-export function adornErrorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
-  const e = err as MaybeHttpError;
-
-  const status =
-    (typeof e?.status === 'number' && e.status) ||
-    (typeof e?.statusCode === 'number' && e.statusCode) ||
-    500;
-
-  const payload = {
-    error: status >= 500 ? 'Internal Server Error' : (e?.message ?? 'Request failed'),
-    status,
-    details: e?.details,
-  };
-
-  res.status(status).json(payload);
+  res.status(problem.status).json(problem);
 }

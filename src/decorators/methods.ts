@@ -1,13 +1,6 @@
 import { META, type RouteMeta } from '../metadata/keys';
 import { bagFromContext, bagPush } from '../metadata/bag';
-
-export type RouteOptions = {
-  summary?: string;
-  description?: string;
-  tags?: string[];
-  deprecated?: boolean;
-  [k: string]: unknown;
-};
+import type { RouteOptions } from '../contracts/route-options';
 
 type Stage3MethodContext = ClassMethodDecoratorContext;
 
@@ -34,31 +27,31 @@ function normalizeRoutePath(p: string): string {
   return out;
 }
 
-export function Get(path: string, options?: RouteOptions) {
+export function Get<Path extends string>(path: Path, options?: RouteOptions<Path>) {
   return function (_value: Function, context: Stage3MethodContext) {
     addRoute(context, { method: 'GET', path: normalizeRoutePath(path), options });
   };
 }
 
-export function Post(path: string, options?: RouteOptions) {
+export function Post<Path extends string>(path: Path, options?: RouteOptions<Path>) {
   return function (_value: Function, context: Stage3MethodContext) {
     addRoute(context, { method: 'POST', path: normalizeRoutePath(path), options });
   };
 }
 
-export function Put(path: string, options?: RouteOptions) {
+export function Put<Path extends string>(path: Path, options?: RouteOptions<Path>) {
   return function (_value: Function, context: Stage3MethodContext) {
     addRoute(context, { method: 'PUT', path: normalizeRoutePath(path), options });
   };
 }
 
-export function Patch(path: string, options?: RouteOptions) {
+export function Patch<Path extends string>(path: Path, options?: RouteOptions<Path>) {
   return function (_value: Function, context: Stage3MethodContext) {
     addRoute(context, { method: 'PATCH', path: normalizeRoutePath(path), options });
   };
 }
 
-export function Delete(path: string, options?: RouteOptions) {
+export function Delete<Path extends string>(path: Path, options?: RouteOptions<Path>) {
   return function (_value: Function, context: Stage3MethodContext) {
     addRoute(context, { method: 'DELETE', path: normalizeRoutePath(path), options });
   };

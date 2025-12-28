@@ -45,3 +45,17 @@ export type RouteMeta = {
 export type DbMeta = {
   transactional: 'auto' | 'required' | 'none';
 };
+
+export type BindingHint =
+  | { kind: 'path'; name: string; type?: 'string' | 'int' | 'number' | 'boolean' | 'uuid' }
+  | { kind: 'query'; name?: string }
+  | { kind: 'body' };
+
+export type BindingsMeta = {
+  byMethod?: Record<
+    string,
+    {
+      path?: Record<string, 'string' | 'int' | 'number' | 'boolean' | 'uuid'>;
+    }
+  >;
+};

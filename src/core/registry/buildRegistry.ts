@@ -1,4 +1,4 @@
-import { META, type ControllerMeta, type RouteMeta } from '../../metadata/keys';
+import { META, type BindingsMeta, type ControllerMeta, type RouteMeta } from '../../metadata/keys';
 import { bagFromClass, bagGet } from '../../metadata/bag';
 import { mergeBags } from '../../metadata/merge';
 import { joinPaths } from './normalize';
@@ -50,10 +50,12 @@ export function buildRegistry(controllers: ControllerCtor[]): Registry {
         `Invalid route metadata on ${ctor.name}: expected an array at META.routes.`,
       );
     }
+    const bindingsMeta = mergedBag[META.bindings] as BindingsMeta | undefined;
 
     for (const rm of routeMetas) {
       const fullPath = joinPaths(controllerMeta.basePath, rm.path);
 
+      const methodBindings = bindingsMeta?.byMethod?.[rm.name];
       routes.push({
         method: rm.method,
         fullPath,
@@ -61,6 +63,7 @@ export function buildRegistry(controllers: ControllerCtor[]): Registry {
         handlerName: rm.name,
         controller: ctor,
         options: rm.options,
+        bindings: methodBindings ? { byMethod: { [rm.name]: methodBindings } } : undefined,
       });
     }
   }
