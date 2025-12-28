@@ -11,3 +11,4 @@ export type Reply<TBody = unknown, TStatus extends number = number> = {
 
 export function isReply(x: unknown): x is Reply<any, any> {
   return !!x && typeof x === 'object' && (x as any).__adornReply === true && typeof (x as any).status === 'number';
+}
