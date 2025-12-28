@@ -116,10 +116,19 @@ declare module 'metal-orm' {
 
   export function bootstrapEntities(): TableDef[];
 
+  export type OrderDirection = 'ASC' | 'DESC';
+  export type OrderingTerm = unknown;
+
   export interface SelectQueryBuilder<T = unknown> {
     select(...cols: string[]): SelectQueryBuilder<T>;
     includeLazy(relationName: string, options?: unknown): SelectQueryBuilder<T>;
     where(condition: unknown): SelectQueryBuilder<T>;
+    orderBy(
+      term: ColumnDef | OrderingTerm,
+      directionOrOptions?:
+        | OrderDirection
+        | { direction?: OrderDirection; nulls?: 'FIRST' | 'LAST'; collation?: string }
+    ): SelectQueryBuilder<T>;
     execute(session: OrmSession): Promise<T[]>;
     executePlain(session: OrmSession): Promise<Record<string, unknown>[]>;
   }

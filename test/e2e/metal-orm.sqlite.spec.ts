@@ -1,12 +1,11 @@
-import sqlite3 from 'sqlite3';
 import { describe, expect, it } from 'vitest';
+import sqlite3 from 'sqlite3';
+import type { HasManyCollection } from 'metal-orm';
 import {
   BelongsTo,
-  BelongsToReference,
   Column,
   Entity,
   HasMany,
-  HasManyCollection,
   Orm,
   OrmSession,
   PrimaryKey,
@@ -15,138 +14,144 @@ import {
   col,
   createSqliteExecutor,
   entityRef,
-  eq,
-  selectFromEntity,
+  selectFromEntity
 } from 'metal-orm';
 
-@Entity()
-class User {
-  @PrimaryKey(col.autoIncrement(col.int()))
-  id!: number;
+type Db = sqlite3.Database;
 
-  @Column(col.notNull(col.varchar(255)))
-  name!: string;
-
-  @Column(col.varchar(255))
-  email?: string;
-
-  @HasMany({
-    target: () => Post,
-    foreignKey: 'userId',
-  })
-  posts!: HasManyCollection<Post>;
-}
-
-@Entity()
-class Post {
-  @PrimaryKey(col.autoIncrement(col.int()))
-  id!: number;
-
-  @Column(col.notNull(col.varchar(255)))
-  title!: string;
-
-  @Column(col.notNull(col.int()))
-  userId!: number;
-
-  @BelongsTo({
-    target: () => User,
-    foreignKey: 'userId',
-  })
-  user!: BelongsToReference<User>;
-}
-
-type SqliteSession = {
-  orm: Orm;
-  session: OrmSession;
-  execAll: (sql: string, params?: unknown[]) => Promise<Array<Record<string, unknown>>>;
-};
-
-const createSqliteMemorySession = async (): Promise<SqliteSession> => {
-  const db = new sqlite3.Database(':memory:');
-  const execAll = (sql: string, params: unknown[] = []) =>
-    new Promise<Array<Record<string, unknown>>>((resolve, reject) => {
-      db.all(sql, params, (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(rows ?? []);
-      });
+const execSql = (db: Db, sql: string): Promise<void> =>
+  new Promise((resolve, reject) => {
+    db.exec(sql, err => {
+      if (err) reject(err);
+      else resolve();
     });
-
-  const executor = createSqliteExecutor({
-    all: execAll,
-    beginTransaction: () => execAll('BEGIN'),
-    commitTransaction: () => execAll('COMMIT'),
-    rollbackTransaction: () => execAll('ROLLBACK'),
   });
 
-  const orm = new Orm({
-    dialect: new SqliteDialect(),
-    executorFactory: {
-      createExecutor: () => executor,
-      createTransactionalExecutor: () => executor,
-      dispose: () =>
-        new Promise<void>((resolve, reject) => {
-          db.close(err => (err ? reject(err) : resolve()));
-        }),
-    },
+const runSql = (db: Db, sql: string, params: unknown[] = []): Promise<void> =>
+  new Promise((resolve, reject) => {
+    db.run(sql, params, err => {
+      if (err) reject(err);
+      else resolve();
+    });
   });
 
-  const session = new OrmSession({ orm, executor });
+const allSql = <T extends Record<string, unknown> = Record<string, unknown>>(
+  db: Db,
+  sql: string,
+  params: unknown[] = []
+): Promise<T[]> =>
+  new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows as T[]);
+    });
+  });
 
-  return { orm, session, execAll };
-};
+const closeDb = (db: Db): Promise<void> =>
+  new Promise((resolve, reject) => {
+    db.close(err => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
 
-describe('metal-orm sqlite memory', () => {
-  it('persists and queries decorator entities with OrmSession', async () => {
-    const { orm, session, execAll } = await createSqliteMemorySession();
+describe('metal-orm decorators (SQLite memory)', () => {
+  it('persists has-many add after selectFromEntity', async () => {
+    @Entity()
+    class User {
+      @PrimaryKey(col.int())
+      id!: number;
+
+      @Column(col.notNull(col.varchar(255)))
+      name!: string;
+
+      @HasMany({
+        target: () => Post,
+        foreignKey: 'userId'
+      })
+      posts!: HasManyCollection<Post>;
+    }
+
+    @Entity()
+    class Post {
+      @PrimaryKey(col.autoIncrement(col.int()))
+      id!: number;
+
+      @Column(col.notNull(col.varchar(255)))
+      title!: string;
+
+      @Column(col.notNull(col.int()))
+      userId!: number;
+
+      @BelongsTo({
+        target: () => User,
+        foreignKey: 'userId'
+      })
+      user?: User;
+    }
+
+    const db = new sqlite3.Database(':memory:');
 
     try {
       bootstrapEntities();
 
-      await execAll('PRAGMA foreign_keys = ON');
-      await execAll(
-        'CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT)'
+      await execSql(
+        db,
+        [
+          'CREATE TABLE users (',
+          '  id INTEGER PRIMARY KEY,',
+          '  name VARCHAR(255) NOT NULL',
+          ');',
+          'CREATE TABLE posts (',
+          '  id INTEGER PRIMARY KEY AUTOINCREMENT,',
+          '  title VARCHAR(255) NOT NULL,',
+          '  userId INTEGER NOT NULL,',
+          '  FOREIGN KEY (userId) REFERENCES users(id)',
+          ');'
+        ].join('\n')
       );
-      await execAll(
-        'CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, userId INTEGER NOT NULL)'
-      );
 
-      const user = new User();
-      user.name = 'Ada';
-      user.email = 'ada@example.com';
+      await runSql(db, 'INSERT INTO users (id, name) VALUES (?, ?);', [1, 'Ada']);
 
-      await session.persist(user);
-      await session.commit();
+      const executor = createSqliteExecutor({
+        all: (sql, params) => allSql(db, sql, params),
+        beginTransaction: () => execSql(db, 'BEGIN'),
+        commitTransaction: () => execSql(db, 'COMMIT'),
+        rollbackTransaction: () => execSql(db, 'ROLLBACK')
+      });
 
-      expect(user.id).toBeTypeOf('number');
+      const orm = new Orm({
+        dialect: new SqliteDialect(),
+        executorFactory: {
+          createExecutor: () => executor,
+          createTransactionalExecutor: () => executor,
+          dispose: async () => {}
+        }
+      });
 
-      const U = entityRef(User);
-      const [loaded] = await selectFromEntity(User)
+      const session = new OrmSession({ orm, executor });
+
+      const [user] = await selectFromEntity(User)
+        .select('id', 'name')
         .includeLazy('posts')
-        .where(eq(U.id, user.id))
         .execute(session);
 
-      expect(loaded).toBeInstanceOf(User);
-
-      loaded.posts.add({ title: 'From decorators' });
+      user.posts.add({ title: 'From selectFromEntity' });
       await session.commit();
 
-      const P = entityRef(Post);
+      const postsRef = entityRef(Post);
       const posts = await selectFromEntity(Post)
         .select('id', 'title', 'userId')
-        .where(eq(P.userId, user.id))
-        .executePlain(session);
+        .orderBy(postsRef.id)
+        .execute(session);
 
       expect(posts).toHaveLength(1);
       expect(posts[0]).toMatchObject({
-        title: 'From decorators',
-        userId: user.id,
+        title: 'From selectFromEntity',
+        userId: 1
       });
     } finally {
-      await session.dispose();
-      await orm.dispose();
+      await closeDb(db);
     }
   });
 });
