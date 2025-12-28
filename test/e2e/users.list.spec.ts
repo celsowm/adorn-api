@@ -6,7 +6,7 @@ import { Controller, Get } from '../../src/decorators/index.js';
 @Controller('/users')
 class UsersController {
   @Get('')
-  listUsers(query: { active?: boolean; ids?: number[] }) {
+  listUsers(query: { active?: boolean; ids?: number[] }): { filters: { active?: boolean; ids?: number[] } } {
     return { filters: query };
   }
 }

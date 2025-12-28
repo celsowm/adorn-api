@@ -14,7 +14,7 @@ class UsersController {
       }),
     },
   })
-  listPaged(query: { page: number; size: number }) {
+  listPaged(query: { page: number; size: number }): { page: number; size: number; offset: number } {
     const offset = (query.page - 1) * query.size;
     return { page: query.page, size: query.size, offset };
   }

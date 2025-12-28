@@ -3,12 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { createAdornExpressApp } from '../../src/express.js';
 import { Controller, Post } from '../../src/decorators/index.js';
 import { reply } from '../../src/core/reply/reply.js';
+import type { Reply } from '../../src/contracts/reply.js';
 import { v } from '../../src/validation/native/index.js';
 
 type AuthorInput = {
   name: string;
   books: Array<{ title: string }>;
 };
+
+type AuthorCreated = { id: number } & AuthorInput;
 
 @Controller('/authors')
 class AuthorsController {
@@ -24,7 +27,7 @@ class AuthorsController {
       }),
     },
   })
-  saveAuthor(body: AuthorInput) {
+  saveAuthor(body: AuthorInput): Reply<AuthorCreated, 201> {
     const created = { id: 1, ...body };
     return reply(201, created, { headers: { Location: '/authors/1' } });
   }

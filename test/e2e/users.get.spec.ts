@@ -7,7 +7,7 @@ import { Bindings, Controller, Get } from '../../src/decorators/index.js';
 class UsersController {
   @Bindings({ path: { id: 'int' } })
   @Get('/{id}')
-  getUser(id: number) {
+  getUser(id: number): { id: number; name: string } {
     return { id, name: `User ${id}` };
   }
 }
