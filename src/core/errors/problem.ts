@@ -1,6 +1,6 @@
-import type { ProblemDetails } from '../../contracts/errors';
-import { HttpError } from './http-error';
-import { ValidationError } from './validation-error';
+import type { ProblemDetails } from '../../contracts/errors.js';
+import { HttpError } from './http-error.js';
+import { ValidationError } from './validation-error.js';
 
 export function toProblemDetails(err: unknown, instance?: string): ProblemDetails {
   if (err instanceof ValidationError) {

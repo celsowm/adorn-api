@@ -1,5 +1,5 @@
-import { HttpError } from './http-error';
-import type { ValidationIssue } from '../../contracts/validator';
+import { HttpError } from './http-error.js';
+import type { ValidationIssue } from '../../contracts/validator.js';
 
 export class ValidationError extends HttpError {
   public readonly issues: ValidationIssue[];

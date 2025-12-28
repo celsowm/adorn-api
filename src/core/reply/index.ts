@@ -1,2 +1,2 @@
-export * from './reply';
-export * from './typed';
+export * from './reply.js';
+export * from './typed.js';

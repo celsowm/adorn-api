@@ -1,11 +1,11 @@
 import express, { type Express } from 'express';
-import type { ControllerCtor } from '../../core/registry/types';
-import type { Validator } from '../../contracts/validator';
-import { buildRegistry } from '../../core/registry/buildRegistry';
-import { applyRegistryToExpressRouter, type ApplyRoutesOptions } from './router';
-import { adornErrorHandler } from './middleware/errorHandler';
-import type { OpenApiBuildOptions } from '../../core/openapi/buildOpenApi';
-import { serveOpenApi } from './swagger/serve';
+import type { ControllerCtor } from '../../core/registry/types.js';
+import type { Validator } from '../../contracts/validator.js';
+import { buildRegistry } from '../../core/registry/buildRegistry.js';
+import { applyRegistryToExpressRouter, type ApplyRoutesOptions } from './router.js';
+import { adornErrorHandler } from './middleware/errorHandler.js';
+import type { OpenApiBuildOptions } from '../../core/openapi/buildOpenApi.js';
+import { serveOpenApi } from './swagger/serve.js';
 
 export type CreateAdornExpressAppOptions = ApplyRoutesOptions & {
   controllers: ControllerCtor[];

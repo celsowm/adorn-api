@@ -1,5 +1,5 @@
-import { META, type BindingsMeta } from '../metadata/keys';
-import { bagFromContext, bagEnsureObject } from '../metadata/bag';
+import { META, type BindingsMeta } from '../metadata/keys.js';
+import { bagFromContext, bagEnsureObject } from '../metadata/bag.js';
 
 export type BindingsOptions = {
   /**

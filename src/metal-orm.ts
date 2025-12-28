@@ -1,1 +1,1 @@
-export * from './integrations/metal-orm';
+export * from './integrations/metal-orm/index.js';

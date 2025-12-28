@@ -1,6 +1,6 @@
-import type { ResponsesSpec } from './responses';
-import type { Schema } from '../validation/native/schema';
-import type { ExtractPathParams } from '../core/typing/path-params';
+import type { ResponsesSpec } from './responses.js';
+import type { Schema } from '../validation/native/schema.js';
+import type { ExtractPathParams } from '../core/typing/path-params.js';
 
 export type ScalarHint = 'string' | 'int' | 'number' | 'boolean' | 'uuid';
 

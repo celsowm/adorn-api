@@ -1,10 +1,10 @@
-import type { RequestContext } from '../../contracts/context';
-import type { RouteEntry } from '../registry/types';
-import { HttpError } from '../errors/http-error';
-import { getPathTokenNames } from './rules/inferFromPath';
-import { conventionForMethod } from './rules/inferFromHttpMethod';
-import type { CoerceMode } from './coerce/primitives';
-import { coerceObjectSmart, coerceValueSmart } from './coerce/arrays';
+import type { RequestContext } from '../../contracts/context.js';
+import type { RouteEntry } from '../registry/types.js';
+import { HttpError } from '../errors/http-error.js';
+import { getPathTokenNames } from './rules/inferFromPath.js';
+import { conventionForMethod } from './rules/inferFromHttpMethod.js';
+import type { CoerceMode } from './coerce/primitives.js';
+import { coerceObjectSmart, coerceValueSmart } from './coerce/arrays.js';
 
 export type BindingPrepared = {
   params: Record<string, unknown>;

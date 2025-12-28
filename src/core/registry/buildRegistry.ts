@@ -1,9 +1,9 @@
-import { META, type BindingsMeta, type ControllerMeta, type RouteMeta } from '../../metadata/keys';
-import { bagFromClass, bagGet } from '../../metadata/bag';
-import { mergeBags } from '../../metadata/merge';
-import { joinPaths } from './normalize';
-import { assertNoRouteConflicts } from './conflicts';
-import type { ControllerCtor, ControllerEntry, Registry, RouteEntry } from './types';
+import { META, type BindingsMeta, type ControllerMeta, type RouteMeta } from '../../metadata/keys.js';
+import { bagFromClass, bagGet } from '../../metadata/bag.js';
+import { mergeBags } from '../../metadata/merge.js';
+import { joinPaths } from './normalize.js';
+import { assertNoRouteConflicts } from './conflicts.js';
+import type { ControllerCtor, ControllerEntry, Registry, RouteEntry } from './types.js';
 
 function mergedBagFromClass(ctor: Function) {
   const chain: Function[] = [];

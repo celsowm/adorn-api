@@ -1,7 +1,7 @@
-import { v } from '../../../validation/native/schema';
-import type { Schema } from '../../../validation/native/schema';
-import { tableDefOf, type EntityCtor } from './tabledef';
-import { columnToSchema } from './column-map';
+import { v } from '../../../validation/native/schema.js';
+import type { Schema } from '../../../validation/native/schema.js';
+import { tableDefOf, type EntityCtor } from './tabledef.js';
+import { columnToSchema } from './column-map.js';
 import type { ColumnDef, SaveGraphInputPayload } from 'metal-orm';
 
 export type DtoMode = 'create' | 'update';

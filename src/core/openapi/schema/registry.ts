@@ -1,6 +1,6 @@
 import type { OpenAPIV3 } from 'openapi-types';
-import type { Schema } from '../../../validation/native/schema';
-import { irToOasSchema } from './toOpenApi';
+import type { Schema } from '../../../validation/native/schema.js';
+import { irToOasSchema } from './toOpenApi.js';
 
 export class OasSchemaRegistry {
   private components: Record<string, OpenAPIV3.SchemaObject> = {};

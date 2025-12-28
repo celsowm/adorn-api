@@ -1,5 +1,5 @@
-import { META, type ControllerMeta } from '../metadata/keys';
-import { bagFromContext, bagSet } from '../metadata/bag';
+import { META, type ControllerMeta } from '../metadata/keys.js';
+import { bagFromContext, bagSet } from '../metadata/bag.js';
 
 /**
  * Stage-3 class decorator.

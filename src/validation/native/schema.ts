@@ -1,5 +1,5 @@
-import type { ValidationIssue, ValidationResult } from '../../contracts/validator';
-import type { SchemaIR } from './ir';
+import type { ValidationIssue, ValidationResult } from '../../contracts/validator.js';
+import type { SchemaIR } from './ir.js';
 
 export type Schema<T> = {
   readonly kind: string;

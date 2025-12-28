@@ -1,5 +1,5 @@
-import type { ResponsesSpec } from '../../contracts/responses';
-import { normalizeResponses } from './normalize';
+import type { ResponsesSpec } from '../../contracts/responses.js';
+import { normalizeResponses } from './normalize.js';
 
 export function pickSuccessStatus(method: string, responses?: ResponsesSpec, explicit?: number): number {
   if (typeof explicit === 'number') return explicit;

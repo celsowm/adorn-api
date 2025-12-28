@@ -1,4 +1,4 @@
-import type { MetaBag } from './bag';
+import type { MetaBag } from './bag.js';
 
 /**
  * Minimal merge strategy for inheritance.

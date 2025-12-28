@@ -1,6 +1,6 @@
-import type { ResponsesSpec } from '../../contracts/responses';
-import type { RouteOptions } from '../../contracts/route-options';
-import { makeReply } from '../reply/typed';
+import type { ResponsesSpec } from '../../contracts/responses.js';
+import type { RouteOptions } from '../../contracts/route-options.js';
+import { makeReply } from '../reply/typed.js';
 
 /**
  * Route definition that carries:

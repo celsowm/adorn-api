@@ -1,4 +1,4 @@
-import { SYMBOL_METADATA } from './keys';
+import { SYMBOL_METADATA } from './keys.js';
 
 /**
  * In TS Stage-3, decorator contexts expose `context.metadata`.

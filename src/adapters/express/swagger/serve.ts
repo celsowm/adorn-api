@@ -1,8 +1,8 @@
 import type { Router, Request, Response } from 'express';
 import express from 'express';
 
-import type { Registry } from '../../../core/registry/types';
-import { buildOpenApi, type OpenApiBuildOptions } from '../../../core/openapi/buildOpenApi';
+import type { Registry } from '../../../core/registry/types.js';
+import { buildOpenApi, type OpenApiBuildOptions } from '../../../core/openapi/buildOpenApi.js';
 
 export type ServeOpenApiOptions = {
   jsonPath?: string;

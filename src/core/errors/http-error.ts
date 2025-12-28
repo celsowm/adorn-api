@@ -1,4 +1,4 @@
-import type { HttpErrorLike, HttpErrorOptions } from '../../contracts/errors';
+import type { HttpErrorLike, HttpErrorOptions } from '../../contracts/errors.js';
 
 export class HttpError extends Error implements HttpErrorLike {
   public readonly status: number;

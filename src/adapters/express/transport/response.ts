@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import type { Reply } from '../../../contracts/reply';
+import type { Reply } from '../../../contracts/reply.js';
 
 export function sendReply(res: Response, r: Reply<any, any>): void {
   if (r.headers) {

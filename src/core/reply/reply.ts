@@ -1,4 +1,4 @@
-import type { Reply, ReplyHeaders } from '../../contracts/reply';
+import type { Reply, ReplyHeaders } from '../../contracts/reply.js';
 
 export type ReplyInit = {
   headers?: ReplyHeaders;

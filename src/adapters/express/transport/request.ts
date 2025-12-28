@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import type { RequestContext } from '../../../contracts/context';
+import type { RequestContext } from '../../../contracts/context.js';
 
 export function createExpressContext(req: Request, res: Response): RequestContext {
   return {

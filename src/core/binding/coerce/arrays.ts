@@ -1,5 +1,5 @@
-import { coercePrimitiveSmart } from './primitives';
-import { splitCsv } from './csv';
+import { coercePrimitiveSmart } from './primitives.js';
+import { splitCsv } from './csv.js';
 
 export type ArrayCoerceOptions = {
   csv?: boolean;

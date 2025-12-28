@@ -1,5 +1,5 @@
 import type { OpenAPIV3 } from 'openapi-types';
-import type { SchemaIR } from '../../../validation/native/ir';
+import type { SchemaIR } from '../../../validation/native/ir.js';
 
 export function irToOasSchema(ir: SchemaIR): OpenAPIV3.SchemaObject {
   switch (ir.kind) {

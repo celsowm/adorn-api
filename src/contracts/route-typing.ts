@@ -1,4 +1,4 @@
-import type { Schema } from '../validation/native/schema';
+import type { Schema } from '../validation/native/schema.js';
 
 type InferSchema<S> = S extends Schema<infer T> ? T : never;
 

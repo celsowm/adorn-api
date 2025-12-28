@@ -1,6 +1,6 @@
-import type { Validator, ValidationResult } from '../../contracts/validator';
-import { ValidationError } from '../../core/errors/validation-error';
-import type { Schema } from './schema';
+import type { Validator, ValidationResult } from '../../contracts/validator.js';
+import { ValidationError } from '../../core/errors/validation-error.js';
+import type { Schema } from './schema.js';
 
 type SchemaMap = Record<string, Schema<any>>;
 

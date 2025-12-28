@@ -1,4 +1,4 @@
-import type { Schema } from '../../validation/native/schema';
+import type { Schema } from '../../validation/native/schema.js';
 
 export function header<S extends Schema<any>>(
   schema: S,

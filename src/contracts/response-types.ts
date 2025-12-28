@@ -1,5 +1,5 @@
-import type { Schema } from '../validation/native/schema';
-import type { ResponseSpec, ResponsesSpec } from './responses';
+import type { Schema } from '../validation/native/schema.js';
+import type { ResponseSpec, ResponsesSpec } from './responses.js';
 
 export type StatusKey<R extends ResponsesSpec> = Extract<keyof R, `${number}`>;
 export type StatusNum<K extends string> = K extends `${infer N extends number}` ? N : never;

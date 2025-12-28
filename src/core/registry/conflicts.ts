@@ -1,4 +1,4 @@
-import type { RouteEntry } from './types';
+import type { RouteEntry } from './types.js';
 
 export class RouteConflictError extends Error {
   constructor(message: string) {

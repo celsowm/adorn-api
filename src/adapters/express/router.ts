@@ -1,13 +1,13 @@
 import type { NextFunction, Request, Response, Router } from 'express';
-import type { Registry, RouteEntry, ControllerCtor } from '../../core/registry/types';
-import { createExpressContext } from './transport/request';
-import { sendJson, sendReply } from './transport/response';
-import { bindArgs } from '../../core/binding/binder';
-import { ValidationError } from '../../core/errors/validation-error';
-import type { Schema } from '../../validation/native/schema';
-import type { ResponsesSpec } from '../../contracts/responses';
-import { isReply } from '../../contracts/reply';
-import { pickSuccessStatus } from '../../core/responses/pickStatus';
+import type { Registry, RouteEntry, ControllerCtor } from '../../core/registry/types.js';
+import { createExpressContext } from './transport/request.js';
+import { sendJson, sendReply } from './transport/response.js';
+import { bindArgs } from '../../core/binding/binder.js';
+import { ValidationError } from '../../core/errors/validation-error.js';
+import type { Schema } from '../../validation/native/schema.js';
+import type { ResponsesSpec } from '../../contracts/responses.js';
+import { isReply } from '../../contracts/reply.js';
+import { pickSuccessStatus } from '../../core/responses/pickStatus.js';
 
 export type ControllerFactory = (ctor: ControllerCtor, req: Request, res: Response) => any;
 

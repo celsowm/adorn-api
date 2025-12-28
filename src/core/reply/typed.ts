@@ -1,15 +1,15 @@
-import type { ResponsesSpec } from '../../contracts/responses';
-import type { Reply } from '../../contracts/reply';
-import type { Schema, Infer } from '../../validation/native/schema';
-import type { ReplyInit } from './reply';
-import { reply as baseReply, noContent as baseNoContent } from './reply';
+import type { ResponsesSpec } from '../../contracts/responses.js';
+import type { Reply } from '../../contracts/reply.js';
+import type { Schema, Infer } from '../../validation/native/schema.js';
+import type { ReplyInit } from './reply.js';
+import { reply as baseReply, noContent as baseNoContent } from './reply.js';
 import type {
   AllowedStatus,
   BodySchemaFor,
   HeadersDefFor,
   StatusesNoBody,
   StatusesWithBody,
-} from '../../contracts/response-types';
+} from '../../contracts/response-types.js';
 
 type HeaderValues<H> =
   H extends Record<string, any>

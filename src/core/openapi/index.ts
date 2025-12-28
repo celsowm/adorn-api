@@ -1,1 +1,1 @@
-export * from './buildOpenApi';
+export * from './buildOpenApi.js';

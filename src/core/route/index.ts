@@ -1,1 +1,1 @@
-export * from './defineRoute';
+export * from './defineRoute.js';

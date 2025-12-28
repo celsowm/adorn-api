@@ -1,4 +1,4 @@
-import type { Schema } from '../validation/native/schema';
+import type { Schema } from '../validation/native/schema.js';
 
 export type ResponseContentSpec = {
   schema: Schema<any>;

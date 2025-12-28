@@ -1,5 +1,5 @@
-import type { ResponseSpec, ResponsesSpec } from '../../contracts/responses';
-import type { Schema } from '../../validation/native/schema';
+import type { ResponseSpec, ResponsesSpec } from '../../contracts/responses.js';
+import type { Schema } from '../../validation/native/schema.js';
 
 function isSchema(value: unknown): value is Schema<any> {
   return typeof (value as Schema<any>)?.parse === 'function';

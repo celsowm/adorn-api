@@ -1,4 +1,4 @@
-import type { BindingsMeta, ControllerMeta, RouteMeta } from '../../metadata/keys';
+import type { BindingsMeta, ControllerMeta, RouteMeta } from '../../metadata/keys.js';
 
 export type ControllerCtor<T = any> = new (...args: any[]) => T;
 

@@ -1,11 +1,11 @@
 import type { OpenAPIV3 } from 'openapi-types';
-import type { Registry, RouteEntry } from '../registry/types';
-import type { Schema } from '../../validation/native/schema';
-import type { ResponsesSpec, ResponseSpec } from '../../contracts/responses';
-import { normalizeResponses } from '../responses/normalize';
-import { OasSchemaRegistry } from './schema/registry';
-import { irToOasSchema } from './schema/toOpenApi';
-import type { RouteOptions } from '../../contracts/route-options';
+import type { Registry, RouteEntry } from '../registry/types.js';
+import type { Schema } from '../../validation/native/schema.js';
+import type { ResponsesSpec, ResponseSpec } from '../../contracts/responses.js';
+import { normalizeResponses } from '../responses/normalize.js';
+import { OasSchemaRegistry } from './schema/registry.js';
+import { irToOasSchema } from './schema/toOpenApi.js';
+import type { RouteOptions } from '../../contracts/route-options.js';
 
 type RouteOptionsAny = RouteOptions<string>;
 

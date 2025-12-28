@@ -1,6 +1,6 @@
-import { v } from '../../../validation/native/schema';
-import type { Schema } from '../../../validation/native/schema';
-import type { ValidationResult } from '../../../contracts/validator';
+import { v } from '../../../validation/native/schema.js';
+import type { Schema } from '../../../validation/native/schema.js';
+import type { ValidationResult } from '../../../contracts/validator.js';
 import type { ColumnDef } from 'metal-orm';
 
 const INTEGER_TYPES = new Set(['int', 'integer', 'bigint']);

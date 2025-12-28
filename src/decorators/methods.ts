@@ -1,14 +1,14 @@
-import { META, type RouteMeta } from '../metadata/keys';
-import { bagFromContext, bagPush } from '../metadata/bag';
-import type { RouteOptions } from '../contracts/route-options';
-import type { ResponsesSpec } from '../contracts/responses';
-import type { Reply } from '../contracts/reply';
-import type { Schema } from '../validation/native/schema';
+import { META, type RouteMeta } from '../metadata/keys.js';
+import { bagFromContext, bagPush } from '../metadata/bag.js';
+import type { RouteOptions } from '../contracts/route-options.js';
+import type { ResponsesSpec } from '../contracts/responses.js';
+import type { Reply } from '../contracts/reply.js';
+import type { Schema } from '../validation/native/schema.js';
 import type {
   BodySchemaFor,
   SuccessStatusesWithBody,
   SuccessStatusesNoBody,
-} from '../contracts/response-types';
+} from '../contracts/response-types.js';
 
 type Stage3MethodContext = ClassMethodDecoratorContext;
 type MaybePromise<T> = T | Promise<T>;

@@ -1,8 +1,8 @@
-import { v } from '../../../validation/native/schema';
-import type { Schema } from '../../../validation/native/schema';
-import { tableDefOf, type EntityCtor } from './tabledef';
-import { columnToSchema } from './column-map';
-import type { HttpPick, Paged } from './types';
+import { v } from '../../../validation/native/schema.js';
+import type { Schema } from '../../../validation/native/schema.js';
+import { tableDefOf, type EntityCtor } from './tabledef.js';
+import { columnToSchema } from './column-map.js';
+import type { HttpPick, Paged } from './types.js';
 
 export type FiltersOptions<const P extends readonly (string & PropertyKey)[]> = {
   pick: P;

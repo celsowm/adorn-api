@@ -1,7 +1,7 @@
-import { v } from '../../../validation/native/schema';
-import type { Schema } from '../../../validation/native/schema';
-import { columnToSchema, isRequiredColumn } from './column-map';
-import { tableDefOf, type EntityCtor } from './tabledef';
+import { v } from '../../../validation/native/schema.js';
+import type { Schema } from '../../../validation/native/schema.js';
+import { columnToSchema, isRequiredColumn } from './column-map.js';
+import { tableDefOf, type EntityCtor } from './tabledef.js';
 import type { ColumnDef } from 'metal-orm';
 
 export type EntitySchemaOptions = {
