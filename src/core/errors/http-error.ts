@@ -10,7 +10,9 @@ export class HttpError extends Error implements HttpErrorLike {
     super(message);
     this.name = 'HttpError';
     this.status = status;
-    this.code = options.code;
+    if (options.code !== undefined) {
+      this.code = options.code;
+    }
     this.details = options.details;
     this.expose = options.expose ?? (status >= 400 && status < 500);
   }

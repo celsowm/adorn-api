@@ -8,8 +8,12 @@ import { SYMBOL_METADATA } from './keys.js';
  */
 export type MetaBag = Record<PropertyKey, unknown>;
 
-export function bagFromContext(context: { metadata: object }): MetaBag {
-  return context.metadata as unknown as MetaBag;
+export function bagFromContext(context: { metadata?: object | undefined }): MetaBag {
+  const target = context as { metadata?: object };
+  if (!target.metadata) {
+    target.metadata = {};
+  }
+  return target.metadata as unknown as MetaBag;
 }
 
 export function bagFromClass(ctor: Function): MetaBag {

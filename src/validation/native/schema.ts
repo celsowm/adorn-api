@@ -25,16 +25,24 @@ function issue(
   expected?: unknown,
   received?: unknown,
 ): ValidationIssue {
-  return { path, message, code, expected, received };
+  return {
+    path,
+    message,
+    ...(code !== undefined ? { code } : {}),
+    ...(expected !== undefined ? { expected } : {}),
+    ...(received !== undefined ? { received } : {}),
+  };
 }
 
 type Check<T> = (value: T, path: Array<string | number>) => ValidationIssue | null;
+type StringIr = Extract<SchemaIR, { kind: 'string' }>;
+type NumberIr = Extract<SchemaIR, { kind: 'number' }>;
+type ArrayIr = Extract<SchemaIR, { kind: 'array' }>;
 
 function withChecks<T>(base: Schema<T>, checks: Check<T>[], ir?: SchemaIR): Schema<T> {
-  return {
+  const schema: Schema<T> = {
     kind: base.kind,
     ir: ir ?? base.ir,
-    name: base.name,
     parse(value: unknown, path: Array<string | number> = []) {
       const r = base.parse(value, path);
       if (!r.ok) return r;
@@ -47,9 +55,13 @@ function withChecks<T>(base: Schema<T>, checks: Check<T>[], ir?: SchemaIR): Sche
       return issues.length ? fail(issues) : r;
     },
   };
+  if (base.name !== undefined) {
+    (schema as { name: string }).name = base.name;
+  }
+  return schema;
 }
 
-function optional<T>(inner: Schema<T>): Schema<T | undefined> {
+export function optional<T>(inner: Schema<T>): Schema<T | undefined> {
   return {
     kind: `${inner.kind}.optional`,
     ir: { kind: 'optional', inner: inner.ir },
@@ -221,7 +233,8 @@ type StringBuilder = Schema<string> & {
 
 function string(): StringBuilder {
   const base = stringBase();
-  const build = (checks: Check<string>[], ir: SchemaIR): StringBuilder => {
+  const baseIr = base.ir as StringIr;
+  const build = (checks: Check<string>[], ir: StringIr): StringBuilder => {
     const s = withChecks(base, checks, ir) as StringBuilder;
 
     s.min = (n: number) =>
@@ -263,7 +276,7 @@ function string(): StringBuilder {
     return s;
   };
 
-  return build([], base.ir);
+  return build([], baseIr);
 }
 
 type NumberBuilder = Schema<number> & {
@@ -276,7 +289,8 @@ type NumberBuilder = Schema<number> & {
 
 function number(): NumberBuilder {
   const base = numberBase();
-  const build = (checks: Check<number>[], ir: SchemaIR): NumberBuilder => {
+  const baseIr = base.ir as NumberIr;
+  const build = (checks: Check<number>[], ir: NumberIr): NumberBuilder => {
     const s = withChecks(base, checks, ir) as NumberBuilder;
 
     s.int = () =>
@@ -306,7 +320,7 @@ function number(): NumberBuilder {
     return s;
   };
 
-  return build([], base.ir);
+  return build([], baseIr);
 }
 
 type BooleanBuilder = Schema<boolean> & {
@@ -348,7 +362,8 @@ type ArrayBuilder<T> = Schema<T[]> & {
 
 function array<T>(item: Schema<T>): ArrayBuilder<T> {
   const base = arrayBase(item);
-  const build = (checks: Check<T[]>[], ir: SchemaIR): ArrayBuilder<T> => {
+  const baseIr = base.ir as ArrayIr;
+  const build = (checks: Check<T[]>[], ir: ArrayIr): ArrayBuilder<T> => {
     const a = withChecks(base, checks, ir) as ArrayBuilder<T>;
     a.min = (n: number) =>
       build(
@@ -364,7 +379,7 @@ function array<T>(item: Schema<T>): ArrayBuilder<T> {
     a.nullable = () => nullable(a);
     return a;
   };
-  return build([], base.ir);
+  return build([], baseIr);
 }
 
 function named<T>(name: string, schema: Schema<T>): Schema<T> {

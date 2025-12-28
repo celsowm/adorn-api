@@ -1,6 +1,6 @@
-import { v } from '../../../validation/native/schema.js';
+import { optional, v } from '../../../validation/native/schema.js';
 import type { Schema } from '../../../validation/native/schema.js';
-import { columnToSchema, isRequiredColumn } from './column-map.js';
+import { columnToSchema } from './column-map.js';
 import { tableDefOf, type EntityCtor } from './tabledef.js';
 import type { ColumnDef } from 'metal-orm';
 
@@ -22,11 +22,12 @@ export function entity<T>(Entity: EntityCtor<T>, opts: EntitySchemaOptions = {})
     if (omit && omit.has(key)) continue;
 
     const schema = columnToSchema(column);
-    shape[key] = column.notNull ? schema : schema.optional();
+    shape[key] = column.notNull ? schema : optional(schema);
   }
 
-  const base = v.object(shape, { strict: true });
-  return opts.name ? v.named(opts.name, base) : (base as Schema<T>);
+  const base = v.object(shape).strict();
+  const typed = base as unknown as Schema<T>;
+  return opts.name ? v.named(opts.name, typed) : typed;
 }
 
 export namespace entity {

@@ -10,7 +10,7 @@ import type {
   SuccessStatusesNoBody,
 } from '../contracts/response-types.js';
 
-type Stage3MethodContext = ClassMethodDecoratorContext;
+type Stage3MethodContext = ClassMethodDecoratorContext<any, (this: any, ...args: any) => any>;
 type MaybePromise<T> = T | Promise<T>;
 
 type ResponsesFromOptions<O> = O extends { responses: infer R extends ResponsesSpec } ? R : undefined;

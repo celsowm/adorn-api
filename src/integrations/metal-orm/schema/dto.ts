@@ -1,4 +1,4 @@
-import { v } from '../../../validation/native/schema.js';
+import { optional, v } from '../../../validation/native/schema.js';
 import type { Schema } from '../../../validation/native/schema.js';
 import { tableDefOf, type EntityCtor } from './tabledef.js';
 import { columnToSchema } from './column-map.js';
@@ -30,14 +30,14 @@ export function entityDto<T>(Entity: EntityCtor<T>, mode: DtoMode): Schema<any> 
     }
 
     if (mode === 'update') {
-      shape[key] = schema.optional();
+      shape[key] = optional(schema);
       continue;
     }
 
     const required = isRequiredForCreate(column);
-    shape[key] = required ? schema : schema.optional();
+    shape[key] = required ? schema : optional(schema);
   }
 
-  const base = v.object(shape, { strict: true });
-  return mode === 'update' ? v.partial(base) : base;
+  const base = v.object(shape).strict();
+  return base;
 }

@@ -8,7 +8,7 @@ import { makeReply } from '../reply/typed.js';
  * - options: use in decorator
  * - reply: typed reply/noContent bound to responses
  */
-export type RouteDef<Path extends string, const R extends ResponsesSpec> = {
+export type RouteDef<Path extends string, R extends ResponsesSpec> = {
   path: Path;
   options: RouteOptions<Path> & { responses: R };
   reply: ReturnType<typeof makeReply<R>>;

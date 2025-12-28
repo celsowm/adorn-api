@@ -1,5 +1,5 @@
 import type { ResponsesSpec } from '../../contracts/responses.js';
-import type { Reply } from '../../contracts/reply.js';
+import type { Reply, ReplyHeaderValue } from '../../contracts/reply.js';
 import type { Schema, Infer } from '../../validation/native/schema.js';
 import type { ReplyInit } from './reply.js';
 import { reply as baseReply, noContent as baseNoContent } from './reply.js';
@@ -11,10 +11,17 @@ import type {
   StatusesWithBody,
 } from '../../contracts/response-types.js';
 
+type HeaderValueFromSpec<H> =
+  H extends { schema: infer S extends Schema<any> }
+    ? (Exclude<Infer<S>, undefined> extends ReplyHeaderValue ? Exclude<Infer<S>, undefined> : ReplyHeaderValue)
+    : ReplyHeaderValue;
+
 type HeaderValues<H> =
   H extends Record<string, any>
-    ? { [K in keyof H]?: H[K] extends { schema: infer S extends Schema<any> } ? Infer<S> : string }
-    : undefined;
+    ? string extends keyof H
+      ? Record<string, HeaderValueFromSpec<H[string]>>
+      : { [K in keyof H]?: HeaderValueFromSpec<H[K]> }
+    : never;
 
 type InitFor<R extends ResponsesSpec, S extends number> =
   Omit<ReplyInit, 'headers'> & { headers?: HeaderValues<HeadersDefFor<R, S>> };

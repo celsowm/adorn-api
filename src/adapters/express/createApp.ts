@@ -37,16 +37,23 @@ export function createAdornExpressApp(options: CreateAdornExpressAppOptions): Ex
   const oa = options.openapi;
   if (oa?.enabled ?? true) {
     if (oa?.title && oa?.version) {
+      const openApiOptions: OpenApiBuildOptions = {
+        title: oa.title,
+        version: oa.version,
+        ...(oa.servers !== undefined ? { servers: oa.servers } : {}),
+      };
+      const serveOptions = {
+        ...(oa.jsonPath !== undefined ? { jsonPath: oa.jsonPath } : {}),
+        ...(oa.docsPath !== undefined ? { docsPath: oa.docsPath } : {}),
+        ...(oa.swaggerUi !== undefined ? { swaggerUi: oa.swaggerUi } : {}),
+        ...(oa.swaggerUiConfig !== undefined ? { swaggerUiConfig: oa.swaggerUiConfig } : {}),
+      };
+
       router.use(
         serveOpenApi(
           registry,
-          { title: oa.title, version: oa.version, servers: oa.servers },
-          {
-            jsonPath: oa.jsonPath,
-            docsPath: oa.docsPath,
-            swaggerUi: oa.swaggerUi,
-            swaggerUiConfig: oa.swaggerUiConfig,
-          },
+          openApiOptions,
+          serveOptions,
         ),
       );
     }

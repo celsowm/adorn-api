@@ -6,7 +6,7 @@ export function header<S extends Schema<any>>(
 ): { schema: S; required?: boolean; description?: string } {
   return {
     schema,
-    required: opts?.required,
-    description: opts?.description,
+    ...(opts?.required !== undefined ? { required: opts.required } : {}),
+    ...(opts?.description !== undefined ? { description: opts.description } : {}),
   };
 }

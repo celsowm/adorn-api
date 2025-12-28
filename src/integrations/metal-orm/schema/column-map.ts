@@ -15,15 +15,15 @@ function ok<T>(value: T): ValidationResult<T> {
   return { ok: true, value };
 }
 
-function baseStringSchema(): Schema<string> {
+function baseStringSchema(): ReturnType<typeof v.string> {
   return v.string();
 }
 
-function baseNumberSchema(): Schema<number> {
+function baseNumberSchema(): ReturnType<typeof v.number> {
   return v.number();
 }
 
-function baseBooleanSchema(): Schema<boolean> {
+function baseBooleanSchema(): ReturnType<typeof v.boolean> {
   return v.boolean();
 }
 
@@ -43,10 +43,7 @@ export function columnToSchema(column: ColumnDef): Schema<unknown> {
   const normalizedType = rawType.split('(')[0].trim();
 
   if (INTEGER_TYPES.has(normalizedType)) {
-    const schema = v.number().int();
-    schema.ir.kind = 'number';
-    schema.ir.int = true;
-    return schema;
+    return v.number().int();
   }
 
   if (DECIMAL_TYPES.has(normalizedType)) {
@@ -59,39 +56,40 @@ export function columnToSchema(column: ColumnDef): Schema<unknown> {
 
   if (normalizedType === 'uuid') {
     const schema = baseStringSchema();
-    schema.ir.format = 'uuid';
+    if (schema.ir.kind === 'string') {
+      schema.ir.format = 'uuid';
+    }
     return schema;
   }
 
   if (DATE_TIME_TYPES.has(normalizedType)) {
     const schema = baseStringSchema();
-    schema.ir.format = 'date-time';
+    if (schema.ir.kind === 'string') {
+      schema.ir.format = 'date-time';
+    }
     return schema;
   }
 
   if (normalizedType === 'varchar') {
     const schema = baseStringSchema();
     const len = typeof column.args?.[0] === 'number' ? column.args[0] as number : undefined;
-    if (len !== undefined) {
-      schema.max(len);
-    }
-    return schema;
+    return len !== undefined ? schema.max(len) : schema;
   }
 
-  if (STRING_TYPES.has(type)) {
+  if (STRING_TYPES.has(normalizedType)) {
     return baseStringSchema();
   }
 
-  if (JSON_TYPES.has(type)) {
+  if (JSON_TYPES.has(normalizedType)) {
     return anySchema();
   }
 
-  if (BINARY_TYPES.has(type)) {
+  if (BINARY_TYPES.has(normalizedType)) {
     const schema = baseStringSchema();
     return schema;
   }
 
-  if (type === 'text') {
+  if (normalizedType === 'text') {
     return baseStringSchema();
   }
 
