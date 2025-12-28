@@ -1,6 +1,6 @@
 {
   "name": "adorn-api",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Stage-3 decorator router + OpenAPI, with optional MetalORM integration",
   "license": "MIT",
   "type": "module",
