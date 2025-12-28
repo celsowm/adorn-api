@@ -14,14 +14,79 @@ import type { RouteOptions } from '../../contracts/route-options.js';
 
 type RouteOptionsAny = RouteOptions<string>;
 
+/**
+ * Options for building OpenAPI documentation.
+ *
+ * These options configure the basic metadata and behavior of the generated
+ * OpenAPI specification.
+ */
 export type OpenApiBuildOptions = {
+  /** Title of the API */
   title: string;
+  /** Version of the API */
   version: string;
+  /** Array of server objects with URLs and descriptions */
   servers?: { url: string; description?: string }[];
+  /** Default content type for request bodies */
   defaultRequestContentType?: string;
+  /** Default content type for response bodies */
   defaultResponseContentType?: string;
 };
 
+/**
+ * Builds a complete OpenAPI 3.0.3 specification document from the route registry.
+ *
+ * This function generates a comprehensive OpenAPI specification by analyzing
+ * the route registry and extracting all necessary information including paths,
+ * operations, parameters, request/response bodies, and security schemes.
+ *
+ * @param registry - Route registry containing all registered routes and metadata
+ * @param opts - OpenAPI build options including title, version, and servers
+ * @returns Complete OpenAPI 3.0.3 document ready for serving or serialization
+ *
+ * @example
+ * ```typescript
+ * import { buildRegistry } from './registry';
+ * import { buildOpenApi } from './openapi';
+ *
+ * // Build route registry from controllers
+ * const registry = buildRegistry([UserController, ProductController]);
+ *
+ * // Generate OpenAPI specification
+ * const openApiDoc = buildOpenApi(registry, {
+ *   title: 'My API',
+ *   version: '1.0.0',
+ *   servers: [
+ *     { url: 'https://api.example.com/v1', description: 'Production server' },
+ *     { url: 'https://staging.api.example.com/v1', description: 'Staging server' }
+ *   ],
+ *   defaultRequestContentType: 'application/json',
+ *   defaultResponseContentType: 'application/json'
+ * });
+ *
+ * // Serve the OpenAPI JSON
+ * app.get('/openapi.json', (req, res) => {
+ *   res.json(openApiDoc);
+ * });
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // With custom content types
+ * const openApiDoc = buildOpenApi(registry, {
+ *   title: 'Multi-format API',
+ *   version: '2.0.0',
+ *   defaultRequestContentType: 'application/json',
+ *   defaultResponseContentType: 'application/problem+json'
+ * });
+ *
+ * // The generated spec will use application/problem+json for error responses
+ * // and application/json for successful responses by default
+ * ```
+ *
+ * @see Registry for route registry structure
+ * @see OpenApiDocument for the returned document structure
+ */
 export function buildOpenApi(registry: Registry, opts: OpenApiBuildOptions): OpenApiDocument {
   const schemaReg = new OasSchemaRegistry();
 

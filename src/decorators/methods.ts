@@ -55,6 +55,8 @@ type HandlerReturn<O extends RouteOptions<string> | undefined> =
 
 /**
  * Internal helper: store route metadata for a method.
+ * @param context - The decorator context
+ * @param route - Route metadata without the name property
  */
 function addRoute(context: Stage3MethodContext, route: Omit<RouteMeta, 'name'>) {
   const bag = bagFromContext(context);
@@ -90,6 +92,32 @@ function createMethodDecorator<Path extends string, const O extends RouteOptions
   };
 }
 
+/**
+ * Decorator for HTTP GET method endpoints.
+ *
+ * @template Path - The route path as a string literal
+ * @template O - Route options extending RouteOptions for the path
+ * @param path - The route path (e.g., '/users', '/users/:id')
+ * @param options - Optional route configuration including responses, validation, etc.
+ * @returns Method decorator for class methods
+ *
+ * @example
+ * ```typescript
+ * class UserController {
+ *   @Get('/users')
+ *   async listUsers() {
+ *     return await userService.findAll();
+ *   }
+ *
+ *   @Get('/users/:id')
+ *   async getUser(id: string) {
+ *     return await userService.findById(id);
+ *   }
+ * }
+ * ```
+ *
+ * @see RouteOptions for available configuration options
+ */
 export function Get<Path extends string, const O extends RouteOptions<Path> | undefined>(
   path: Path,
   options?: O,
@@ -97,6 +125,32 @@ export function Get<Path extends string, const O extends RouteOptions<Path> | un
   return createMethodDecorator('GET', path, options);
 }
 
+/**
+ * Decorator for HTTP POST method endpoints.
+ *
+ * @template Path - The route path as a string literal
+ * @template O - Route options extending RouteOptions for the path
+ * @param path - The route path (e.g., '/users', '/users/:id/comments')
+ * @param options - Optional route configuration including responses, validation, etc.
+ * @returns Method decorator for class methods
+ *
+ * @example
+ * ```typescript
+ * class UserController {
+ *   @Post('/users')
+ *   async createUser(@Body() userData: CreateUserDto) {
+ *     return await userService.create(userData);
+ *   }
+ *
+ *   @Post('/users/:id/activate')
+ *   async activateUser(id: string) {
+ *     return await userService.activate(id);
+ *   }
+ * }
+ * ```
+ *
+ * @see RouteOptions for available configuration options
+ */
 export function Post<Path extends string, const O extends RouteOptions<Path> | undefined>(
   path: Path,
   options?: O,
@@ -104,6 +158,27 @@ export function Post<Path extends string, const O extends RouteOptions<Path> | u
   return createMethodDecorator('POST', path, options);
 }
 
+/**
+ * Decorator for HTTP PUT method endpoints.
+ *
+ * @template Path - The route path as a string literal
+ * @template O - Route options extending RouteOptions for the path
+ * @param path - The route path (e.g., '/users/:id')
+ * @param options - Optional route configuration including responses, validation, etc.
+ * @returns Method decorator for class methods
+ *
+ * @example
+ * ```typescript
+ * class UserController {
+ *   @Put('/users/:id')
+ *   async updateUser(id: string, @Body() userData: UpdateUserDto) {
+ *     return await userService.update(id, userData);
+ *   }
+ * }
+ * ```
+ *
+ * @see RouteOptions for available configuration options
+ */
 export function Put<Path extends string, const O extends RouteOptions<Path> | undefined>(
   path: Path,
   options?: O,
@@ -111,6 +186,27 @@ export function Put<Path extends string, const O extends RouteOptions<Path> | un
   return createMethodDecorator('PUT', path, options);
 }
 
+/**
+ * Decorator for HTTP PATCH method endpoints.
+ *
+ * @template Path - The route path as a string literal
+ * @template O - Route options extending RouteOptions for the path
+ * @param path - The route path (e.g., '/users/:id')
+ * @param options - Optional route configuration including responses, validation, etc.
+ * @returns Method decorator for class methods
+ *
+ * @example
+ * ```typescript
+ * class UserController {
+ *   @Patch('/users/:id')
+ *   async partialUpdate(id: string, @Body() partialData: Partial<User>) {
+ *     return await userService.patch(id, partialData);
+ *   }
+ * }
+ * ```
+ *
+ * @see RouteOptions for available configuration options
+ */
 export function Patch<Path extends string, const O extends RouteOptions<Path> | undefined>(
   path: Path,
   options?: O,
@@ -118,6 +214,34 @@ export function Patch<Path extends string, const O extends RouteOptions<Path> | 
   return createMethodDecorator('PATCH', path, options);
 }
 
+/**
+ * Decorator for HTTP DELETE method endpoints.
+ *
+ * @template Path - The route path as a string literal
+ * @template O - Route options extending RouteOptions for the path
+ * @param path - The route path (e.g., '/users/:id')
+ * @param options - Optional route configuration including responses, validation, etc.
+ * @returns Method decorator for class methods
+ *
+ * @example
+ * ```typescript
+ * class UserController {
+ *   @Delete('/users/:id')
+ *   async deleteUser(id: string) {
+ *     await userService.delete(id);
+ *     return { success: true };
+ *   }
+ *
+ *   @Delete('/users')
+ *   async deleteAllUsers() {
+ *     await userService.deleteAll();
+ *     return { deletedCount: await userService.count() };
+ *   }
+ * }
+ * ```
+ *
+ * @see RouteOptions for available configuration options
+ */
 export function Delete<Path extends string, const O extends RouteOptions<Path> | undefined>(
   path: Path,
   options?: O,

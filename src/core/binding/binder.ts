@@ -6,23 +6,76 @@ import { conventionForMethod } from './rules/inferFromHttpMethod.js';
 import type { CoerceMode } from './coerce/primitives.js';
 import { coerceObjectSmart, coerceValueSmart } from './coerce/arrays.js';
 
+/**
+ * Prepared binding data after argument binding.
+ * Contains the processed params, query, and body data.
+ */
 export type BindingPrepared = {
+  /** Path parameters extracted and coerced from the URL */
   params: Record<string, unknown>;
+  /** Query parameters extracted and processed from the URL query string */
   query: Record<string, unknown>;
+  /** Request body parsed and processed */
   body: unknown;
 };
 
+/**
+ * Result of the bindArgs function containing:
+ * - args: The arguments to pass to the handler function
+ * - prepared: The processed binding data
+ */
 export type BindArgsResult = {
+  /** Arguments to pass to the handler function in order */
   args: unknown[];
+  /** Prepared binding data for reference */
   prepared: BindingPrepared;
 };
 
+/**
+ * Options for the bindArgs function to control binding behavior.
+ */
 export type BindOptions = {
+  /** Coercion mode for automatic type conversion ('smart', 'strict', or 'none') */
   coerce?: CoerceMode;
+  /** Whether to parse CSV values in query parameters */
   csv?: boolean;
+  /** Whether to pass the request context as the last argument */
   passContext?: boolean;
 };
 
+/**
+ * Binds request data to handler function arguments based on route configuration.
+ *
+ * This function automatically maps path parameters, query parameters, and request body
+ * to the handler function arguments based on the route's binding configuration and
+ * HTTP method conventions.
+ *
+ * @param route - The route entry containing metadata about the handler
+ * @param handler - The handler function to bind arguments for
+ * @param ctx - The request context containing params, query, and body
+ * @param opts - Binding options to control behavior
+ * @returns Object containing args to pass to handler and prepared binding data
+ *
+ * @example
+ * ```typescript
+ * // For a route like: @Get('/users/:id')
+ * // With handler: async getUser(id: string, ctx: RequestContext)
+ * const { args } = bindArgs(route, handler, requestContext);
+ * const result = await handler(...args); // Automatically passes id and ctx
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // For a POST route with body
+ * // @Post('/users')
+ * // async createUser(@Body() userData: CreateUserDto)
+ * const { args } = bindArgs(route, handler, requestContext);
+ * const result = await handler(...args); // Automatically passes parsed body
+ * ```
+ *
+ * @see RouteEntry for route metadata structure
+ * @see RequestContext for request data structure
+ */
 export function bindArgs(
   route: RouteEntry,
   handler: Function,
