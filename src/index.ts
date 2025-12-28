@@ -7,3 +7,4 @@ export * from './contracts/reply';
 export * from './core/reply';
 export * from './core/route';
 export * from './contracts/route-options';
+export * from './contracts/route-typing';

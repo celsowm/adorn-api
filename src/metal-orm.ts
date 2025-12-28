@@ -1,1 +1,1 @@
-// placeholder for src\metal-orm.ts
+export * from './integrations/metal-orm';
