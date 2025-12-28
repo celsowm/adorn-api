@@ -13,9 +13,9 @@ export function reply<TBody, const TStatus extends number>(
   return {
     __adornReply: true,
     status,
-    body,
-    headers: init.headers,
-    contentType: init.contentType,
+    ...(body !== undefined ? { body } : {}),
+    ...(init.headers !== undefined ? { headers: init.headers } : {}),
+    ...(init.contentType !== undefined ? { contentType: init.contentType } : {}),
   };
 }
 
@@ -26,8 +26,7 @@ export function noContent<const TStatus extends number = 204>(
   return {
     __adornReply: true,
     status: (status ?? (204 as TStatus)),
-    body: undefined,
-    headers: init.headers,
-    contentType: init.contentType,
+    ...(init.headers !== undefined ? { headers: init.headers } : {}),
+    ...(init.contentType !== undefined ? { contentType: init.contentType } : {}),
   };
 }

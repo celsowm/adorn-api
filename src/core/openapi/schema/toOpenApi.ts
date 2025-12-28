@@ -1,10 +1,10 @@
-import type { OpenAPIV3 } from 'openapi-types';
+import type { SchemaObject } from '../../../contracts/openapi-v3.js';
 import type { SchemaIR } from '../../../validation/native/ir.js';
 
-export function irToOasSchema(ir: SchemaIR): OpenAPIV3.SchemaObject {
+export function irToOasSchema(ir: SchemaIR): SchemaObject {
   switch (ir.kind) {
     case 'string': {
-      const out: OpenAPIV3.SchemaObject = { type: 'string' };
+      const out: SchemaObject = { type: 'string' };
       if (ir.minLength !== undefined) out.minLength = ir.minLength;
       if (ir.maxLength !== undefined) out.maxLength = ir.maxLength;
       if (ir.pattern) out.pattern = ir.pattern;
@@ -14,7 +14,7 @@ export function irToOasSchema(ir: SchemaIR): OpenAPIV3.SchemaObject {
     }
 
     case 'number': {
-      const out: OpenAPIV3.SchemaObject = { type: ir.int ? 'integer' : 'number' };
+      const out: SchemaObject = { type: ir.int ? 'integer' : 'number' };
       if (ir.int) out.format = 'int32';
       if (ir.min !== undefined) out.minimum = ir.min;
       if (ir.max !== undefined) out.maximum = ir.max;
@@ -39,7 +39,7 @@ export function irToOasSchema(ir: SchemaIR): OpenAPIV3.SchemaObject {
     }
 
     case 'array': {
-      const out: OpenAPIV3.SchemaObject = {
+      const out: SchemaObject = {
         type: 'array',
         items: irToOasSchema(ir.items),
       };
@@ -49,12 +49,12 @@ export function irToOasSchema(ir: SchemaIR): OpenAPIV3.SchemaObject {
     }
 
     case 'object': {
-      const props: Record<string, OpenAPIV3.SchemaObject> = {};
+      const props: Record<string, SchemaObject> = {};
       for (const [k, v] of Object.entries(ir.properties)) {
         props[k] = irToOasSchema(v);
       }
 
-      const out: OpenAPIV3.SchemaObject = {
+      const out: SchemaObject = {
         type: 'object',
         properties: props,
       };

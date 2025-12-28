@@ -9,8 +9,8 @@ export function toProblemDetails(err: unknown, instance?: string): ProblemDetail
       title: 'Validation Error',
       status: 400,
       detail: err.message,
-      instance,
-      code: err.code,
+      ...(instance !== undefined ? { instance } : {}),
+      ...(err.code !== undefined ? { code: err.code } : {}),
       issues: err.issues,
     };
   }
@@ -20,10 +20,10 @@ export function toProblemDetails(err: unknown, instance?: string): ProblemDetail
       type: 'about:blank',
       title: err.expose ? err.message : 'Request failed',
       status: err.status,
-      detail: err.expose ? err.message : undefined,
-      instance,
-      code: err.code,
-      details: err.details,
+      ...(err.expose ? { detail: err.message } : {}),
+      ...(instance !== undefined ? { instance } : {}),
+      ...(err.code !== undefined ? { code: err.code } : {}),
+      ...(err.details !== undefined ? { details: err.details } : {}),
     };
   }
 
@@ -31,6 +31,6 @@ export function toProblemDetails(err: unknown, instance?: string): ProblemDetail
     type: 'about:blank',
     title: 'Internal Server Error',
     status: 500,
-    instance,
+    ...(instance !== undefined ? { instance } : {}),
   };
 }

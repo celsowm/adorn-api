@@ -63,7 +63,7 @@ export function buildRegistry(controllers: ControllerCtor[]): Registry {
         handlerName: rm.name,
         controller: ctor,
         options: rm.options,
-        bindings: methodBindings ? { byMethod: { [rm.name]: methodBindings } } : undefined,
+        ...(methodBindings ? { bindings: { byMethod: { [rm.name]: methodBindings } } } : {}),
       });
     }
   }

@@ -2,6 +2,7 @@ export * from './core/errors/index.js';
 export * from './contracts/validator.js';
 export * from './validation/native/index.js';
 export * from './core/openapi/index.js';
+export * from './contracts/openapi.js';
 export * from './contracts/responses.js';
 export * from './contracts/reply.js';
 export * from './core/reply/index.js';

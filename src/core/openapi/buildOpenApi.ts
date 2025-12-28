@@ -1,6 +1,11 @@
-import type { OpenAPIV3 } from 'openapi-types';
+import type {
+  OpenApiDocument,
+  OperationObject,
+  ResponseObject,
+  HttpMethod,
+  MediaTypeObject,
+} from '../../contracts/openapi-v3.js';
 import type { Registry, RouteEntry } from '../registry/types.js';
-import type { Schema } from '../../validation/native/schema.js';
 import type { ResponsesSpec, ResponseSpec } from '../../contracts/responses.js';
 import { normalizeResponses } from '../responses/normalize.js';
 import { OasSchemaRegistry } from './schema/registry.js';
@@ -17,13 +22,13 @@ export type OpenApiBuildOptions = {
   defaultResponseContentType?: string;
 };
 
-export function buildOpenApi(registry: Registry, opts: OpenApiBuildOptions): OpenAPIV3.Document {
+export function buildOpenApi(registry: Registry, opts: OpenApiBuildOptions): OpenApiDocument {
   const schemaReg = new OasSchemaRegistry();
 
-  const doc: OpenAPIV3.Document = {
+  const doc: OpenApiDocument = {
     openapi: '3.0.3',
     info: { title: opts.title, version: opts.version },
-    servers: opts.servers,
+    ...(opts.servers !== undefined ? { servers: opts.servers } : {}),
     paths: {},
     components: {},
   };
@@ -32,15 +37,15 @@ export function buildOpenApi(registry: Registry, opts: OpenApiBuildOptions): Ope
     const pathKey = r.fullPath;
     doc.paths[pathKey] ??= {};
 
-    const method = r.method.toLowerCase() as OpenAPIV3.HttpMethods;
+    const method = r.method.toLowerCase() as HttpMethod;
     const ro = (r.options ?? {}) as RouteOptionsAny;
 
-    const op: OpenAPIV3.OperationObject = {
+    const op: OperationObject = {
       operationId: `${r.controller.name}.${r.handlerName}`,
-      summary: ro.summary,
-      description: ro.description,
-      tags: ro.tags,
-      deprecated: ro.deprecated,
+      ...(ro.summary !== undefined ? { summary: ro.summary } : {}),
+      ...(ro.description !== undefined ? { description: ro.description } : {}),
+      ...(ro.tags !== undefined ? { tags: ro.tags } : {}),
+      ...(ro.deprecated !== undefined ? { deprecated: ro.deprecated } : {}),
       parameters: [],
       responses: {},
     };
@@ -63,11 +68,7 @@ export function buildOpenApi(registry: Registry, opts: OpenApiBuildOptions): Ope
   return doc;
 }
 
-function addPathParams(
-  op: OpenAPIV3.OperationObject,
-  r: RouteEntry,
-  ro: RouteOptionsAny,
-) {
+function addPathParams(op: OperationObject, r: RouteEntry, ro: RouteOptionsAny) {
   const paramsSchema = ro.validate?.params;
   if (paramsSchema?.ir.kind === 'object') {
     const seen = new Set(
@@ -98,7 +99,7 @@ function addPathParams(
   }
 }
 
-function addQueryParams(op: OpenAPIV3.OperationObject, ro: RouteOptionsAny) {
+function addQueryParams(op: OperationObject, ro: RouteOptionsAny) {
   const q = ro.validate?.query;
   if (!q || q.ir.kind !== 'object') return;
 
@@ -115,7 +116,7 @@ function addQueryParams(op: OpenAPIV3.OperationObject, ro: RouteOptionsAny) {
 }
 
 function addRequestBody(
-  op: OpenAPIV3.OperationObject,
+  op: OperationObject,
   r: RouteEntry,
   ro: RouteOptionsAny,
   schemaReg: OasSchemaRegistry,
@@ -136,7 +137,7 @@ function addRequestBody(
 }
 
 function addResponses(
-  op: OpenAPIV3.OperationObject,
+  op: OperationObject,
   r: RouteEntry,
   ro: RouteOptionsAny,
   schemaReg: OasSchemaRegistry,
@@ -158,8 +159,8 @@ function responseSpecToOas(
   spec: ResponseSpec,
   schemaReg: OasSchemaRegistry,
   defaultContentType: string,
-): OpenAPIV3.ResponseObject {
-  const out: OpenAPIV3.ResponseObject = {
+): ResponseObject {
+  const out: ResponseObject = {
     description: spec.description ?? 'Response',
   };
 
@@ -167,22 +168,22 @@ function responseSpecToOas(
     out.headers = {};
     for (const [h, hv] of Object.entries(spec.headers)) {
       out.headers[h] = {
-        description: hv.description,
-        required: hv.required,
+        ...(hv.description !== undefined ? { description: hv.description } : {}),
+        ...(hv.required !== undefined ? { required: hv.required } : {}),
         schema: schemaReg.toSchemaRef(hv.schema),
       };
     }
   }
 
-  const content: OpenAPIV3.ContentObject = {};
+  const content: Record<string, MediaTypeObject> = {};
   const entries = Object.entries(spec.content ?? {});
   if (entries.length) {
-      for (const [ct, c] of entries) {
-        content[ct] = {
-          schema: schemaReg.toSchemaRef(c.schema),
-          example: c.example,
-        };
-      }
+    for (const [ct, c] of entries) {
+      content[ct] = {
+        schema: schemaReg.toSchemaRef(c.schema),
+        ...(c.example !== undefined ? { example: c.example } : {}),
+      };
+    }
   } else if ((spec as any).schema) {
     content[defaultContentType] = {
       schema: schemaReg.toSchemaRef((spec as any).schema),

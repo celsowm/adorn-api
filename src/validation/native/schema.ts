@@ -180,7 +180,7 @@ function objectBase<S extends ObjectShape>(shape: S, opts?: { strict?: boolean }
       kind: 'object',
       properties,
       required,
-      strict: opts?.strict ? true : undefined,
+      ...(opts?.strict ? { strict: true } : {}),
     },
     parse(value: unknown, path: Array<string | number> = []) {
       if (!value || typeof value !== 'object' || Array.isArray(value)) {

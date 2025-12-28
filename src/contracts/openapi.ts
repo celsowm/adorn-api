@@ -1,1 +1,1 @@
-// placeholder for src\contracts\openapi.ts
+export * from './openapi-v3.js';

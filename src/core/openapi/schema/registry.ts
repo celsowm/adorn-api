@@ -1,12 +1,12 @@
-import type { OpenAPIV3 } from 'openapi-types';
+import type { ComponentsObject, ReferenceObject, SchemaObject } from '../../../contracts/openapi-v3.js';
 import type { Schema } from '../../../validation/native/schema.js';
 import { irToOasSchema } from './toOpenApi.js';
 
 export class OasSchemaRegistry {
-  private components: Record<string, OpenAPIV3.SchemaObject> = {};
+  private components: Record<string, SchemaObject> = {};
   private seen = new WeakMap<object, string>();
 
-  toSchemaRef(schema: Schema<any>): OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject {
+  toSchemaRef(schema: Schema<any>): SchemaObject | ReferenceObject {
     if (schema.name) {
       const existing = this.seen.get(schema as object);
       const name = existing ?? schema.name;
@@ -22,9 +22,7 @@ export class OasSchemaRegistry {
     return irToOasSchema(schema.ir);
   }
 
-  getComponents(): OpenAPIV3.ComponentsObject {
-    return {
-      schemas: Object.keys(this.components).length ? this.components : undefined,
-    };
+  getComponents(): ComponentsObject {
+    return Object.keys(this.components).length ? { schemas: this.components } : {};
   }
 }
