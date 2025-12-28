@@ -5,6 +5,10 @@
  * Some runtimes may not have Symbol.metadata yet; TypeScript's emit still uses it,
  * so we polyfill Symbol.metadata to a stable symbol if missing.
  */
+import type { ResponsesSpec } from '../contracts/responses.js';
+import type { RouteOptions } from '../contracts/route-options.js';
+import type { SecurityRequirementObject, SecuritySchemeObject } from '../contracts/openapi-v3.js';
+
 export const SYMBOL_METADATA: symbol = (() => {
   const existing = (Symbol as any).metadata;
   if (typeof existing === 'symbol') return existing;
@@ -58,4 +62,17 @@ export type BindingsMeta = {
       path?: Record<string, 'string' | 'int' | 'number' | 'boolean' | 'uuid'>;
     }
   >;
+};
+
+export type DocsMeta = {
+  tags?: string[];
+  deprecated?: boolean;
+  operationId?: string;
+  security?: SecurityRequirementObject[];
+  responses?: ResponsesSpec;
+  byMethod?: Record<string, Partial<RouteOptions<string>>>;
+};
+
+export type SecurityMeta = {
+  schemes?: Record<string, SecuritySchemeObject>;
 };

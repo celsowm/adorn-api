@@ -8,6 +8,7 @@ export type OpenApiDocument = {
 
 export type ComponentsObject = {
   schemas?: Record<string, SchemaObject>;
+  securitySchemes?: Record<string, SecuritySchemeObject>;
 };
 
 export type PathItemObject = Partial<Record<HttpMethod, OperationObject>>;
@@ -27,6 +28,7 @@ export type OperationObject = {
   description?: string;
   tags?: string[];
   deprecated?: boolean;
+  security?: SecurityRequirementObject[];
   parameters?: ParameterObject[];
   requestBody?: RequestBodyObject;
   responses: Record<string, ResponseObject>;
@@ -63,6 +65,19 @@ export type MediaTypeObject = {
 
 export type ReferenceObject = {
   $ref: string;
+};
+
+export type SecurityRequirementObject = Record<string, string[]>;
+
+export type SecuritySchemeObject = {
+  type: 'apiKey' | 'http' | 'oauth2' | 'openIdConnect';
+  description?: string;
+  name?: string;
+  in?: 'query' | 'header' | 'cookie';
+  scheme?: string;
+  bearerFormat?: string;
+  flows?: Record<string, unknown>;
+  openIdConnectUrl?: string;
 };
 
 export type SchemaObject = {

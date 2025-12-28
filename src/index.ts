@@ -7,5 +7,6 @@ export * from './contracts/responses.js';
 export * from './contracts/reply.js';
 export * from './core/reply/index.js';
 export * from './core/route/index.js';
+export * from './core/registry/index.js';
 export * from './contracts/route-options.js';
 export * from './contracts/route-typing.js';

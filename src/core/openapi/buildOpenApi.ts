@@ -30,7 +30,6 @@ export function buildOpenApi(registry: Registry, opts: OpenApiBuildOptions): Ope
     info: { title: opts.title, version: opts.version },
     ...(opts.servers !== undefined ? { servers: opts.servers } : {}),
     paths: {},
-    components: {},
   };
 
   for (const r of registry.routes) {
@@ -41,11 +40,12 @@ export function buildOpenApi(registry: Registry, opts: OpenApiBuildOptions): Ope
     const ro = (r.options ?? {}) as RouteOptionsAny;
 
     const op: OperationObject = {
-      operationId: `${r.controller.name}.${r.handlerName}`,
+      operationId: ro.operationId ?? `${r.controller.name}.${r.handlerName}`,
       ...(ro.summary !== undefined ? { summary: ro.summary } : {}),
       ...(ro.description !== undefined ? { description: ro.description } : {}),
       ...(ro.tags !== undefined ? { tags: ro.tags } : {}),
       ...(ro.deprecated !== undefined ? { deprecated: ro.deprecated } : {}),
+      ...(ro.security !== undefined ? { security: ro.security } : {}),
       parameters: [],
       responses: {},
     };
@@ -64,7 +64,13 @@ export function buildOpenApi(registry: Registry, opts: OpenApiBuildOptions): Ope
     (doc.paths[pathKey] as any)[method] = op;
   }
 
-  doc.components = schemaReg.getComponents();
+  const components = schemaReg.getComponents();
+  if (registry.securitySchemes && Object.keys(registry.securitySchemes).length) {
+    components.securitySchemes = registry.securitySchemes;
+  }
+  if (Object.keys(components).length) {
+    doc.components = components;
+  }
   return doc;
 }
 

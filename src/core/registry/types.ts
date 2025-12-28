@@ -1,4 +1,5 @@
 import type { BindingsMeta, ControllerMeta, RouteMeta } from '../../metadata/keys.js';
+import type { SecuritySchemeObject } from '../../contracts/openapi-v3.js';
 
 export type ControllerCtor<T = any> = new (...args: any[]) => T;
 
@@ -36,4 +37,5 @@ export type RouteEntry = {
 export type Registry = {
   controllers: ControllerEntry[];
   routes: RouteEntry[];
+  securitySchemes?: Record<string, SecuritySchemeObject>;
 };

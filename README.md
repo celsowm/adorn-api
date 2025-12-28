@@ -9,15 +9,18 @@ Adorn API turns TypeScript classes into HTTP controllers with Stage-3 decorators
 
 ## Features
 - Controller decorators (`@Controller`, `@Get`, `@Post`, etc.) backed by a registry/router that mounts on Express.
+- `createAdornExpressRouter` and `buildRegistry` for mounting Adorn into existing Express stacks.
+- Problem Details error handling with an `onError` hook for custom shapes/logging.
 - Built-in OpenAPI generator with optional Swagger UI serving through the Express adapter.
 - MetalORM helpers (`entityDto`, `filtersFromEntity`, `tableDefOf`) to reuse entity metadata for payload validation and database filtering.
 - End-to-end coverage for both direct API handlers and MetalORM REST routes using Vitest + Supertest.
 
-For detailed writeups of each feature, see the companion guides under `docs/`.
+For detailed writeups of each feature, see the companion guides under `docs/` (including the Stage-3 decorator setup).
 
 ## Requirements
 - Node.js v18+
 - SQLite (only for in-memory tests; runtime persistence is pluggable via MetalORM executors)
+- TypeScript 5.x with Stage-3 decorators (do not enable `experimentalDecorators`)
 
 ## Getting started
 1. `npm install` to pull runtime and dev dependencies (Express, MetalORM, Vitest).
