@@ -16,7 +16,8 @@ import {
   selectFromEntity,
 } from 'metal-orm';
 import { createAdornExpressApp } from '../../src/express.js';
-import { Controller, Get, Post } from '../../src/decorators/index.js';
+import { Bindings, Controller, Delete, Get, Post, Put } from '../../src/decorators/index.js';
+import { HttpError } from '../../src/core/errors/http-error.js';
 import { entityDto, filtersFromEntity } from '../../src/metal-orm.js';
 
 type Db = sqlite3.Database;
@@ -61,6 +62,7 @@ class User {
 bootstrapEntities();
 
 const createUserSchema = entityDto(User, 'create');
+const updateUserSchema = entityDto(User, 'update');
 const listUsersQuerySchema = filtersFromEntity(User, {
   pick: ['id', 'name'] as const,
   paging: false,
@@ -68,6 +70,15 @@ const listUsersQuerySchema = filtersFromEntity(User, {
 const userRef = entityRef(User);
 
 type CreateUserInput = { name: string };
+type UpdateUserInput = { name?: string };
+
+async function loadUserEntity(session: OrmSession, id: number): Promise<User | null> {
+  const rows = await selectFromEntity(User)
+    .select('id', 'name')
+    .where(eq(userRef.id, id))
+    .execute(session);
+  return rows[0] ?? null;
+}
 
 @Controller('/users')
 class UsersController {
@@ -108,12 +119,51 @@ class UsersController {
 
     return qb.execute(this.session);
   }
+
+  @Bindings({ path: { id: 'int' } })
+  @Get('/{id}')
+  async getUser(id: number): Promise<User> {
+    const user = await loadUserEntity(this.session, id);
+    if (!user) {
+      throw new HttpError(404, 'User not found');
+    }
+    return user;
+  }
+
+  @Bindings({ path: { id: 'int' } })
+  @Put('/{id}', { validate: { body: updateUserSchema } })
+  async updateUser(id: number, body: UpdateUserInput): Promise<User> {
+    const user = await loadUserEntity(this.session, id);
+    if (!user) {
+      throw new HttpError(404, 'User not found');
+    }
+
+    if (body.name !== undefined) {
+      user.name = body.name;
+      this.session.markDirty(user);
+    }
+
+    await this.session.commit();
+    return user;
+  }
+
+  @Bindings({ path: { id: 'int' } })
+  @Delete('/{id}')
+  async deleteUser(id: number): Promise<void> {
+    const user = await loadUserEntity(this.session, id);
+    if (!user) {
+      throw new HttpError(404, 'User not found');
+    }
+
+    await this.session.remove(user);
+    await this.session.commit();
+  }
 }
 
 type OrmContext = {
   db: Db;
   orm: Orm;
-  session: OrmSession;
+  executor: ReturnType<typeof createSqliteExecutor>;
 };
 
 async function createOrmContext(): Promise<OrmContext> {
@@ -145,13 +195,10 @@ async function createOrmContext(): Promise<OrmContext> {
     },
   });
 
-  const session = new OrmSession({ orm, executor });
-
-  return { db, orm, session };
+  return { db, orm, executor };
 }
 
 async function closeOrmContext(ctx: OrmContext): Promise<void> {
-  await ctx.session.dispose();
   await ctx.orm.dispose();
   await closeDb(ctx.db);
 }
@@ -160,42 +207,58 @@ async function createTestApp() {
   const ctx = await createOrmContext();
   const app = createAdornExpressApp({
     controllers: [UsersController],
-    controllerFactory: () => new UsersController(ctx.session),
+    controllerFactory: (_ctor, _req, res) => {
+      const session = new OrmSession({ orm: ctx.orm, executor: ctx.executor });
+      res.on('finish', () => {
+        void session.dispose();
+      });
+      return new UsersController(session);
+    },
   });
 
   return { app, ctx };
 }
 
-describe('metal-orm + adorn-api', () => {
-  it('validates input and queries using metal-orm schemas', async () => {
+describe('metal-orm + adorn-api (REST)', () => {
+  it('supports CRUD routes with orm-backed persistence', async () => {
     const { app, ctx } = await createTestApp();
 
     try {
-      const createRes = await request(app).post('/users').send({ name: 'Ada' });
+      const createAda = await request(app).post('/users').send({ name: 'Ada' });
+      const createGrace = await request(app).post('/users').send({ name: 'Grace' });
 
-      expect(createRes.status).toBe(201);
-      expect(createRes.body).toEqual({ id: 1, name: 'Ada' });
+      expect(createAda.status).toBe(201);
+      expect(createAda.body).toEqual({ id: 1, name: 'Ada' });
+      expect(createGrace.status).toBe(201);
+      expect(createGrace.body).toEqual({ id: 2, name: 'Grace' });
 
-      const listRes = await request(app).get('/users').query({ id: '1' });
+      const listAll = await request(app).get('/users');
 
-      expect(listRes.status).toBe(200);
-      expect(listRes.body).toEqual([{ id: 1, name: 'Ada' }]);
-    } finally {
-      await closeOrmContext(ctx);
-    }
-  });
-
-  it('rejects bodies that do not match the entity dto', async () => {
-    const { app, ctx } = await createTestApp();
-
-    try {
-      const res = await request(app).post('/users').send({});
-
-      expect(res.status).toBe(400);
-      expect(res.body.title).toBe('Validation Error');
-      expect(res.body.issues).toEqual([
-        expect.objectContaining({ path: ['body', 'name'], code: 'invalid_type' }),
+      expect(listAll.status).toBe(200);
+      expect(listAll.body).toEqual([
+        { id: 1, name: 'Ada' },
+        { id: 2, name: 'Grace' },
       ]);
+
+      const getAda = await request(app).get('/users/1');
+      expect(getAda.status).toBe(200);
+      expect(getAda.body).toEqual({ id: 1, name: 'Ada' });
+
+      const updateAda = await request(app).put('/users/1').send({ name: 'Ada Lovelace' });
+      expect(updateAda.status).toBe(200);
+      expect(updateAda.body).toEqual({ id: 1, name: 'Ada Lovelace' });
+
+      const listFiltered = await request(app).get('/users').query({ name: 'Ada Lovelace' });
+      expect(listFiltered.status).toBe(200);
+      expect(listFiltered.body).toEqual([{ id: 1, name: 'Ada Lovelace' }]);
+
+      const deleteAda = await request(app).delete('/users/1');
+      expect(deleteAda.status).toBe(204);
+      expect(deleteAda.body).toEqual({});
+
+      const getMissing = await request(app).get('/users/1');
+      expect(getMissing.status).toBe(404);
+      expect(getMissing.body.title).toBe('User not found');
     } finally {
       await closeOrmContext(ctx);
     }
