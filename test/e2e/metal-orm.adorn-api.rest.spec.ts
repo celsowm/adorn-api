@@ -114,7 +114,7 @@ class UsersController {
     if (query.id !== undefined) {
       qb = qb.where(eq(userRef.id, query.id));
     } else if (query.name) {
-      qb = qb.where(eq(userRef.name, query.name));
+      qb = qb.where(eq(userRef.$.name, query.name));
     }
 
     return qb.execute(this.session);
@@ -155,7 +155,7 @@ class UsersController {
       throw new HttpError(404, 'User not found');
     }
 
-    await this.session.remove(user);
+    this.session.markRemoved(user);
     await this.session.commit();
   }
 }

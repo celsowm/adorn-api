@@ -81,12 +81,12 @@ class UsersController {
     await this.session.persist(user);
     await this.session.commit();
 
-    const rows = await selectFromEntity(User)
+    const createdUsers = await selectFromEntity(User)
       .select('id', 'name')
       .orderBy(userRef.id)
       .execute(this.session);
 
-    const created = rows[rows.length - 1];
+    const created = createdUsers[createdUsers.length - 1];
     if (!created) {
       throw new Error('User insert failed');
     }
@@ -103,7 +103,7 @@ class UsersController {
     if (query.id !== undefined) {
       qb = qb.where(eq(userRef.id, query.id));
     } else if (query.name) {
-      qb = qb.where(eq(userRef.name, query.name));
+      qb = qb.where(eq(userRef.$.name, query.name));
     }
 
     return qb.execute(this.session);

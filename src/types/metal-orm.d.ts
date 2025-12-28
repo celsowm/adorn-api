@@ -44,7 +44,10 @@ declare module 'metal-orm' {
 
   export class OrmSession {
     constructor(opts: { orm: Orm; executor: DbExecutor });
+    markDirty(entity: object): void;
+    markRemoved(entity: object): void;
     persist(entity: object): Promise<void>;
+    remove(entity: object): Promise<void>;
     commit(): Promise<void>;
     dispose(): Promise<void>;
   }
