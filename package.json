@@ -1,16 +1,55 @@
 {
   "name": "adorn-api",
   "version": "0.1.0",
-  "description": "Scaffold for the Adorn API project.",
-  "main": "src/index.ts",
-  "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "test": "echo \"No tests yet\""
-  },
-  "keywords": [],
+  "description": "Stage-3 decorator router + OpenAPI, with optional MetalORM integration",
   "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "files": ["dist"],
+
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./express": {
+      "types": "./dist/express.d.ts",
+      "default": "./dist/express.js"
+    },
+    "./metal-orm": {
+      "types": "./dist/metal-orm.d.ts",
+      "default": "./dist/metal-orm.js"
+    }
+  },
+
+  "engines": {
+    "node": ">=18"
+  },
+
+  "dependencies": {
+    "express": "^5.2.1",
+    "metal-orm": "1.0.63"
+  },
+
   "devDependencies": {
-    "typescript": "^5.3.3"
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.0.3",
+    "@types/supertest": "^6.0.3",
+    "sqlite3": "^5.1.7",
+    "supertest": "^7.1.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
+  },
+
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "vitest run test/e2e"
   }
 }
