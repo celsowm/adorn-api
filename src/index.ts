@@ -9,7 +9,7 @@ export { HttpError, ValidationError } from './core/errors/index.js';
 export { toProblemDetails } from './core/errors/index.js';
 
 // Validation - public validation API
-export * from './validation/native/index.js';
+export * from './core/validation/index.js';
 
 // OpenAPI generation - public API for generating OpenAPI docs
 export * from './core/openapi/index.js';
