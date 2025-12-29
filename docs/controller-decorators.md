@@ -1,12 +1,76 @@
 # Controller decorators
 
-Controllers and route methods use the Stage‑3 decorators exported from `src/decorators/index.ts`, which internally record metadata on the class/method via `src/metadata/keys.ts` and `src/metadata/bag.ts`.
+Controllers and route methods use Stage‑3 decorators exported from the main `adorn-api` package. These decorators record metadata internally and use it to build routes and generate OpenAPI documentation.
 
-- `@Controller('/path')` (`src/decorators/controller.ts`) normalizes the base path and stores it in the meta bag.
-- `@Get`, `@Post`, `@Put`, `@Patch`, and `@Delete` (`src/decorators/methods.ts`) wrap your handler with route metadata (HTTP verb + normalized path + validation/response options) via `RouteMeta`.
-- `@Tags`, `@OperationId`, and `@Deprecated` (`src/decorators/docs.ts`) attach OpenAPI-friendly metadata to routes.
-- `@Response` and `@Responses` (`src/decorators/responses.ts`) add per-route response specs (status, descriptions, headers, schemas).
-- `@Security` and `@SecurityScheme` (`src/decorators/security.ts`) declare OpenAPI security requirements and component schemes.
-- The controller metadata is assembled when the registry is built (`src/core/registry/buildRegistry.ts`), which applies the routes to an Express router in `src/adapters/express/router.ts`.
+## Available Decorators
 
-Use `controllerFactory` in the Express adapter to inject dependencies such as `OrmSession` per request (`test/e2e/metal-orm.adorn-api.rest.spec.ts` shows one example). Validation schemas live alongside the controllers (`src/integrations/metal-orm/schema`), but any schema can be used via route options.
+### Controller Definition
+- `@Controller('/path')` - Defines a controller with a base path
+
+### HTTP Method Decorators
+- `@Get`, `@Post`, `@Put`, `@Patch`, and `@Delete` - Define route handlers with HTTP verbs
+
+### Documentation Decorators
+- `@Tags`, `@OperationId`, and `@Deprecated` - Attach OpenAPI-friendly metadata to routes
+
+### Response Decorators
+- `@Response` and `@Responses` - Add per-route response specifications (status, descriptions, headers, schemas)
+
+### Security Decorators
+- `@Security` and `@SecurityScheme` - Declare OpenAPI security requirements and component schemes
+
+### Parameter Binding
+- `@Bindings` - Define parameter binding rules for route handlers
+
+## Usage Example
+
+```typescript
+import { Controller, Get, Bindings } from 'adorn-api';
+
+@Controller('/users')
+class UsersController {
+  @Bindings({ path: { id: 'int' } })
+  @Get('/{id}')
+  getUser(id: number) {
+    return { id, name: 'User ' + id };
+  }
+}
+```
+
+## Integration with Express
+
+Use `createAdornExpressApp` from the `adorn-api/express` package to create an Express application with your controllers:
+
+```typescript
+import { createAdornExpressApp } from 'adorn-api/express';
+import { Controller, Get } from 'adorn-api';
+
+@Controller('/api/users')
+class UsersController {
+  @Get('/')
+  listUsers() {
+    return [{ id: 1, name: 'Alice' }];
+  }
+}
+
+const app = createAdornExpressApp({
+  controllers: [UsersController],
+});
+```
+
+## Custom Controller Factories
+
+Use the `controllerFactory` option in the Express adapter to inject dependencies such as database sessions per request:
+
+```typescript
+import { createAdornExpressApp } from 'adorn-api/express';
+import type { ControllerCtor } from 'adorn-api';
+import type { Request, Response } from 'express';
+
+const app = createAdornExpressApp({
+  controllers: [UsersController],
+  controllerFactory: (ctor: ControllerCtor, req: Request, res: Response) => {
+    // Inject dependencies based on controller type
+    return new ctor(/* your dependencies */);
+  },
+});

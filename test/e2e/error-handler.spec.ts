@@ -1,8 +1,8 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { createAdornExpressApp } from '../../src/express.js';
-import { Controller, Get } from '../../src/decorators/index.js';
-import { HttpError } from '../../src/core/errors/http-error.js';
+import { createAdornExpressApp } from 'adorn-api/express';
+import { Controller, Get } from 'adorn-api';
+import { HttpError } from 'adorn-api';
 
 @Controller('/errors')
 class ErrorsController {

@@ -15,10 +15,10 @@ import {
   eq,
   selectFromEntity,
 } from 'metal-orm';
-import { createAdornExpressApp } from '../../src/express.js';
-import { Bindings, Controller, Delete, Get, Post, Put } from '../../src/decorators/index.js';
-import { HttpError } from '../../src/core/errors/http-error.js';
-import { entityDto, filtersFromEntity } from '../../src/metal-orm.js';
+import { createAdornExpressApp } from 'adorn-api/express';
+import { Bindings, Controller, Delete, Get, Post, Put } from 'adorn-api';
+import { HttpError } from 'adorn-api';
+import { entityDto, filtersFromEntity } from 'adorn-api/metal-orm';
 
 type Db = sqlite3.Database;
 

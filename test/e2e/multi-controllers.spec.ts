@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { createAdornExpressApp } from '../../src/express.js';
-import { Bindings, Controller, Get } from '../../src/decorators/index.js';
+import { createAdornExpressApp } from 'adorn-api/express';
+import { Bindings, Controller, Get } from 'adorn-api';
 
 @Controller('/users')
 class UsersController {

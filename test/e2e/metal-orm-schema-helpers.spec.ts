@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { bootstrapEntities, col, Column, Entity, PrimaryKey } from 'metal-orm';
-import { entityDto, filtersFromEntity, tableDefOf } from '../../src/metal-orm.js';
-import type { ValidationResult } from '../../src/contracts/validator.js';
+import { entityDto, filtersFromEntity, tableDefOf } from 'adorn-api/metal-orm';
+import type { ValidationResult } from 'adorn-api';
 
 @Entity()
 class Product {

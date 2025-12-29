@@ -1,10 +1,10 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { createAdornExpressApp } from '../../src/express.js';
-import { Controller, Post } from '../../src/decorators/index.js';
-import { reply } from '../../src/core/reply/reply.js';
-import type { Reply } from '../../src/contracts/reply.js';
-import { v } from '../../src/validation/native/index.js';
+import { createAdornExpressApp } from 'adorn-api/express';
+import { Controller, Post } from 'adorn-api';
+import { reply } from 'adorn-api';
+import type { Reply } from 'adorn-api';
+import { v } from 'adorn-api';
 
 type AuthorInput = {
   name: string;

@@ -1,9 +1,9 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { createAdornExpressApp } from '../../src/express.js';
-import { Bindings, Controller, Get } from '../../src/decorators/index.js';
+import { createAdornExpressApp } from 'adorn-api/express';
+import { Bindings, Controller, Get } from 'adorn-api';
 import type { Request, Response } from 'express';
-import type { ControllerCtor } from '../../src/core/registry/types.js';
+import type { ControllerCtor } from 'adorn-api';
 
 // A simple service that we want to inject into controllers
 class UserService {

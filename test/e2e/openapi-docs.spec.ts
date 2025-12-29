@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { createAdornExpressApp } from '../../src/express.js';
+import { createAdornExpressApp } from 'adorn-api/express';
 import {
   Controller,
   Get,
@@ -10,8 +10,8 @@ import {
   SecurityScheme,
   Tags,
   Deprecated,
-} from '../../src/decorators/index.js';
-import { v } from '../../src/validation/native/index.js';
+} from 'adorn-api';
+import { v } from 'adorn-api';
 
 const widgetSchema = v.named(
   'WidgetItem',
