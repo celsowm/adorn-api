@@ -20,7 +20,7 @@ Controllers and route methods use Stage‑3 decorators exported from the main `a
 - `@Security` and `@SecurityScheme` - Declare OpenAPI security requirements and component schemes
 
 ### Parameter Binding
-- `@Bindings` - Define parameter binding rules for route handlers
+- `@Bindings` - Define parameter binding rules for route handlers (e.g., type hints for path parameters)
 
 ## Usage Example
 
@@ -36,6 +36,8 @@ class UsersController {
   }
 }
 ```
+
+**Note:** The framework uses automatic parameter binding based on parameter names and types. For path parameters, use `@Bindings` to provide type hints when needed. Query parameters and request bodies are automatically bound based on the parameter names and types in your handler methods.
 
 ## Integration with Express
 
