@@ -45,9 +45,33 @@ export type RouteValidate = {
 };
 
 /**
+ * Explicit argument binding specification.
+ *
+ * Each binding describes how a handler parameter receives data from the request.
+ * This removes reliance on HTTP method conventions and handler.length.
+ *
+ * @example
+ * ```typescript
+ * const args: ArgBinding[] = [
+ *   { kind: 'path', name: 'id', type: 'int' },
+ *   { kind: 'query' },
+ *   { kind: 'ctx' }
+ * ];
+ * ```
+ */
+export type ArgBinding =
+  | { kind: 'path'; name: string; type?: ScalarHint }
+  | { kind: 'query' }
+  | { kind: 'query'; name: string; type?: ScalarHint }
+  | { kind: 'body' }
+  | { kind: 'ctx' };
+
+/**
  * Parameter binding configuration for routes.
  *
- * Specifies how path parameters should be coerced to specific types.
+ * Specifies how path parameters should be coerced to specific types
+ * and provides an explicit argument binding plan for deterministic
+ * parameter placement without relying on conventions.
  *
  * @template Path - The route path as a string literal
  *
@@ -62,11 +86,30 @@ export type RouteValidate = {
  * };
  * ```
  *
+ * @example
+ * ```typescript
+ * // Explicit argument plan (deterministic, no convention)
+ * const routeBindings: RouteBindings = {
+ *   args: [
+ *     { kind: 'path', name: 'id', type: 'uuid' },
+ *     { kind: 'query' },
+ *     { kind: 'ctx' }
+ *   ]
+ * };
+ * ```
+ *
  * @see ScalarHint for available type hints
+ * @see ArgBinding for argument binding specification
  */
 export type RouteBindings<Path extends string> = {
   /** Type hints for path parameters */
   path?: Partial<Record<ExtractPathParams<Path>, ScalarHint>>;
+
+  /**
+   * If provided, runtime binding uses this exact plan in method-parameter order.
+   * This removes reliance on HTTP method convention + handler.length.
+   */
+  args?: ArgBinding[];
 };
 
 /**

@@ -1,8 +1,9 @@
 import type * as ts from 'typescript';
 import type { PluginConfig } from '../contracts.js';
-import { extractPathTokens } from '../analysis/pathTokens.js';
 import { readHttpDecoratorCall, isFromPackage, isHttpDecoratorName, httpMethodFromDecorator } from '../analysis/httpDecorators.js';
-import { unwrapPromise, scalarHintFromType } from '../analysis/signature.js';
+import { unwrapPromise } from '../analysis/signature.js';
+import { inferPlacement } from '../analysis/paramPlacement.js';
+import { extractReplyVariants } from '../analysis/replyReturn.js';
 import { SchemaHoister } from '../emit/schemaHoister.js';
 import { ensureImportedV } from '../emit/importPatcher.js';
 import { patchRouteOptions } from '../emit/optionsMerger.js';
@@ -67,51 +68,48 @@ export default function transform(
           const path = a0.text;
 
           const httpMethod = httpMethodFromDecorator(decoratorName);
-          const tokens = extractPathTokens(path);
+          const placement = inferPlacement(tsi, checker, node, httpMethod, path);
 
-          const pathHints: Record<string, string> = {};
-          for (let pi = 0; pi < tokens.length; pi++) {
-            const p = node.parameters[pi];
-            if (!p) continue;
-            const t = checker.getTypeAtLocation(p);
-            const hint = scalarHintFromType(tsi, t, 'path');
-            if (hint) pathHints[tokens[pi]] = hint;
-          }
+          const argsExpr = tsi.factory.createArrayLiteralExpression(
+            placement.args.map((a) => {
+              const props: ts.PropertyAssignment[] = [
+                tsi.factory.createPropertyAssignment('kind', tsi.factory.createStringLiteral(a.kind)),
+              ];
+              if ('name' in a) props.push(tsi.factory.createPropertyAssignment('name', tsi.factory.createStringLiteral(a.name)));
+              if ('type' in a) props.push(tsi.factory.createPropertyAssignment('type', tsi.factory.createStringLiteral(a.type)));
+              return tsi.factory.createObjectLiteralExpression(props, true);
+            }),
+            true,
+          );
 
-          const bindingsObj =
-            Object.keys(pathHints).length === 0
+          const pathMapExpr =
+            Object.keys(placement.pathMap).length === 0
               ? undefined
               : tsi.factory.createObjectLiteralExpression(
-                  [
-                    tsi.factory.createPropertyAssignment(
-                      'path',
-                      tsi.factory.createObjectLiteralExpression(
-                        Object.entries(pathHints).map(([k, v]) =>
-                          tsi.factory.createPropertyAssignment(
-                            tsi.factory.createStringLiteral(k),
-                            tsi.factory.createStringLiteral(v),
-                          ),
-                        ),
-                        true,
-                      ),
+                  Object.entries(placement.pathMap)
+                    .filter(([, v]) => !!v)
+                    .map(([k, v]) =>
+                      tsi.factory.createPropertyAssignment(tsi.factory.createStringLiteral(k), tsi.factory.createStringLiteral(v!)),
                     ),
-                  ],
                   true,
                 );
 
+          const bindingsObj = tsi.factory.createObjectLiteralExpression(
+            [
+              tsi.factory.createPropertyAssignment('args', argsExpr),
+              ...(pathMapExpr ? [tsi.factory.createPropertyAssignment('path', pathMapExpr)] : []),
+            ],
+            true,
+          );
+
           let validateParamsSchemaExpr: ts.Expression | undefined;
-          if (tokens.length) {
+          if (placement.paramsShape?.length) {
             const shapeProps: ts.PropertyAssignment[] = [];
 
-            for (let pi = 0; pi < tokens.length; pi++) {
-              const tok = tokens[pi];
-              const p = node.parameters[pi];
-              if (!p) continue;
-              const pt = checker.getTypeAtLocation(p);
-
-              let sch = hoister.getOrCreate(pt, `Param_${tok}`);
+            for (const ps of placement.paramsShape) {
+              let sch = hoister.getOrCreate(ps.type, `Param_${ps.name}`);
               if (!sch) {
-                const hint = pathHints[tok];
+                const hint = ps.hint;
                 if (hint === 'int') {
                   sch = tsi.factory.createCallExpression(
                     tsi.factory.createPropertyAccessExpression(
@@ -147,7 +145,7 @@ export default function transform(
               }
 
               shapeProps.push(
-                tsi.factory.createPropertyAssignment(tsi.factory.createIdentifier(tok), sch),
+                tsi.factory.createPropertyAssignment(tsi.factory.createIdentifier(ps.name), sch),
               );
             }
 
@@ -169,25 +167,115 @@ export default function transform(
           }
 
           let validateBodySchemaExpr: ts.Expression | undefined;
-          const isWrite = httpMethod === 'POST' || httpMethod === 'PUT' || httpMethod === 'PATCH';
+          if (placement.bodyType) {
+            const bodyName = `Body_${String(node.name?.getText() ?? 'method')}`;
+            validateBodySchemaExpr = hoister.getOrCreate(placement.bodyType, bodyName) ?? undefined;
+          }
 
-          if (isWrite) {
-            const bodyParam = node.parameters[tokens.length];
-            if (bodyParam) {
-              const bt = checker.getTypeAtLocation(bodyParam);
-              const bodyName = tsi.isIdentifier(bodyParam.name) ? bodyParam.name.text : 'Body';
-              validateBodySchemaExpr = hoister.getOrCreate(bt, bodyName) ?? undefined;
+          let validateQuerySchemaExpr: ts.Expression | undefined;
+          if (placement.queryObjectType) {
+            const queryName = `Query_${String(node.name?.getText() ?? 'method')}`;
+            validateQuerySchemaExpr = hoister.getOrCreate(placement.queryObjectType, queryName) ?? undefined;
+          } else if (placement.queryParamSchemaShape?.length) {
+            const shapeProps: ts.PropertyAssignment[] = [];
+
+            for (const qps of placement.queryParamSchemaShape) {
+              let sch = hoister.getOrCreate(qps.type, `Query_${qps.name}`);
+              if (!sch) {
+                const hint = qps.hint;
+                if (hint === 'int') {
+                  sch = tsi.factory.createCallExpression(
+                    tsi.factory.createPropertyAccessExpression(
+                      tsi.factory.createCallExpression(
+                        tsi.factory.createPropertyAccessExpression(tsi.factory.createIdentifier('v'), 'number'),
+                        undefined,
+                        [],
+                      ),
+                      'int',
+                    ),
+                    undefined,
+                    [],
+                  );
+                } else if (hint === 'number') {
+                  sch = tsi.factory.createCallExpression(
+                    tsi.factory.createPropertyAccessExpression(tsi.factory.createIdentifier('v'), 'number'),
+                    undefined,
+                    [],
+                  );
+                } else if (hint === 'boolean') {
+                  sch = tsi.factory.createCallExpression(
+                    tsi.factory.createPropertyAccessExpression(tsi.factory.createIdentifier('v'), 'boolean'),
+                    undefined,
+                    [],
+                  );
+                } else {
+                  sch = tsi.factory.createCallExpression(
+                    tsi.factory.createPropertyAccessExpression(tsi.factory.createIdentifier('v'), 'string'),
+                    undefined,
+                    [],
+                  );
+                }
+              }
+
+              const prop = tsi.factory.createPropertyAssignment(tsi.factory.createIdentifier(qps.name), sch);
+              if (!qps.optional) shapeProps.push(prop);
+              else {
+                const optExpr = tsi.factory.createCallExpression(
+                  tsi.factory.createPropertyAccessExpression(sch, 'optional'),
+                  undefined,
+                  [],
+                );
+                shapeProps.push(tsi.factory.createPropertyAssignment(tsi.factory.createIdentifier(qps.name), optExpr));
+              }
             }
+
+            const querySchema = tsi.factory.createCallExpression(
+              tsi.factory.createPropertyAccessExpression(tsi.factory.createIdentifier('v'), 'object'),
+              undefined,
+              [tsi.factory.createObjectLiteralExpression(shapeProps, true)],
+            );
+
+            const strictQuerySchema = strictObjects
+              ? tsi.factory.createCallExpression(tsi.factory.createPropertyAccessExpression(querySchema, 'strict'), undefined, [])
+              : querySchema;
+
+            validateQuerySchemaExpr = strictQuerySchema;
           }
 
           const sig = checker.getSignatureFromDeclaration(node);
           const retType = sig ? checker.getReturnTypeOfSignature(sig) : checker.getTypeAtLocation(node);
           const { unwrapped } = unwrapPromise(tsi, checker, retType);
 
+          const replyVariants = extractReplyVariants(tsi, checker, unwrapped);
+
           let responsesObj: ts.ObjectLiteralExpression | undefined;
           let successStatusExpr: ts.Expression | undefined;
 
-          if (!isVoidish(tsi, unwrapped)) {
+          if (replyVariants.length) {
+            const respProps: ts.PropertyAssignment[] = [];
+
+            for (const rv of replyVariants) {
+              if (!rv.body) continue;
+
+              const bodyText = checker.typeToString(rv.body);
+              const isNoBody = bodyText === 'undefined' || bodyText === 'void';
+
+              const valueExpr = isNoBody
+                ? tsi.factory.createObjectLiteralExpression(
+                    [tsi.factory.createPropertyAssignment('description', tsi.factory.createStringLiteral('No Content'))],
+                    true,
+                  )
+                : (hoister.getOrCreate(rv.body, `${String(node.name?.getText() ?? 'method')}_Reply_${rv.status}`) as ts.Expression);
+
+              respProps.push(
+                tsi.factory.createPropertyAssignment(tsi.factory.createStringLiteral(String(rv.status)), valueExpr),
+              );
+            }
+
+            if (respProps.length) {
+              responsesObj = tsi.factory.createObjectLiteralExpression(respProps, true);
+            }
+          } else if (!isVoidish(tsi, unwrapped)) {
             const status = defaultSuccessStatus(httpMethod);
             const retSchema = hoister.getOrCreate(unwrapped, `${String(node.name?.getText() ?? 'method')}_Return`);
             if (retSchema) {
@@ -208,6 +296,7 @@ export default function transform(
           const validateProps: ts.PropertyAssignment[] = [];
           if (validateParamsSchemaExpr) validateProps.push(tsi.factory.createPropertyAssignment('params', validateParamsSchemaExpr));
           if (validateBodySchemaExpr) validateProps.push(tsi.factory.createPropertyAssignment('body', validateBodySchemaExpr));
+          if (validateQuerySchemaExpr) validateProps.push(tsi.factory.createPropertyAssignment('query', validateQuerySchemaExpr));
           const validateObj = validateProps.length ? tsi.factory.createObjectLiteralExpression(validateProps, true) : undefined;
 
           const existingOptions = call.arguments[1];

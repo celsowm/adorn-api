@@ -1,5 +1,5 @@
 import type { RequestContext } from '../../contracts/context.js';
-import type { RouteOptions, ScalarHint } from '../../contracts/route-options.js';
+import type { RouteOptions, ScalarHint, ArgBinding } from '../../contracts/route-options.js';
 import type { RouteEntry } from '../registry/types.js';
 import { conventionForMethod } from './rules/inferFromHttpMethod.js';
 import { getPathTokenNames } from './rules/inferFromPath.js';
@@ -101,12 +101,71 @@ export function bindArgs(
   const coerceMode: CoerceMode = opts.coerce ?? 'smart';
   const csv = opts.csv ?? true;
 
+  const rawParams = ctx.params ?? {};
+  const preparedParams: Record<string, unknown> = {};
+
+  const preparedQuery = coerceMode === 'smart'
+    ? coerceObjectSmart(normalizeQuery(ctx.query), { csv })
+    : normalizeQuery(ctx.query);
+
+  const preparedBody = coerceMode === 'smart'
+    ? coerceValueSmart(ctx.body, { csv })
+    : ctx.body;
+
+  const ro = (route.options ?? {}) as RouteOptionsAny;
+  const argPlan = ro.bindings?.args;
+
+  if (Array.isArray(argPlan) && argPlan.length) {
+    const pathHints = mergedPathHints(route);
+    const args: unknown[] = [];
+
+    for (const b of argPlan as ArgBinding[]) {
+      if (b.kind === 'path') {
+        const raw = rawParams[b.name];
+        const hint = b.type ?? pathHints[b.name];
+        const value = coercePathValue(raw, hint, b.name);
+        preparedParams[b.name] = value;
+        args.push(value);
+        continue;
+      }
+
+      if (b.kind === 'query') {
+        if ('name' in b) {
+          const name = (b as { kind: 'query'; name: string; type?: ScalarHint }).name;
+          const raw = preparedQuery[name];
+          const hint = (b as { kind: 'query'; name: string; type?: ScalarHint }).type;
+          const value = coerceScalar(raw, hint, 'query param', name);
+          args.push(value);
+        } else {
+          args.push(preparedQuery);
+        }
+        continue;
+      }
+
+      if (b.kind === 'body') {
+        args.push(preparedBody);
+        continue;
+      }
+
+      if (b.kind === 'ctx') {
+        args.push(ctx);
+        continue;
+      }
+    }
+
+    for (const [k, v] of Object.entries(rawParams)) {
+      if (!(k in preparedParams)) preparedParams[k] = v;
+    }
+
+    return {
+      args,
+      prepared: { params: preparedParams, query: preparedQuery, body: preparedBody },
+    };
+  }
+
   const tokenNames = getPathTokenNames(route.fullPath);
 
   const pathTypes = mergedPathHints(route);
-
-  const rawParams = ctx.params ?? {};
-  const preparedParams: Record<string, unknown> = {};
 
   const pathArgs = tokenNames.map((t) => {
     const raw = rawParams[t];
@@ -129,14 +188,6 @@ export function bindArgs(
   const args: unknown[] = [...pathArgs];
 
   const remainingSlots = Math.max(0, expected - args.length);
-
-  const preparedQuery = coerceMode === 'smart'
-    ? coerceObjectSmart(normalizeQuery(ctx.query), { csv })
-    : normalizeQuery(ctx.query);
-
-  const preparedBody = coerceMode === 'smart'
-    ? coerceValueSmart(ctx.body, { csv })
-    : ctx.body;
 
   if (remainingSlots > 0) {
     const payloads: unknown[] = [];
@@ -175,6 +226,38 @@ function normalizeQuery(q: Record<string, unknown> | undefined | null): Record<s
   }
 
   return out;
+}
+
+function coerceScalar(raw: unknown, hint: ScalarHint | undefined, where: string, name: string): unknown {
+  if (raw === undefined || raw === null) return raw;
+
+  if (hint === 'string') return String(raw);
+
+  if (hint === 'boolean') {
+    if (raw === true || raw === false) return raw;
+    const s = String(raw).toLowerCase().trim();
+    if (['true', '1', 'yes', 'y', 'on'].includes(s)) return true;
+    if (['false', '0', 'no', 'n', 'off'].includes(s)) return false;
+    throw new HttpError(400, `Invalid boolean for ${where} "${name}": ${String(raw)}`);
+  }
+
+  if (hint === 'int' || hint === 'number') {
+    const n = typeof raw === 'number' ? raw : Number(String(raw));
+    if (!Number.isFinite(n)) throw new HttpError(400, `Invalid number for ${where} "${name}": ${String(raw)}`);
+    if (hint === 'int') {
+      if (!Number.isSafeInteger(n)) throw new HttpError(400, `Unsafe int for ${where} "${name}": ${String(raw)}`);
+    }
+    return n;
+  }
+
+  if (hint === 'uuid') {
+    const s = String(raw);
+    const ok = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
+    if (!ok) throw new HttpError(400, `Invalid uuid for ${where} "${name}": ${s}`);
+    return s;
+  }
+
+  return String(raw);
 }
 
 function coercePathValue(

@@ -172,6 +172,15 @@ function addPathParams(parameters: ParameterObject[], r: RouteEntry, ro: RouteOp
   const metaHints = r.bindings?.byMethod?.[r.handlerName]?.path ?? {};
   const hints: Record<string, ScalarHint | undefined> = { ...optionHints, ...metaHints };
 
+  const args = ro.bindings?.args;
+  if (args?.length) {
+    for (const a of args) {
+      if (a.kind === 'path') {
+        hints[a.name] = hints[a.name] ?? a.type;
+      }
+    }
+  }
+
   for (const name of fallbackNames) {
     parameters.push({
       name,
