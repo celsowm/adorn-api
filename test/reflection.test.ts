@@ -12,8 +12,6 @@ describe('TypeScript Reflection', () => {
   it('should list all keys of the UserProfile interface at runtime', () => {
     const propertyKeys = keys<UserProfile>()
 
-    console.log('Introspected Keys:', propertyKeys)
-
     expect(propertyKeys).toEqual(['id', 'username', 'email', 'isAdmin'])
     expect(propertyKeys).toContain('email')
   })

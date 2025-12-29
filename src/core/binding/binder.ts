@@ -125,7 +125,6 @@ export function bindArgs(
         const hint = b.type ?? pathHints[b.name];
         const value = coercePathValue(raw, hint, b.name);
         preparedParams[b.name] = value;
-        console.log(`[DEBUG] path param ${b.name}: raw=${JSON.stringify(raw)}, hint=${JSON.stringify(hint)}, value=${JSON.stringify(value)}`);
         args.push(value);
         continue;
       }
