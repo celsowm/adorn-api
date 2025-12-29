@@ -1,7 +1,7 @@
 import { getTableDefFromEntity } from 'metal-orm';
 import type { EntityConstructor, TableDef } from 'metal-orm';
 
-export type EntityCtor<T = any> = new (...args: any[]) => T;
+export type EntityCtor<T = unknown> = new (...args: unknown[]) => T;
 
 export function tableDefOf<T>(Entity: EntityCtor<T>): TableDef {
   const table = getTableDefFromEntity(Entity as EntityConstructor);

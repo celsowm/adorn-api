@@ -6,7 +6,7 @@ import {
   type RouteMeta,
   type SecurityMeta,
 } from '../../metadata/keys.js';
-import { bagFromClass, bagGet } from '../../metadata/bag.js';
+import { bagFromClass, bagGet, type MetaConstructor } from '../../metadata/bag.js';
 import { mergeBags } from '../../metadata/merge.js';
 import { joinPaths } from './normalize.js';
 import { assertNoRouteConflicts } from './conflicts.js';
@@ -14,14 +14,15 @@ import type { ControllerCtor, ControllerEntry, Registry, RouteEntry } from './ty
 import type { RouteOptions } from '../../contracts/route-options.js';
 import type { SecurityRequirementObject } from '../../contracts/openapi-v3.js';
 
-function mergedBagFromClass(ctor: Function) {
-  const chain: Function[] = [];
-  let cur: any = ctor;
+function mergedBagFromClass(ctor: MetaConstructor) {
+  const chain: MetaConstructor[] = [];
+  let cur: MetaConstructor | null = ctor;
 
-  while (typeof cur === 'function' && cur !== Function.prototype) {
+  while (cur && typeof cur === 'function') {
     chain.push(cur);
-    cur = Object.getPrototypeOf(cur);
-    if (!cur || cur === Function || cur === Function.prototype) break;
+    const parent = Object.getPrototypeOf(cur) as MetaConstructor | null;
+    if (!parent || parent === Function || parent === Function.prototype) break;
+    cur = parent;
   }
 
   chain.reverse();
@@ -33,8 +34,8 @@ function mergedBagFromClass(ctor: Function) {
   return merged;
 }
 
-function requireControllerMeta(ctor: Function, bag: Record<PropertyKey, unknown>): ControllerMeta {
-  const meta = bagGet<ControllerMeta>(bag as any, META.controller);
+function requireControllerMeta(ctor: MetaConstructor, bag: Record<PropertyKey, unknown>): ControllerMeta {
+  const meta = bagGet<ControllerMeta>(bag, META.controller);
   if (!meta?.basePath && meta?.basePath !== '') {
     throw new Error(
       `Missing @Controller(...) on ${ctor.name || '(anonymous class)'} (no controller metadata found).`,
@@ -61,8 +62,8 @@ export function buildRegistry(controllers: ControllerCtor[]): Registry {
       );
     }
     const bindingsMeta = mergedBag[META.bindings] as BindingsMeta | undefined;
-    const docsMeta = bagGet<DocsMeta>(mergedBag as any, META.docs);
-    const securityMeta = bagGet<SecurityMeta>(mergedBag as any, META.security);
+    const docsMeta = bagGet<DocsMeta>(mergedBag, META.docs);
+    const securityMeta = bagGet<SecurityMeta>(mergedBag, META.security);
     if (securityMeta?.schemes) {
       Object.assign(securitySchemes, securityMeta.schemes);
     }

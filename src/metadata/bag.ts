@@ -8,6 +8,8 @@ import { SYMBOL_METADATA } from './keys.js';
  */
 export type MetaBag = Record<PropertyKey, unknown>;
 
+export type MetaConstructor = new (...args: never[]) => unknown;
+
 export function bagFromContext(context: { metadata?: object | undefined }): MetaBag {
   const target = context as { metadata?: object };
   if (!target.metadata) {
@@ -16,8 +18,13 @@ export function bagFromContext(context: { metadata?: object | undefined }): Meta
   return target.metadata as unknown as MetaBag;
 }
 
-export function bagFromClass(ctor: Function): MetaBag {
-  return ((ctor as any)[SYMBOL_METADATA] ?? {}) as MetaBag;
+type ConstructorWithMetadata = MetaConstructor & {
+  [SYMBOL_METADATA]?: MetaBag;
+};
+
+export function bagFromClass(ctor: MetaConstructor): MetaBag {
+  const ctorWithMeta = ctor as ConstructorWithMetadata;
+  return (ctorWithMeta[SYMBOL_METADATA] ?? {}) as MetaBag;
 }
 
 export function bagGet<T>(bag: MetaBag, key: PropertyKey): T | undefined {

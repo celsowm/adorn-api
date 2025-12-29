@@ -1,5 +1,5 @@
 declare module 'metal-orm' {
-  export type EntityConstructor<T = object> = new (...args: any[]) => T;
+  export type EntityConstructor<T = object> = new (...args: unknown[]) => T;
 
   export interface ColumnDef<T extends string = string, TRuntime = unknown> {
     name: string;
@@ -54,6 +54,8 @@ declare module 'metal-orm' {
 
   export class SqliteDialect {}
 
+  export type DecoratorFn = (...args: unknown[]) => void;
+
   export interface HasManyCollection<TChild> {
     length: number;
     [Symbol.iterator](): Iterator<TChild>;
@@ -71,7 +73,7 @@ declare module 'metal-orm' {
     set(data: Partial<TParent> | TParent | null): TParent | null;
   } & Partial<TParent>;
 
-  export function Entity(options?: { tableName?: string; hooks?: unknown }): any;
+  export function Entity(options?: { tableName?: string; hooks?: unknown }): DecoratorFn;
   export function Column(
     definition:
       | ColumnDef
@@ -83,7 +85,7 @@ declare module 'metal-orm' {
           primary?: boolean;
           tsType?: unknown;
         }
-  ): any;
+  ): DecoratorFn;
   export function PrimaryKey(
     definition:
       | ColumnDef
@@ -95,19 +97,19 @@ declare module 'metal-orm' {
           primary?: boolean;
           tsType?: unknown;
         }
-  ): any;
+  ): DecoratorFn;
   export function HasMany(options: {
     target: () => unknown;
     foreignKey?: string;
     localKey?: string;
     cascade?: unknown;
-  }): any;
+  }): DecoratorFn;
   export function BelongsTo(options: {
     target: () => unknown;
     foreignKey: string;
     localKey?: string;
     cascade?: unknown;
-  }): any;
+  }): DecoratorFn;
 
   export const col: {
     int(): ColumnDef<'int'>;
@@ -158,5 +160,5 @@ declare module 'metal-orm' {
     ctor: EntityConstructor,
   ): TTable | undefined;
 
-  export type SaveGraphInputPayload<TEntity> = unknown;
+  export type SaveGraphInputPayload<_TEntity> = unknown;
 }

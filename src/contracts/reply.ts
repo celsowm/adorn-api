@@ -118,6 +118,8 @@ export type Reply<TBody = unknown, TStatus extends number = number> = {
  *
  * @see Reply for the reply object type
  */
-export function isReply(x: unknown): x is Reply<any, any> {
-  return !!x && typeof x === 'object' && (x as any).__adornReply === true && typeof (x as any).status === 'number';
+export function isReply(x: unknown): x is Reply<unknown, number> {
+  if (!x || typeof x !== 'object') return false;
+  const candidate = x as Reply<unknown, number>;
+  return candidate.__adornReply === true && typeof candidate.status === 'number';
 }

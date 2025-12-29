@@ -5,7 +5,7 @@ export function createExpressContext(req: Request, res: Response): RequestContex
   return {
     params: (req.params ?? {}) as Record<string, string>,
     query: (req.query ?? {}) as Record<string, unknown>,
-    body: (req as any).body,
+    body: req.body as unknown,
     headers: req.headers as Record<string, string | string[] | undefined>,
     method: req.method,
     path: req.path,

@@ -7,7 +7,7 @@ import type { Schema } from '../validation/native/schema.js';
  */
 export type ResponseContentSpec = {
   /** Schema defining the structure and validation rules for the response content */
-  schema: Schema<any>;
+  schema: Schema<unknown>;
   /** Example value that matches the schema */
   example?: unknown;
 };
@@ -19,7 +19,7 @@ export type ResponseContentSpec = {
  */
 export type HeaderSpec = {
   /** Schema defining the structure and validation rules for the header */
-  schema: Schema<any>;
+  schema: Schema<unknown>;
   /** Human-readable description of the header */
   description?: string;
   /** Whether the header is required */
@@ -63,7 +63,7 @@ export type ResponseSpec = {
   /** Response content by media type */
   content?: Record<string, ResponseContentSpec>;
   /** Legacy schema property (use content instead for proper media type handling) */
-  schema?: Schema<any>;
+  schema?: Schema<unknown>;
 };
 
 /**
@@ -98,4 +98,4 @@ export type ResponseSpec = {
  *
  * @see ResponseSpec for individual response specification
  */
-export type ResponsesSpec = Record<string, ResponseSpec | Schema<any>>;
+export type ResponsesSpec = Record<string, ResponseSpec | Schema<unknown>>;

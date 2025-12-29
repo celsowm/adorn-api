@@ -6,6 +6,11 @@ import type { ColumnDef, SaveGraphInputPayload } from 'metal-orm';
 
 export type DtoMode = 'create' | 'update';
 
+export type EntityDtoSchema<T, Mode extends DtoMode> =
+  Mode extends 'create'
+    ? Schema<SaveGraphInputPayload<T>>
+    : Schema<Partial<SaveGraphInputPayload<T>>>;
+
 function shouldSkipColumnForCreate(column: ColumnDef): boolean {
   return Boolean(column.autoIncrement || column.generated);
 }
@@ -17,11 +22,12 @@ function isRequiredForCreate(column: ColumnDef): boolean {
   return true;
 }
 
-export function entityDto<T>(Entity: EntityCtor<T>, mode: 'create'): Schema<SaveGraphInputPayload<T>>;
-export function entityDto<T>(Entity: EntityCtor<T>, mode: 'update'): Schema<Partial<SaveGraphInputPayload<T>>>;
-export function entityDto<T>(Entity: EntityCtor<T>, mode: DtoMode): Schema<any> {
+export function entityDto<T, Mode extends DtoMode>(
+  Entity: EntityCtor<T>,
+  mode: Mode,
+): EntityDtoSchema<T, Mode> {
   const table = tableDefOf(Entity);
-  const shape: Record<string, Schema<any>> = {};
+  const shape: Record<string, Schema<unknown>> = {};
 
   for (const [key, column] of Object.entries(table.columns) as [string, ColumnDef][]) {
     const schema = columnToSchema(column);
@@ -39,5 +45,5 @@ export function entityDto<T>(Entity: EntityCtor<T>, mode: DtoMode): Schema<any> 
   }
 
   const base = v.object(shape).strict();
-  return base;
+  return base as EntityDtoSchema<T, Mode>;
 }

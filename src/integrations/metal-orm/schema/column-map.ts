@@ -42,7 +42,7 @@ function baseStringSchema(): ReturnType<typeof v.string> {
  *
  * @returns Basic number validation schema
  */
-function baseNumberSchema(): ReturnType<typeof v.number> {
+function _baseNumberSchema(): ReturnType<typeof v.number> {
   return v.number();
 }
 
@@ -51,7 +51,7 @@ function baseNumberSchema(): ReturnType<typeof v.number> {
  *
  * @returns Basic boolean validation schema
  */
-function baseBooleanSchema(): ReturnType<typeof v.boolean> {
+function _baseBooleanSchema(): ReturnType<typeof v.boolean> {
   return v.boolean();
 }
 

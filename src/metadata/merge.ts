@@ -19,7 +19,10 @@ export function mergeBags(base: MetaBag, child: MetaBag): MetaBag {
     }
 
     if (isPlainObject(baseValue) && isPlainObject(childValue)) {
-      out[key] = { ...(baseValue as object), ...(childValue as object) } as any;
+      out[key] = {
+        ...(baseValue as Record<PropertyKey, unknown>),
+        ...(childValue as Record<PropertyKey, unknown>),
+      };
       continue;
     }
 

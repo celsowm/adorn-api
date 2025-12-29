@@ -10,7 +10,8 @@ import type {
   SuccessStatusesNoBody,
 } from '../contracts/response-types.js';
 
-type Stage3MethodContext = ClassMethodDecoratorContext<any, (this: any, ...args: any) => any>;
+type Stage3MethodContext<This, Args extends unknown[], Ret> =
+  ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Ret>;
 type MaybePromise<T> = T | Promise<T>;
 
 type ResponsesFromOptions<O> = O extends { responses: infer R extends ResponsesSpec } ? R : undefined;
@@ -48,7 +49,7 @@ type HandlerReply<R extends ResponsesSpec | undefined> =
   R extends ResponsesSpec
     ? (IsNever<ReplyWithBodyTypes<R>> extends true ? never : ReplyWithBodyTypes<R>)
       | (IsNever<ReplyNoBodyTypes<R>> extends true ? never : ReplyNoBodyTypes<R>)
-    : Reply<any, number>;
+    : Reply<unknown, number>;
 
 type HandlerReturn<O extends RouteOptions<string> | undefined> =
   MaybePromise<SuccessBodyType<O> | HandlerReply<ResponsesFromOptions<O>>>;
@@ -58,7 +59,10 @@ type HandlerReturn<O extends RouteOptions<string> | undefined> =
  * @param context - The decorator context
  * @param route - Route metadata without the name property
  */
-function addRoute(context: Stage3MethodContext, route: Omit<RouteMeta, 'name'>) {
+function addRoute<This, Args extends unknown[], Ret>(
+  context: Stage3MethodContext<This, Args, Ret>,
+  route: Omit<RouteMeta, 'name'>,
+) {
   const bag = bagFromContext(context);
   const name = String(context.name);
 
@@ -83,7 +87,7 @@ function createMethodDecorator<Path extends string, const O extends RouteOptions
   path: Path,
   options?: O,
 ) {
-  return function <This, Args extends any[], Ret extends HandlerReturn<O>>(
+  return function <This, Args extends unknown[], Ret extends HandlerReturn<O>>(
     value: (this: This, ...args: Args) => Ret,
     context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Ret>,
   ) {

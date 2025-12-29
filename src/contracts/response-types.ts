@@ -5,7 +5,7 @@ export type StatusKey<R extends ResponsesSpec> = Extract<keyof R, `${number}`>;
 export type StatusNum<K extends string> = K extends `${infer N extends number}` ? N : never;
 
 export type AllowedStatus<R extends ResponsesSpec> =
-  StatusNum<StatusKey<R>> | (R extends { default: any } ? number : never);
+  StatusNum<StatusKey<R>> | (R extends { default: unknown } ? number : never);
 
 export type ResAt<R extends ResponsesSpec, S extends number> =
   `${S}` extends keyof R ? R[`${S}`] :
@@ -13,17 +13,17 @@ export type ResAt<R extends ResponsesSpec, S extends number> =
   never;
 
 export type NormalizeRes<X> =
-  X extends Schema<any> ? { content: { 'application/json': { schema: X } } } :
+  X extends Schema<unknown> ? { content: { 'application/json': { schema: X } } } :
   X extends ResponseSpec ? X :
   never;
 
 export type ContentOf<X> = NormalizeRes<X> extends { content: infer C } ? C : never;
 
 export type SchemaFromContent<C> =
-  C extends Record<PropertyKey, any>
+  C extends Record<PropertyKey, unknown>
     ? ('application/json' extends keyof C
-        ? C['application/json'] extends { schema: infer S extends Schema<any> } ? S : never
-        : C[keyof C] extends { schema: infer S extends Schema<any> } ? S : never)
+        ? C['application/json'] extends { schema: infer S extends Schema<unknown> } ? S : never
+        : C[keyof C] extends { schema: infer S extends Schema<unknown> } ? S : never)
     : never;
 
 export type BodySchemaFor<R extends ResponsesSpec, S extends number> =

@@ -47,7 +47,7 @@
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "build": "npm run clean && tsc -p tsconfig.build.json",
     "check": "npm run lint && npm run typecheck && npm run check:decorated-returns && npm run test",
-    "lint": "eslint . --ext .ts",
+    "lint": "eslint src test --ext .ts",
     "check:decorated-returns": "node scripts/check-decorated-returns.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",

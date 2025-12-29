@@ -6,7 +6,7 @@ export class OasSchemaRegistry {
   private components: Record<string, SchemaObject> = {};
   private seen = new WeakMap<object, string>();
 
-  toSchemaRef(schema: Schema<any>): SchemaObject | ReferenceObject {
+  toSchemaRef(schema: Schema<unknown>): SchemaObject | ReferenceObject {
     if (schema.name) {
       const existing = this.seen.get(schema as object);
       const name = existing ?? schema.name;

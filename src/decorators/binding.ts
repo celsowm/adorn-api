@@ -10,7 +10,7 @@ export type BindingsOptions = {
 };
 
 export function Bindings(opts: BindingsOptions) {
-  return function (_value: Function, context: ClassMethodDecoratorContext) {
+  return function (_value: unknown, context: ClassMethodDecoratorContext) {
     const bag = bagFromContext(context);
     const meta = bagEnsureObject<BindingsMeta>(bag, META.bindings, () => ({}));
 

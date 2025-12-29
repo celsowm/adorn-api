@@ -1,7 +1,7 @@
 import type { Response } from 'express';
 import type { Reply } from '../../../contracts/reply.js';
 
-export function sendReply(res: Response, r: Reply<any, any>): void {
+export function sendReply(res: Response, r: Reply<unknown, number>): void {
   if (r.headers) {
     for (const [k, v] of Object.entries(r.headers)) {
       res.setHeader(k, String(v));
@@ -33,7 +33,7 @@ export function sendReply(res: Response, r: Reply<any, any>): void {
     return;
   }
 
-  res.send(body as any);
+  res.send(body);
 }
 
 export function sendJson(res: Response, status: number, data: unknown): void {

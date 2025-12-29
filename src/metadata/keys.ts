@@ -10,11 +10,13 @@ import type { RouteOptions } from '../contracts/route-options.js';
 import type { SecurityRequirementObject, SecuritySchemeObject } from '../contracts/openapi-v3.js';
 
 export const SYMBOL_METADATA: symbol = (() => {
-  const existing = (Symbol as any).metadata;
+  type SymbolWithMeta = typeof Symbol & { metadata?: symbol };
+  const symbolWithMeta = Symbol as SymbolWithMeta;
+  const existing = symbolWithMeta.metadata;
   if (typeof existing === 'symbol') return existing;
 
   const created = Symbol('Symbol.metadata');
-  (Symbol as any).metadata = created;
+  symbolWithMeta.metadata = created;
   return created;
 })();
 

@@ -2,7 +2,7 @@ import type { Validator, ValidationResult } from '../../contracts/validator.js';
 import { ValidationError } from '../../core/errors/validation-error.js';
 import type { Schema } from './schema.js';
 
-type SchemaMap = Record<string, Schema<any>>;
+type SchemaMap = Record<string, Schema<unknown>>;
 
 export class NativeValidator implements Validator {
   private readonly bodies: SchemaMap;

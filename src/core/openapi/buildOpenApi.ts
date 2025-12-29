@@ -4,9 +4,10 @@ import type {
   ResponseObject,
   HttpMethod,
   MediaTypeObject,
+  PathItemObject,
 } from '../../contracts/openapi-v3.js';
 import type { Registry, RouteEntry } from '../registry/types.js';
-import type { ResponsesSpec, ResponseSpec } from '../../contracts/responses.js';
+import type { ResponseSpec } from '../../contracts/responses.js';
 import { normalizeResponses } from '../responses/normalize.js';
 import { OasSchemaRegistry } from './schema/registry.js';
 import { irToOasSchema } from './schema/toOpenApi.js';
@@ -126,7 +127,9 @@ export function buildOpenApi(registry: Registry, opts: OpenApiBuildOptions): Ope
       opts.defaultResponseContentType ?? 'application/json',
     );
 
-    (doc.paths[pathKey] as any)[method] = op;
+    const pathItem: PathItemObject = doc.paths[pathKey] ?? {};
+    pathItem[method] = op;
+    doc.paths[pathKey] = pathItem;
   }
 
   const components = schemaReg.getComponents();
@@ -255,9 +258,9 @@ function responseSpecToOas(
         ...(c.example !== undefined ? { example: c.example } : {}),
       };
     }
-  } else if ((spec as any).schema) {
+  } else if (spec.schema) {
     content[defaultContentType] = {
-      schema: schemaReg.toSchemaRef((spec as any).schema),
+      schema: schemaReg.toSchemaRef(spec.schema),
     };
   }
 

@@ -80,7 +80,7 @@ export function entity<T>(Entity: EntityCtor<T>, opts: EntitySchemaOptions = {})
   const pick = opts.pick ? new Set(opts.pick) : null;
   const omit = opts.omit ? new Set(opts.omit) : null;
 
-  const shape: Record<string, Schema<any>> = {};
+  const shape: Record<string, Schema<unknown>> = {};
 
   for (const [key, column] of Object.entries(table.columns) as [string, ColumnDef][]) {
     if (pick && !pick.has(key)) continue;
@@ -96,48 +96,24 @@ export function entity<T>(Entity: EntityCtor<T>, opts: EntitySchemaOptions = {})
 }
 
 /**
- * Namespace for entity-related schema utilities.
+ * Generates a validation schema for an array of entities.
+ *
+ * @template T - The entity type
+ * @param Entity - Metal-ORM entity constructor
+ * @param opts - Options for customizing schema generation
+ * @returns Schema that validates an array of entities
+ *
+ * @example
+ * ```typescript
+ * // Array of users
+ * const usersArraySchema = entityArray(User);
+ *
+ * // Array with selected columns
+ * const userPreviewsSchema = entityArray(User, {
+ *   pick: ['id', 'name', 'email']
+ * });
+ * ```
  */
-export namespace entity {
-  /**
-   * Generates a validation schema for an array of entities.
-   *
-   * @template T - The entity type
-   * @param Entity - Metal-ORM entity constructor
-   * @param opts - Options for customizing schema generation
-   * @returns Schema that validates an array of entities
-   *
-   * @example
-   * ```typescript
-   * // Array of users
-   * const usersArraySchema = entity.array(User);
-   *
-   * // Array with selected columns
-   * const userPreviewsSchema = entity.array(User, {
-   *   pick: ['id', 'name', 'email']
-   * });
-   * ```
-   *
-   * @example
-   * ```typescript
-   * // Using in a controller
-   * @Post('/users/bulk')
-   * async createUsers(@Body() usersData: unknown[]) {
-   *   const usersSchema = entity.array(User, {
-   *     omit: ['id', 'createdAt', 'updatedAt']
-   *   });
-   *
-   *   const validationResult = await validator.validate(usersData, usersSchema);
-   *   if (!validationResult.ok) {
-   *     throw ValidationError.fromIssues(validationResult.issues);
-   *   }
-   *
-   *   const createdUsers = await userService.bulkCreate(validationResult.value);
-   *   return reply(201, createdUsers);
-   * }
-   * ```
-   */
-  export function array<T>(Entity: EntityCtor<T>, opts: EntitySchemaOptions = {}) {
-    return v.array(entity(Entity, opts));
-  }
+export function entityArray<T>(Entity: EntityCtor<T>, opts: EntitySchemaOptions = {}) {
+  return v.array(entity(Entity, opts));
 }

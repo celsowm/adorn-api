@@ -3,7 +3,7 @@ import { bagEnsureObject, bagFromContext } from '../metadata/bag.js';
 import type { ResponseSpec, ResponsesSpec } from '../contracts/responses.js';
 import type { Schema } from '../validation/native/schema.js';
 
-type Stage3MethodContext = ClassMethodDecoratorContext<any, (this: any, ...args: any) => any>;
+type Stage3MethodContext = ClassMethodDecoratorContext<unknown, (this: unknown, ...args: unknown[]) => unknown>;
 
 function ensureDocsMeta(context: Stage3MethodContext): DocsMeta {
   const bag = bagFromContext(context);
@@ -18,12 +18,12 @@ function ensureResponses(meta: DocsMeta, method: string): ResponsesSpec {
   return existing.responses;
 }
 
-function isSchema(value: unknown): value is Schema<any> {
+function isSchema(value: unknown): value is Schema<unknown> {
   return !!value && typeof value === 'object' && typeof (value as { parse?: unknown }).parse === 'function';
 }
 
 export function Responses(spec: ResponsesSpec) {
-  return function (_value: Function, context: Stage3MethodContext) {
+  return function (_value: unknown, context: Stage3MethodContext) {
     const meta = ensureDocsMeta(context);
     const method = String(context.name);
     const responses = ensureResponses(meta, method);
@@ -34,14 +34,14 @@ export function Responses(spec: ResponsesSpec) {
 
 export function Response(
   status: number | string,
-  spec?: ResponseSpec | Schema<any> | string,
+  spec?: ResponseSpec | Schema<unknown> | string,
 ) {
-  return function (_value: Function, context: Stage3MethodContext) {
+  return function (_value: unknown, context: Stage3MethodContext) {
     const meta = ensureDocsMeta(context);
     const method = String(context.name);
     const responses = ensureResponses(meta, method);
 
-    let value: ResponseSpec | Schema<any>;
+    let value: ResponseSpec | Schema<unknown>;
     if (typeof spec === 'string') {
       value = { description: spec };
     } else if (spec && isSchema(spec)) {

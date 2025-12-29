@@ -12,12 +12,12 @@ import type {
 } from '../../contracts/response-types.js';
 
 type HeaderValueFromSpec<H> =
-  H extends { schema: infer S extends Schema<any> }
+  H extends { schema: infer S extends Schema<unknown> }
     ? (Exclude<Infer<S>, undefined> extends ReplyHeaderValue ? Exclude<Infer<S>, undefined> : ReplyHeaderValue)
     : ReplyHeaderValue;
 
 type HeaderValues<H> =
-  H extends Record<string, any>
+  H extends Record<string, unknown>
     ? string extends keyof H
       ? Record<string, HeaderValueFromSpec<H[string]>>
       : { [K in keyof H]?: HeaderValueFromSpec<H[K]> }
@@ -181,7 +181,8 @@ export function makeReply<const R extends ResponsesSpec>(_responses: R) {
       status?: S,
       init?: InitFor<R, S>,
     ): Reply<undefined, S> {
-      return baseNoContent(status as any, init as any) as any;
+      const replyInit = (init ?? {}) as ReplyInit;
+      return baseNoContent(status, replyInit) as Reply<undefined, S>;
     },
   };
 }

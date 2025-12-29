@@ -8,7 +8,7 @@ export type Schema<T> = {
   parse(value: unknown, path?: Array<string | number>): ValidationResult<T>;
 };
 
-export type Infer<S extends Schema<any>> = S extends Schema<infer T> ? T : never;
+export type Infer<S extends Schema<unknown>> = S extends Schema<infer T> ? T : never;
 
 function ok<T>(value: T): ValidationResult<T> {
   return { ok: true, value };
@@ -175,7 +175,7 @@ function unwrapOptionalIr(ir: SchemaIR): SchemaIR {
   return ir;
 }
 
-type ObjectShape = Record<string, Schema<any>>;
+type ObjectShape = Record<string, Schema<unknown>>;
 
 function objectBase<S extends ObjectShape>(shape: S, opts?: { strict?: boolean }): Schema<{ [K in keyof S]: Infer<S[K]> }> {
   const properties: Record<string, SchemaIR> = {};

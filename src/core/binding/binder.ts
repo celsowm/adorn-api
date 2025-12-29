@@ -6,6 +6,8 @@ import { conventionForMethod } from './rules/inferFromHttpMethod.js';
 import type { CoerceMode } from './coerce/primitives.js';
 import { coerceObjectSmart, coerceValueSmart } from './coerce/arrays.js';
 
+type HandlerFunction = (...args: unknown[]) => unknown;
+
 /**
  * Prepared binding data after argument binding.
  * Contains the processed params, query, and body data.
@@ -78,7 +80,7 @@ export type BindOptions = {
  */
 export function bindArgs(
   route: RouteEntry,
-  handler: Function,
+  handler: HandlerFunction,
   ctx: RequestContext,
   opts: BindOptions = {},
 ): BindArgsResult {

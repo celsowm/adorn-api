@@ -37,11 +37,11 @@ export type ScalarHint = 'string' | 'int' | 'number' | 'boolean' | 'uuid';
  */
 export type RouteValidate = {
   /** Schema for validating path parameters */
-  params?: Schema<any>;
+  params?: Schema<unknown>;
   /** Schema for validating query parameters */
-  query?: Schema<any>;
+  query?: Schema<unknown>;
   /** Schema for validating request body */
-  body?: Schema<any>;
+  body?: Schema<unknown>;
 };
 
 /**

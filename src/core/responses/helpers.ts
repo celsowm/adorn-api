@@ -1,6 +1,6 @@
 import type { Schema } from '../../validation/native/schema.js';
 
-export function header<S extends Schema<any>>(
+export function header<S extends Schema<unknown>>(
   schema: S,
   opts?: { required?: boolean; description?: string },
 ): { schema: S; required?: boolean; description?: string } {

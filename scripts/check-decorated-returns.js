@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 import * as ts from 'typescript';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

@@ -23,7 +23,7 @@ import type { SecuritySchemeObject } from '../../contracts/openapi-v3.js';
  * const UserControllerCtor: ControllerCtor<UserController> = UserController;
  * ```
  */
-export type ControllerCtor<T = any> = new (...args: any[]) => T;
+export type ControllerCtor<T = unknown> = new (...args: never[]) => T;
 
 /**
  * Registry entry for a controller.

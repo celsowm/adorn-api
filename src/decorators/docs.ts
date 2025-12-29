@@ -3,7 +3,7 @@ import { bagEnsureObject, bagFromContext } from '../metadata/bag.js';
 import type { RouteOptions } from '../contracts/route-options.js';
 
 type Stage3ClassContext = ClassDecoratorContext;
-type Stage3MethodContext = ClassMethodDecoratorContext<any, (this: any, ...args: any) => any>;
+type Stage3MethodContext = ClassMethodDecoratorContext<unknown, (this: unknown, ...args: unknown[]) => unknown>;
 type DecoratorContext = Stage3ClassContext | Stage3MethodContext;
 type RouteDocs = Partial<RouteOptions<string>>;
 
@@ -23,7 +23,7 @@ function mergeTags(existing: string[] | undefined, next: string[]): string[] {
 }
 
 export function Tags(...tags: string[]) {
-  return function (_value: Function, context: DecoratorContext) {
+  return function (_value: unknown, context: DecoratorContext) {
     const meta = ensureDocsMeta(context);
     const cleaned = tags.map((t) => t.trim()).filter(Boolean);
     if (!cleaned.length) return;
@@ -40,7 +40,7 @@ export function Tags(...tags: string[]) {
 }
 
 export function OperationId(id: string) {
-  return function (_value: Function, context: Stage3MethodContext) {
+  return function (_value: unknown, context: Stage3MethodContext) {
     const meta = ensureDocsMeta(context);
     const method = String(context.name);
     const methodDocs = ensureMethodDocs(meta, method);
@@ -49,7 +49,7 @@ export function OperationId(id: string) {
 }
 
 export function Deprecated(value = true) {
-  return function (_value: Function, context: Stage3MethodContext) {
+  return function (_value: unknown, context: Stage3MethodContext) {
     const meta = ensureDocsMeta(context);
     const method = String(context.name);
     const methodDocs = ensureMethodDocs(meta, method);

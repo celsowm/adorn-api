@@ -1,8 +1,9 @@
 import type { ResponseSpec, ResponsesSpec } from '../../contracts/responses.js';
 import type { Schema } from '../../validation/native/schema.js';
 
-function isSchema(value: unknown): value is Schema<any> {
-  return typeof (value as Schema<any>)?.parse === 'function';
+function isSchema(value: unknown): value is Schema<unknown> {
+  const candidate = value as Schema<unknown>;
+  return typeof candidate?.parse === 'function';
 }
 
 export function normalizeResponses(input?: ResponsesSpec): Record<string, ResponseSpec> {

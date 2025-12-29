@@ -6,7 +6,7 @@ import { bagFromContext, bagSet } from '../metadata/bag.js';
  * Usage: @Controller('/users')
  */
 export function Controller(basePath: string) {
-  return function (_value: Function, context: ClassDecoratorContext) {
+  return function (_value: unknown, context: ClassDecoratorContext) {
     const bag = bagFromContext(context);
 
     const meta: ControllerMeta = {

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createAdornExpressApp } from '../../src/express.js';
 import { Bindings, Controller, Get } from '../../src/decorators/index.js';
 import type { Request, Response } from 'express';
+import type { ControllerCtor } from '../../src/core/registry/types.js';
 
 // A simple service that we want to inject into controllers
 class UserService {
@@ -23,8 +24,8 @@ class UserService {
 
 // Another service for audit logging
 class AuditService {
-  log(action: string, userId: number, details?: any): void {
-    console.log(`[AUDIT] ${action} for user ${userId}`, details);
+  log(action: string, userId: number, details?: Record<string, unknown>): void {
+    globalThis.console.log(`[AUDIT] ${action} for user ${userId}`, details);
   }
 }
 
@@ -89,7 +90,7 @@ describe('Controller Factory', () => {
   const auditService = new AuditService();
 
   // Custom controller factory that injects dependencies
-  const controllerFactory = (ctor: any, req: Request, res: Response) => {
+  const controllerFactory = (ctor: ControllerCtor, _req: Request, _res: Response) => {
     // Based on the controller type, inject the appropriate dependencies
     if (ctor === UsersController) {
       return new UsersController(userService, auditService);
