@@ -22,6 +22,10 @@
     "./metal-orm": {
       "types": "./dist/metal-orm.d.ts",
       "default": "./dist/metal-orm.js"
+    },
+    "./transform": {
+      "types": "./dist/compiler/transform/index.d.ts",
+      "default": "./dist/compiler/transform/index.js"
     }
   },
   "engines": {
@@ -30,6 +34,13 @@
   "dependencies": {
     "express": "^5.2.1",
     "metal-orm": "^1.0.64"
+  },
+  "peerDependencies": {
+    "typescript": "^5.9.0",
+    "ts-patch": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "ts-patch": { "optional": true }
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
@@ -40,6 +51,7 @@
     "eslint": "^9.39.2",
     "sqlite3": "^5.1.7",
     "supertest": "^7.1.4",
+    "ts-patch": "^3.0.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.16"
   },
@@ -52,6 +64,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "vitest run test/e2e"
+    "test:e2e": "vitest run test/e2e",
+    "ts-patch:install": "ts-patch install -s"
   }
 }

@@ -8,7 +8,9 @@
 
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+
+    "plugins": []
   },
   "include": ["src/**/*.ts"],
   "exclude": ["test", "**/*.spec.ts", "**/*.test.ts"]

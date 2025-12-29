@@ -20,7 +20,10 @@
     "forceConsistentCasingInFileNames": true,
 
     "types": ["node", "vitest/globals"],
-    "noEmit": true
+    "noEmit": true,
+    "plugins": [
+      { "transform": "./dist/compiler/transform/index.js", "isEsm": true }
+    ]
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }
