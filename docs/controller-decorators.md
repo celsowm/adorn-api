@@ -25,7 +25,7 @@ Controllers and route methods use Stage‑3 decorators exported from the main `a
 ## Usage Example
 
 ```typescript
-import { Controller, Get, Bindings } from 'adorn-api';
+import { Controller, Get, Bindings } from '@adorn/api';
 
 @Controller('/users')
 class UsersController {
@@ -44,8 +44,8 @@ class UsersController {
 Use `createAdornExpressApp` from the `adorn-api/express` package to create an Express application with your controllers:
 
 ```typescript
-import { createAdornExpressApp } from 'adorn-api/express';
-import { Controller, Get } from 'adorn-api';
+import { createAdornExpressApp } from '@adorn/api/express';
+import { Controller, Get } from '@adorn/api';
 
 @Controller('/api/users')
 class UsersController {

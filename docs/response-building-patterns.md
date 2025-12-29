@@ -420,46 +420,34 @@ async exportUsers() {
 ### Custom Response Types
 
 ```typescript
-// Define custom response types
-type ApiResponse<T> = {
-  success: true;
-  data: T;
-  timestamp: string;
-};
-
-type ApiError = {
-  success: false;
-  error: string;
-  code: string;
-  timestamp: string;
-};
-
-// Standardized success response
+// Use Reply types for consistent responses
 @Get('/users/:id')
 async getUser(id: string) {
   const user = await userService.findById(id);
-  const response: ApiResponse<User> = {
-    success: true,
-    data: user,
-    timestamp: new Date().toISOString()
-  };
-  return reply(200, response);
+  return reply(200, user, {
+    headers: {
+      'X-Request-ID': ctx.requestId,
+      'Timestamp': new Date().toISOString()
+    }
+  });
 }
 
-// Standardized error response
+// Error response using HttpError
 @Get('/users/:id')
 async getUser(id: string) {
   const user = await userService.findById(id);
   if (!user) {
-    const error: ApiError = {
-      success: false,
-      error: 'User not found',
+    throw new HttpError(404, 'User not found', {
       code: 'USER_NOT_FOUND',
-      timestamp: new Date().toISOString()
-    };
-    return reply(404, error);
+      details: { id }
+    });
   }
-  return reply(200, { success: true, data: user, timestamp: new Date().toISOString() });
+  return reply(200, user, {
+    headers: {
+      'X-Request-ID': ctx.requestId,
+      'Timestamp': new Date().toISOString()
+    }
+  });
 }
 ```
 

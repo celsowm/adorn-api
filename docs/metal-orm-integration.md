@@ -15,24 +15,24 @@ The `adorn-api/metal-orm` package exposes helpers to derive validation and filte
 Controllers can persist entities using `OrmSession` with SQLite or other databases:
 
 ```typescript
-import { Controller, Get, Post } from 'adorn-api';
-import { entityDto, filtersFromEntity } from 'adorn-api/metal-orm';
+import { Controller, Get, Post } from '@adorn/api';
+import { entityDto, filtersFromEntity } from '@adorn/api/metal-orm';
 import { createSqliteExecutor } from 'metal-orm';
 
 @Controller('/users')
 class UsersController {
   @Get('/')
-  async listUsers(@entityDto() userDto: UserDto) {
-    // Query users using the ORM
-    return await this.ormSession.selectFrom(User).execute();
+  async listUsers() {
+    const users = await this.ormSession.selectFrom(User).execute();
+    return reply(200, users);
   }
-
+  
   @Post('/')
-  async createUser(@entityDto() userDto: UserDto) {
-    const user = new User(userDto);
+  async createUser(userData: CreateUserDto) {
+    const user = new User(userData);
     await this.ormSession.persist(user);
     await this.ormSession.commit();
-    return user;
+    return reply(201, user);
   }
 }
 ```
@@ -50,7 +50,7 @@ The ORM session provides:
 Use the ORM's query builder with the generated filters:
 
 ```typescript
-import { filtersFromEntity } from 'adorn-api/metal-orm';
+import { filtersFromEntity } from '@adorn/api/metal-orm';
 
 const userFilters = filtersFromEntity(User);
 const users = await this.ormSession

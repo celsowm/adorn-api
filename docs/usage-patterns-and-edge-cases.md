@@ -285,9 +285,9 @@ const unionValidation = defineRoute('/events', {
 async getUser(id: string) {
   const user = await userService.findById(id);
   if (!user) {
-    return reply(404, {
-      error: 'User not found',
-      code: 'USER_NOT_FOUND'
+    throw new HttpError(404, 'User not found', {
+      code: 'USER_NOT_FOUND',
+      details: { id }
     });
   }
   return reply(200, user);

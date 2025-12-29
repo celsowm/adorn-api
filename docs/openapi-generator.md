@@ -7,8 +7,8 @@ The `adorn-api` package provides built-in OpenAPI documentation generation from 
 The `buildOpenApi` function produces an `OpenApiDocumentObject` by walking the controller registry and translating request/response schemas into OpenAPI components:
 
 ```typescript
-import { buildOpenApi } from 'adorn-api';
-import { createAdornExpressApp } from 'adorn-api/express';
+import { buildOpenApi } from '@adorn/api';
+import { createAdornExpressApp } from '@adorn/api/express';
 
 const app = createAdornExpressApp({
   controllers: [UsersController, PostsController],
@@ -32,8 +32,8 @@ const app = createAdornExpressApp({
   controllers: [UsersController],
   openapi: {
     enabled: true,
-    path: '/docs',           // Swagger UI path
-    jsonPath: '/openapi.json', // OpenAPI JSON endpoint
+    jsonPath: '/openapi.json',
+    docsPath: '/docs',
     title: 'My API',
     version: '1.0.0',
   },
