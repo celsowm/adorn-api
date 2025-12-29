@@ -18,16 +18,22 @@ Adorn API turns TypeScript classes into HTTP controllers with Stage-3 decorators
 For detailed writeups of each feature, see the companion guides under `docs/` (including the Stage-3 decorator setup).
 
 ## Requirements
-- Node.js v18+
-- SQLite (only for in-memory tests; runtime persistence is pluggable via MetalORM executors)
-- TypeScript 5.x with Stage-3 decorators (do not enable `experimentalDecorators`)
+- Node.js v18 or newer - run `node -v` to confirm and use a version manager (nvm, fnm, etc.) if you need to switch runtimes for other projects.
+- TypeScript 5.x or later so the Stage-3 decorator transform ships with your toolchain; the supplied `tsconfig.json` already handles this, so do not toggle `experimentalDecorators`.
+- SQLite is required only for the in-memory runner used during the Vitest suites; production persistence may use any MetalORM executor.
 
-## Getting started
-1. `npm install` to pull runtime and dev dependencies (Express, MetalORM, Vitest).
-2. `npm run build` to compile the TypeScript sources into `dist/`.
-3. `npm run test` to run the full Vitest suite (unit + integration/e2e tests).
+## Install as a dependency
+From your own app or service:
 
-For quick feedback on a single spec file: `npm run test -- test/e2e/metal-orm.adorn-api.rest.spec.ts`.
+`npm install adorn-api@latest`
+
+That command is enough - it installs `adorn-api` and pulls in `express` and `metal-orm` automatically. You still need TypeScript 5.x and Stage-3 decorators enabled in your project's `tsconfig.json` (leave `experimentalDecorators` off).
+
+## Installation
+1. **Prepare your environment.** Ensure `node -v` is 18+ and `npm -v` matches the version bundled with that Node release, then open the repo in an editor that respects the provided `tsconfig.json` so Stage-3 decorator emit stays consistent.
+2. **Install the packages.** Run `npm install` (or `npm ci` in CI) to fetch Express, MetalORM, Vitest, and the project’s dev tooling.
+3. **Build the library.** `npm run build` compiles `src/**/*.ts` via `tsconfig.build.json` into `dist/`, which you can inspect before publishing or linking into another project.
+4. **Run the test suite.** `npm run test` exercises the unit, integration, and MetalORM e2e specs; for quick feedback during development, rerun a single spec such as `npm run test -- test/e2e/metal-orm.adorn-api.rest.spec.ts`.
 
 ## Scripts
 - `npm run clean`: removes the `dist` directory.
