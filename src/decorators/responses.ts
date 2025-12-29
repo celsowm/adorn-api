@@ -53,3 +53,26 @@ export function Response(
     responses[String(status)] = value;
   };
 }
+
+type ReturnsOptions = {
+  status?: number | string;
+  description?: string;
+};
+
+export function Returns(schema: Schema<unknown>, opts?: ReturnsOptions) {
+  return function (_value: unknown, context: Stage3MethodContext) {
+    const meta = ensureDocsMeta(context);
+    const method = String(context.name);
+    const responses = ensureResponses(meta, method);
+
+    const status = String(opts?.status ?? 200);
+    responses[status] = {
+      description: opts?.description ?? 'Success',
+      content: {
+        'application/json': {
+          schema,
+        },
+      },
+    };
+  };
+}

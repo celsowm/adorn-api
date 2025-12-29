@@ -25,7 +25,7 @@ export function irToOasSchema(ir: SchemaIR): SchemaObject {
       return { type: 'boolean' };
 
     case 'literal': {
-      if (ir.value === null) return { nullable: true };
+      if (ir.value === null) return { nullable: true, enum: [null] };
       if (typeof ir.value === 'string') {
         return { type: 'string', enum: [ir.value] };
       }

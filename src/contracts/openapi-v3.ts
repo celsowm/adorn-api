@@ -42,11 +42,31 @@
  * };
  * ```
  */
+export type OpenApiVersion = '3.0.3' | '3.1.0' | (string & {});
+
+export type ContactObject = {
+  name?: string;
+  url?: string;
+  email?: string;
+};
+
+export type LicenseObject = {
+  name: string;
+  url?: string;
+};
+
 export type OpenApiDocument = {
   /** OpenAPI specification version */
-  openapi: '3.0.3' | (string & {});
+  openapi: OpenApiVersion;
   /** API metadata including title, version, and description */
-  info: { title: string; version: string; description?: string };
+  info: {
+    title: string;
+    version: string;
+    description?: string;
+    termsOfService?: string;
+    contact?: ContactObject;
+    license?: LicenseObject;
+  };
   /** Array of server objects */
   servers?: Array<{ url: string; description?: string }>;
   /** Paths and operations */

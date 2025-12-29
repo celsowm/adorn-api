@@ -7,17 +7,18 @@ The `adorn-api` package provides built-in OpenAPI documentation generation from 
 The `buildOpenApi` function produces an `OpenApiDocumentObject` by walking the controller registry and translating request/response schemas into OpenAPI components:
 
 ```typescript
-import { buildOpenApi } from '@adorn/api';
+import { buildOpenApi, buildRegistry } from '@adorn/api';
 import { createAdornExpressApp } from '@adorn/api/express';
 
-const app = createAdornExpressApp({
-  controllers: [UsersController, PostsController],
-});
+const controllers = [UsersController, PostsController];
+const app = createAdornExpressApp({ controllers });
 
-const openApiDoc = buildOpenApi(app, {
+const registry = buildRegistry(controllers);
+const openApiDoc = buildOpenApi(registry, {
   title: 'My API',
   version: '1.0.0',
   description: 'API documentation',
+  includeDefaultErrors: true,
 });
 ```
 
@@ -40,6 +41,29 @@ const app = createAdornExpressApp({
 });
 ```
 
+## Build Options
+
+The `openapi` option surface exposes additional metadata and defaults. You can provide `description`, `termsOfService`, `contact`, `license`, or even emit `"3.1.0"` documents via `openapiVersion`. Use `includeDefaultErrors` to automatically append RFC 7807-style problem responses (customizable via `problemDetailsSchema`/`validationErrorSchema`), and override `defaultErrorContentType` if your API uses a different media type. OpenAPI generation also picks `201` for POST and `204` for DELETE when no responses are declared, matching the runtime's `pickSuccessStatus`.
+
+```typescript
+import { createAdornExpressApp } from 'adorn-api/express';
+
+const app = createAdornExpressApp({
+  controllers: [UsersController],
+  openapi: {
+    title: 'My API',
+    version: '1.0.0',
+    openapiVersion: '3.1.0',
+    description: 'API documentation',
+    termsOfService: 'https://example.com/terms',
+    contact: { name: 'API Team', email: 'api@example.com' },
+    license: { name: 'MIT', url: 'https://opensource.org/licenses/MIT' },
+    includeDefaultErrors: true,
+    defaultErrorContentType: 'application/problem+json',
+  },
+});
+```
+
 ## OpenAPI Decorators
 
 Route decorators attach OpenAPI metadata to routes:
@@ -48,6 +72,7 @@ Route decorators attach OpenAPI metadata to routes:
 - `@OperationId('operationName')` - Assign unique operation IDs
 - `@Deprecated()` - Mark routes as deprecated
 - `@Response(200, { description: 'Success', schema: UserSchema })` - Define response schemas
+- `@Returns(schema, { status?: 200 })` - Assign a schema to a response code without writing the full `responses` object
 - `@Security('bearerAuth')` - Apply security requirements
 
 ```typescript
@@ -60,11 +85,23 @@ class UsersController {
   @OperationId('getUserById')
   @Response(200, { description: 'User found' })
   @Response(404, { description: 'User not found' })
-  async getUser(id: number) {
-    // Implementation
+async getUser(id: number) {
+      // Implementation
+    }
   }
-}
 ```
+
+### Path parameter hints
+
+If you skip `validate.params` or want to keep validation and documentation definitions separate, `@Bindings` can still describe a route's path parameters. For example:
+
+```typescript
+@Get('/{id}')
+@Bindings({ path: { id: 'uuid' } })
+async find(id: string) { ... }
+```
+
+OpenAPI will now describe `id` as a UUID instead of defaulting to `type: "string"`.
 
 ## Security Schemes
 

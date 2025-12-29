@@ -11,7 +11,7 @@ import { mergeBags } from '../../metadata/merge.js';
 import { joinPaths } from './normalize.js';
 import { assertNoRouteConflicts } from './conflicts.js';
 import type { ControllerCtor, ControllerEntry, Registry, RouteEntry } from './types.js';
-import type { RouteOptions } from '../../contracts/route-options.js';
+import type { RouteBindings, RouteOptions, RouteValidate } from '../../contracts/route-options.js';
 import type { SecurityRequirementObject } from '../../contracts/openapi-v3.js';
 
 function mergedBagFromClass(ctor: MetaConstructor) {
@@ -107,6 +107,14 @@ function baseDocsToRouteOptions(docs: DocsMeta): Partial<RouteOptionsAny> | unde
 
   if (docs.tags?.length) out.tags = [...docs.tags];
   if (docs.security !== undefined) out.security = docs.security as SecurityRequirementObject[];
+  if (docs.operationId !== undefined) out.operationId = docs.operationId;
+  if (docs.deprecated !== undefined) out.deprecated = docs.deprecated;
+  if (docs.responses) {
+    out.responses = {
+      ...(out.responses ?? {}),
+      ...docs.responses,
+    };
+  }
 
   return Object.keys(out).length ? out : undefined;
 }
@@ -126,9 +134,12 @@ function mergeRouteOptions(
       out.tags = [...(out.tags ?? []), ...overlay.tags];
     }
 
+    if (overlay.summary !== undefined) out.summary = overlay.summary;
+    if (overlay.description !== undefined) out.description = overlay.description;
     if (overlay.operationId !== undefined) out.operationId = overlay.operationId;
     if (overlay.deprecated !== undefined) out.deprecated = overlay.deprecated;
     if (overlay.security !== undefined) out.security = overlay.security;
+    if (overlay.successStatus !== undefined) out.successStatus = overlay.successStatus;
 
     if (overlay.responses) {
       out.responses = {
@@ -136,7 +147,55 @@ function mergeRouteOptions(
         ...overlay.responses,
       };
     }
+
+    const mergedValidate = mergeValidate(out.validate, overlay.validate);
+    if (mergedValidate) {
+      out.validate = mergedValidate;
+    }
+
+    const mergedBindings = mergeBindings(out.bindings, overlay.bindings);
+    if (mergedBindings) {
+      out.bindings = mergedBindings;
+    }
   }
 
   return out;
+}
+
+function mergeValidate(
+  base?: RouteValidate,
+  overlay?: RouteValidate,
+): RouteValidate | undefined {
+  if (!base && !overlay) return undefined;
+
+  const merged: RouteValidate = {};
+
+  if (base?.params) merged.params = base.params;
+  if (base?.query) merged.query = base.query;
+  if (base?.body) merged.body = base.body;
+
+  if (overlay?.params) merged.params = overlay.params;
+  if (overlay?.query) merged.query = overlay.query;
+  if (overlay?.body) merged.body = overlay.body;
+
+  return Object.keys(merged).length ? merged : undefined;
+}
+
+function mergeBindings(
+  base?: RouteBindings<string>,
+  overlay?: RouteBindings<string>,
+): RouteBindings<string> | undefined {
+  if (!base && !overlay) return undefined;
+
+  const merged: RouteBindings<string> = {};
+
+  if (base?.path) merged.path = { ...base.path };
+  if (overlay?.path) {
+    merged.path = {
+      ...(merged.path ?? {}),
+      ...overlay.path,
+    };
+  }
+
+  return Object.keys(merged).length ? merged : undefined;
 }

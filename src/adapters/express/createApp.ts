@@ -185,17 +185,14 @@ export function createAdornExpressRouter(
 
   const oa = options.openapi;
   if (oa?.enabled ?? true) {
-    if (oa?.title && oa?.version) {
-      const openApiOptions: OpenApiBuildOptions = {
-        title: oa.title,
-        version: oa.version,
-        ...(oa.servers !== undefined ? { servers: oa.servers } : {}),
-      };
+    const { enabled: _enabled, jsonPath, docsPath, swaggerUi, swaggerUiConfig, ...buildOpts } = oa ?? {};
+    const openApiOptions: OpenApiBuildOptions = buildOpts as OpenApiBuildOptions;
+    if (openApiOptions.title && openApiOptions.version) {
       const serveOptions = {
-        ...(oa.jsonPath !== undefined ? { jsonPath: oa.jsonPath } : {}),
-        ...(oa.docsPath !== undefined ? { docsPath: oa.docsPath } : {}),
-        ...(oa.swaggerUi !== undefined ? { swaggerUi: oa.swaggerUi } : {}),
-        ...(oa.swaggerUiConfig !== undefined ? { swaggerUiConfig: oa.swaggerUiConfig } : {}),
+        ...(jsonPath !== undefined ? { jsonPath } : {}),
+        ...(docsPath !== undefined ? { docsPath } : {}),
+        ...(swaggerUi !== undefined ? { swaggerUi } : {}),
+        ...(swaggerUiConfig !== undefined ? { swaggerUiConfig } : {}),
       };
 
       router.use(serveOpenApi(registry, openApiOptions, serveOptions));
