@@ -70,6 +70,15 @@ export default function transform(
           const httpMethod = httpMethodFromDecorator(decoratorName);
           const placement = inferPlacement(tsi, checker, node, httpMethod, path);
 
+          if (extras.addDiagnostic) {
+            (extras.addDiagnostic as (d: { messageText: string }) => void)({
+              file: sf0.fileName,
+              start: node.getStart(),
+              length: node.getWidth(),
+              messageText: `DEBUG: Generated bindings.args`,
+            });
+          }
+
           const argsExpr = tsi.factory.createArrayLiteralExpression(
             placement.args.map((a) => {
               const props: ts.PropertyAssignment[] = [
