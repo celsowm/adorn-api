@@ -33,7 +33,7 @@ async getUser(id: string) {
 
 // Creation response
 @Post('/users')
-async createUser(@Body() userData: CreateUserDto) {
+async createUser(userData: CreateUserDto) {
   const createdUser = await userService.create(userData);
   return reply(201, createdUser);
 }
@@ -81,7 +81,7 @@ async getUser(id: string) {
 
 // Using HttpError (automatically handled by error middleware)
 @Post('/users')
-async createUser(@Body() userData: CreateUserDto) {
+async createUser(userData: CreateUserDto) {
   try {
     const createdUser = await userService.create(userData);
     return reply(201, createdUser);
@@ -202,7 +202,7 @@ const createUserRoute = routeFor('/users')({
 
 class UserController {
   @Post('/users')
-  async createUser(@Body() userData: CreateUserDto) {
+  async createUser(userData: CreateUserDto) {
     try {
       const createdUser = await userService.create(userData);
       return createUserRoute.reply(201, createdUser);
@@ -309,7 +309,7 @@ throw new HttpError(500, 'Database connection failed', {
 ```typescript
 // Response with Location header (common for POST operations)
 @Post('/users')
-async createUser(@Body() userData: CreateUserDto) {
+async createUser(userData: CreateUserDto) {
   const createdUser = await userService.create(userData);
   return reply(201, createdUser, {
     headers: {
@@ -334,7 +334,7 @@ async getUser(id: string) {
 
 // Response with pagination headers
 @Get('/users')
-async listUsers(@Query() query: ListUsersQuery) {
+async listUsers(query: ListUsersQuery) {
   const { users, total, page, limit } = await userService.findPaginated(query);
   return reply(200, users, {
     headers: {

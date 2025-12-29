@@ -390,7 +390,7 @@ graph TD
 })
 
 // 2. Validation is automatically performed
-async createUser(@Body() userData: CreateUserDto) {
+async createUser(userData: CreateUserDto) {
   // userData is already validated at this point
   return await userService.create(userData);
 }
@@ -526,7 +526,7 @@ const userSchema = entity(User, {
     body: userSchema
   }
 })
-async createUser(@Body() userData: CreateUserDto) {
+async createUser(userData: CreateUserDto) {
   // userData is validated against User entity structure
   return await userService.create(userData);
 }

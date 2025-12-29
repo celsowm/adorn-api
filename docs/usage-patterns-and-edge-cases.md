@@ -33,7 +33,7 @@ async listUsers() {
     400: { description: 'Invalid user data' }
   }
 })
-async createUser(@Body() userData: CreateUserDto) {
+async createUser(userData: CreateUserDto) {
   return await userService.create(userData);
 }
 
@@ -49,7 +49,7 @@ async createUser(@Body() userData: CreateUserDto) {
     })
   }
 })
-async updateUser(id: string, @Body() userData: UpdateUserDto) {
+async updateUser(id: string, userData: UpdateUserDto) {
   return await userService.update(id, userData);
 }
 
@@ -295,7 +295,7 @@ async getUser(id: string) {
 
 // Using HttpError
 @Post('/users')
-async createUser(@Body() userData: CreateUserDto) {
+async createUser(userData: CreateUserDto) {
   try {
     const createdUser = await userService.create(userData);
     return reply(201, createdUser);
@@ -315,7 +315,7 @@ async createUser(@Body() userData: CreateUserDto) {
 
 // Validation error handling
 @Put('/users/:id')
-async updateUser(id: string, @Body() userData: UpdateUserDto) {
+async updateUser(id: string, userData: UpdateUserDto) {
   const validationResult = await validator.validate(userData, updateUserSchema);
   if (!validationResult.ok) {
     throw ValidationError.fromIssues(validationResult.issues);
@@ -511,7 +511,7 @@ async getUsersByStatus(status: string) {
 ```typescript
 // Automatic query parameter binding
 @Get('/users')
-async listUsers(@Query() query: ListUsersQuery) {
+async listUsers(query: ListUsersQuery) {
   // Query parameters are automatically bound to the query object
   return await userService.findPaginated(query);
 }
@@ -560,7 +560,7 @@ async searchUsers(
 ```typescript
 // Basic body binding
 @Post('/users')
-async createUser(@Body() userData: CreateUserDto) {
+async createUser(userData: CreateUserDto) {
   // Request body is automatically parsed and validated
   return await userService.create(userData);
 }
@@ -575,7 +575,7 @@ async createUser(@Body() userData: CreateUserDto) {
     })
   }
 })
-async createUser(@Body() userData: CreateUserDto) {
+async createUser(userData: CreateUserDto) {
   // Body is validated against schema
   return await userService.create(userData);
 }
@@ -590,7 +590,7 @@ async createUser(@Body() userData: CreateUserDto) {
     })
   }
 })
-async updateUser(id: string, @Body() partialData: Partial<User>) {
+async updateUser(id: string, partialData: Partial<User>) {
   // Partial body for PATCH operations
   return await userService.update(id, partialData);
 }
@@ -615,7 +615,7 @@ async updateUser(id: string, @Body() partialData: Partial<User>) {
     })
   }
 })
-async createUser(@Body() userData: CreateUserWithPreferencesDto) {
+async createUser(userData: CreateUserWithPreferencesDto) {
   // Complex nested body structure
   return await userService.createWithPreferences(userData);
 }
@@ -634,9 +634,9 @@ async getUser(id: string, @Header('Authorization') authHeader?: string) {
 // Multiple headers
 @Post('/users')
 async createUser(
-  @Body() userData: CreateUserDto,
-  @Header('X-Request-ID') requestId?: string,
-  @Header('X-Client-Version') clientVersion?: string
+  userData: CreateUserDto,
+  requestId?: string,
+  clientVersion?: string
 ) {
   // Multiple headers extracted
   logger.info(`Request ${requestId} from client ${clientVersion}`);
@@ -670,7 +670,7 @@ async getUser(id: string, ctx: RequestContext) {
 
 // Context with request information
 @Post('/users')
-async createUser(@Body() userData: CreateUserDto, ctx: RequestContext) {
+async createUser(userData: CreateUserDto, ctx: RequestContext) {
   // Access request information
   logger.info(`Create user request from ${ctx.ip}`, {
     userAgent: ctx.userAgent,
