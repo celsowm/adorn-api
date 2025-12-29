@@ -142,7 +142,7 @@ export function Get<Path extends string, const O extends RouteOptions<Path> | un
  * ```typescript
  * class UserController {
  *   @Post('/users')
- *   async createUser(@Body() userData: CreateUserDto) {
+ *   async createUser(userData: CreateUserDto) {
  *     return await userService.create(userData);
  *   }
  *
@@ -175,7 +175,7 @@ export function Post<Path extends string, const O extends RouteOptions<Path> | u
  * ```typescript
  * class UserController {
  *   @Put('/users/:id')
- *   async updateUser(id: string, @Body() userData: UpdateUserDto) {
+ *   async updateUser(id: string, userData: UpdateUserDto) {
  *     return await userService.update(id, userData);
  *   }
  * }
@@ -203,7 +203,7 @@ export function Put<Path extends string, const O extends RouteOptions<Path> | un
  * ```typescript
  * class UserController {
  *   @Patch('/users/:id')
- *   async partialUpdate(id: string, @Body() partialData: Partial<User>) {
+ *   async partialUpdate(id: string, partialData: Partial<User>) {
  *     return await userService.patch(id, partialData);
  *   }
  * }

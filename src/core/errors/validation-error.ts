@@ -34,7 +34,7 @@ import type { ValidationIssue } from '../../contracts/validator.js';
  * ```typescript
  * // In a controller with validation
  * @Post('/users')
- * async createUser(@Body() userData: CreateUserDto) {
+ * async createUser(userData: CreateUserDto) {
  *   const validationResult = await validator.validate(userData);
  *
  *   if (!validationResult.valid) {

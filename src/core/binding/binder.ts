@@ -70,7 +70,7 @@ export type BindOptions = {
  * ```typescript
  * // For a POST route with body
  * // @Post('/users')
- * // async createUser(@Body() userData: CreateUserDto)
+ * // async createUser(userData: CreateUserDto)
  * const { args } = bindArgs(route, handler, requestContext);
  * const result = await handler(...args); // Automatically passes parsed body
  * ```

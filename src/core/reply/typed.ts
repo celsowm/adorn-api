@@ -104,7 +104,7 @@ type InitFor<R extends ResponsesSpec, S extends number> =
  *
  * class UserController {
  *   @Post('/users')
- *   async createUser(@Body() userData: CreateUserDto) {
+ *   async createUser(userData: CreateUserDto) {
  *     const createdUser = await userService.create(userData);
  *     return route.reply(201, createdUser); // Type-safe!
  *   }

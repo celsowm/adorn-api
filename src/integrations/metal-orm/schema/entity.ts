@@ -57,7 +57,7 @@ export type EntitySchemaOptions = {
  * ```typescript
  * // Using in a controller with validation
  * @Post('/users')
- * async createUser(@Body() userData: unknown) {
+ * async createUser(userData: unknown) {
  *   const userSchema = entity(User, {
  *     omit: ['id', 'createdAt', 'updatedAt']
  *   });
