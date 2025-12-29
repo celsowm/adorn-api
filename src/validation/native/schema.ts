@@ -382,9 +382,29 @@ function array<T>(item: Schema<T>): ArrayBuilder<T> {
   return build([], baseIr);
 }
 
+function union<const T extends readonly Schema<unknown>[]>(...schemas: T): Schema<InferUnion<T>> {
+  return {
+    kind: 'union',
+    ir: { kind: 'union', anyOf: schemas.map((s) => s.ir) },
+    parse(value: unknown, path: Array<string | number> = []) {
+      const allIssues: ValidationIssue[] = [];
+
+      for (const sch of schemas) {
+        const r = sch.parse(value, path);
+        if (r.ok) return r as ValidationResult<InferUnion<T>>;
+        allIssues.push(...r.issues);
+      }
+
+      return fail(allIssues);
+    },
+  };
+}
+
 function named<T>(name: string, schema: Schema<T>): Schema<T> {
   return { ...schema, name };
 }
+
+type InferUnion<T extends readonly Schema<unknown>[]> = Infer<T[number]>;
 
 export const v = {
   string,
@@ -392,6 +412,7 @@ export const v = {
   boolean,
   object,
   array,
+  union,
   literal: literalBase,
   enum: enumBase,
   named,

@@ -9,6 +9,7 @@ export type PluginConfig = {
   packageName?: string;
   emitAnalysisFile?: string;
   includeNodeModules?: boolean;
+  strictObjects?: boolean;
 };
 
 export type ParamModel = {
