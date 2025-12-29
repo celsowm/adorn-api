@@ -6,10 +6,15 @@ export interface RouteModel {
 }
 
 export function createRouteModel(init: Partial<RouteModel> = {}): RouteModel {
-  return {
+  const result: RouteModel = {
     method: init.method ?? 'GET',
     path: init.path ?? '/',
     handler: init.handler ?? 'handler',
-    metadata: init.metadata,
   };
+  
+  if (init.metadata !== undefined) {
+    result.metadata = init.metadata;
+  }
+  
+  return result;
 }

@@ -15,19 +15,19 @@ const returnSchema = v.named(
 @Controller('/defaults')
 class DefaultsController {
   @Post('')
-  create() {
+  create(): { ok: boolean } {
     return { ok: true };
   }
 
   @Get('/{id}')
   @Bindings({ path: { id: 'int' } })
-  find() {
+  find(): { id: number } {
     return { id: 1 };
   }
 
   @Get('/returns')
   @Returns(returnSchema)
-  returnsItem() {
+  returnsItem(): { id: number; name: string } {
     return { id: 1, name: 'Returned' };
   }
 }

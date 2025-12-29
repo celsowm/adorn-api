@@ -167,7 +167,11 @@ function addPathParams(parameters: ParameterObject[], r: RouteEntry, ro: RouteOp
   }
 
   const fallbackNames = Array.from(r.fullPath.matchAll(/\{([^}]+)\}/g)).map((m) => m[1]);
-  const hints = r.bindings?.byMethod?.[r.handlerName]?.path ?? {};
+
+  const optionHints = ro.bindings?.path ?? {};
+  const metaHints = r.bindings?.byMethod?.[r.handlerName]?.path ?? {};
+  const hints: Record<string, ScalarHint | undefined> = { ...optionHints, ...metaHints };
+
   for (const name of fallbackNames) {
     parameters.push({
       name,

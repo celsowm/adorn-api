@@ -14,6 +14,12 @@ export * from './core/validation/index.js';
 // OpenAPI generation - public API for generating OpenAPI docs
 export * from './core/openapi/index.js';
 
+// JSON Schema - public API for converting schemas to JSON Schema
+export * from './core/jsonschema/index.js';
+
+// OpenAI tools - public API for generating OpenAI function tools
+export * from './core/openai/index.js';
+
 // OpenAPI contracts - public types for OpenAPI
 export * from './contracts/openapi.js';
 

@@ -1,12 +1,25 @@
 import type { RequestContext } from '../../contracts/context.js';
+import type { RouteOptions, ScalarHint } from '../../contracts/route-options.js';
 import type { RouteEntry } from '../registry/types.js';
-import { HttpError } from '../errors/http-error.js';
-import { getPathTokenNames } from './rules/inferFromPath.js';
 import { conventionForMethod } from './rules/inferFromHttpMethod.js';
+import { getPathTokenNames } from './rules/inferFromPath.js';
 import type { CoerceMode } from './coerce/primitives.js';
 import { coerceObjectSmart, coerceValueSmart } from './coerce/arrays.js';
+import { HttpError } from '../errors/http-error.js';
 
 type HandlerFunction = (...args: unknown[]) => unknown;
+
+type RouteOptionsAny = RouteOptions<string>;
+
+function mergedPathHints(route: RouteEntry): Record<string, ScalarHint | undefined> {
+  const ro = (route.options ?? {}) as RouteOptionsAny;
+
+  const optionHints = ro.bindings?.path ?? {};
+
+  const metaHints = route.bindings?.byMethod?.[route.handlerName]?.path ?? {};
+
+  return { ...optionHints, ...metaHints };
+}
 
 /**
  * Prepared binding data after argument binding.
@@ -89,8 +102,8 @@ export function bindArgs(
   const csv = opts.csv ?? true;
 
   const tokenNames = getPathTokenNames(route.fullPath);
-  const methodBindings = route.bindings?.byMethod?.[route.handlerName];
-  const pathTypes = methodBindings?.path ?? {};
+
+  const pathTypes = mergedPathHints(route);
 
   const rawParams = ctx.params ?? {};
   const preparedParams: Record<string, unknown> = {};
