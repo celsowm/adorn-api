@@ -1,18 +1,16 @@
 import { defineConfig } from 'vitest/config'
-import typescript from '@rollup/plugin-typescript'
+import tsp from 'ts-patch'
+
+tsp.install()
 
 export default defineConfig({
   test: {
     globals: true,
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/transformer-inference.test.ts',
+      '**/reflection.test.ts',
+    ],
   },
-  esbuild: false,
-  plugins: [
-    typescript({
-      tsconfig: './tsconfig.json',
-      noEmit: false,
-      compilerOptions: {
-        sourceMap: true,
-      },
-    }),
-  ],
 })

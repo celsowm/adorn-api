@@ -70,6 +70,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "vitest run test/e2e",
+    "test:transformer": "npx tsx test/transformer-inference.test.ts",
+    "test:reflection": "npx tsx test/reflection.test.ts",
     "ts-patch:install": "ts-patch install -s"
   }
 }
