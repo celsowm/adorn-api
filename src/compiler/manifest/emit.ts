@@ -65,6 +65,16 @@ function buildOperationEntry(op: any, ctx: SchemaContext): OperationEntry {
   const responseSchema = typeToJsonSchema(op.returnType, ctx);
   const status = op.httpMethod === "POST" ? 201 : 200;
 
+  let schemaRef = responseSchema.$ref;
+  let isArray = false;
+
+  if (!schemaRef && responseSchema.type === "array" && responseSchema.items?.$ref) {
+    schemaRef = responseSchema.items.$ref;
+    isArray = true;
+  } else if (!schemaRef) {
+    schemaRef = "#/components/schemas/InlineResponse";
+  }
+
   return {
     operationId: op.operationId,
     http: {
@@ -79,7 +89,8 @@ function buildOperationEntry(op: any, ctx: SchemaContext): OperationEntry {
       {
         status,
         contentType: "application/json",
-        schemaRef: responseSchema.$ref ?? "#/components/schemas/InlineResponse",
+        schemaRef,
+        isArray,
       },
     ],
   };
