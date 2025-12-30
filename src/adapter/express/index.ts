@@ -51,24 +51,43 @@ export function createExpressRouter(options: CreateRouterOptions): Router {
         }
 
         for (const pathArg of route.args.path) {
-          args[pathArg.index] = req.params[pathArg.name];
+          const coerced = coerceValue(req.params[pathArg.name], pathArg.schemaType);
+          args[pathArg.index] = coerced;
         }
 
         if (route.args.query.length > 0) {
-          const queryArg = route.args.query[0];
-          const queryIndex = queryArg.index;
-          args[queryIndex] = {};
-          for (const q of route.args.query) {
-            args[queryIndex][q.name] = req.query[q.name];
+          const firstQueryIndex = route.args.query[0].index;
+          const allSameIndex = route.args.query.every(q => q.index === firstQueryIndex);
+
+          if (allSameIndex) {
+            args[firstQueryIndex] = {};
+            for (const q of route.args.query) {
+              const coerced = coerceValue(req.query[q.name], q.schemaType);
+              args[firstQueryIndex][q.name] = coerced;
+            }
+          } else {
+            for (const q of route.args.query) {
+              const coerced = coerceValue(req.query[q.name], q.schemaType);
+              args[q.index] = coerced;
+            }
           }
         }
 
         if (route.args.headers.length > 0) {
-          const headerArg = route.args.headers[0];
-          const headerIndex = headerArg.index;
-          args[headerIndex] = {};
-          for (const h of route.args.headers) {
-            args[headerIndex][h.name] = req.headers[h.name.toLowerCase()];
+          const firstHeaderIndex = route.args.headers[0].index;
+          const allSameIndex = route.args.headers.every(h => h.index === firstHeaderIndex);
+
+          if (allSameIndex) {
+            args[firstHeaderIndex] = {};
+            for (const h of route.args.headers) {
+              const headerValue = req.headers[h.name.toLowerCase()];
+              args[firstHeaderIndex][h.name] = headerValue ?? undefined;
+            }
+          } else {
+            for (const h of route.args.headers) {
+              const headerValue = req.headers[h.name.toLowerCase()];
+              args[h.index] = headerValue ?? undefined;
+            }
           }
         }
 
@@ -85,4 +104,26 @@ export function createExpressRouter(options: CreateRouterOptions): Router {
   }
 
   return router;
+}
+
+function coerceValue(value: any, schemaType?: string | string[]): any {
+  if (value === undefined || value === null) return value;
+
+  const type = Array.isArray(schemaType) ? schemaType[0] : schemaType;
+
+  if (type === "number" || type === "integer") {
+    const num = Number(value);
+    if (isNaN(num)) {
+      throw new Error(`Invalid number: ${value}`);
+    }
+    return num;
+  }
+
+  if (type === "boolean") {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    throw new Error(`Invalid boolean: ${value}`);
+  }
+
+  return value;
 }

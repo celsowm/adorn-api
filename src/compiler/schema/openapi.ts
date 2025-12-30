@@ -85,8 +85,8 @@ function buildOperation(operation: ScannedOperation, ctx: SchemaContext): any {
     },
   };
 
-  if (["POST", "PUT", "PATCH"].includes(operation.httpMethod)) {
-    const bodyParam = operation.parameters.find(p => p.index === 0);
+  if (["POST", "PUT", "PATCH"].includes(operation.httpMethod) && operation.bodyParamIndex !== null) {
+    const bodyParam = operation.parameters[operation.bodyParamIndex];
     if (bodyParam) {
       const bodySchema = typeToJsonSchema(bodyParam.type, ctx);
       op.requestBody = {
@@ -104,12 +104,12 @@ function buildOperation(operation: ScannedOperation, ctx: SchemaContext): any {
 }
 
 function buildPathParameters(operation: ScannedOperation, ctx: SchemaContext, parameters: any[]): void {
-  for (const paramName of operation.pathParams) {
-    const param = operation.parameters.find(p => p.name === paramName);
+  for (const paramIndex of operation.pathParamIndices) {
+    const param = operation.parameters[paramIndex];
     if (param) {
       const paramSchema = typeToJsonSchema(param.type, ctx);
       parameters.push({
-        name: paramName,
+        name: param.name,
         in: "path",
         required: !param.isOptional,
         schema: paramSchema.$ref
@@ -121,30 +121,45 @@ function buildPathParameters(operation: ScannedOperation, ctx: SchemaContext, pa
 }
 
 function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, parameters: any[]): void {
-  if (!operation.queryParamName) return;
+  if (operation.queryObjectParamIndex !== null) {
+    const queryParam = operation.parameters[operation.queryObjectParamIndex];
+    if (!queryParam) return;
 
-  const queryParam = operation.parameters.find(p => p.name === operation.queryParamName);
-  if (!queryParam) return;
+    const querySchema = typeToJsonSchema(queryParam.type, ctx);
+    if (!querySchema.properties) return;
 
-  const querySchema = typeToJsonSchema(queryParam.type, ctx);
-  if (!querySchema.properties) return;
+    const queryObjProps = querySchema.properties;
+    for (const [propName, propSchema] of Object.entries(queryObjProps as Record<string, any>)) {
+      const isRequired = querySchema.required?.includes(propName) ?? false;
+      parameters.push({
+        name: propName,
+        in: "query",
+        required: isRequired,
+        schema: propSchema,
+      });
+    }
+  }
 
-  const queryObjProps = querySchema.properties;
-  for (const [propName, propSchema] of Object.entries(queryObjProps as Record<string, any>)) {
-    const isRequired = querySchema.required?.includes(propName) ?? false;
-    parameters.push({
-      name: propName,
-      in: "query",
-      required: isRequired,
-      schema: propSchema,
-    });
+  for (const paramIndex of operation.queryParamIndices) {
+    const param = operation.parameters[paramIndex];
+    if (param) {
+      const paramSchema = typeToJsonSchema(param.type, ctx);
+      parameters.push({
+        name: param.name,
+        in: "query",
+        required: !param.isOptional,
+        schema: paramSchema.$ref
+          ? { type: "string", $ref: paramSchema.$ref }
+          : paramSchema,
+      });
+    }
   }
 }
 
 function buildHeaderParameters(operation: ScannedOperation, ctx: SchemaContext, parameters: any[]): void {
-  if (!operation.headerParamName) return;
+  if (operation.headerObjectParamIndex === null) return;
 
-  const headerParam = operation.parameters.find(p => p.name === operation.headerParamName);
+  const headerParam = operation.parameters[operation.headerObjectParamIndex];
   if (!headerParam) return;
 
   const headerSchema = typeToJsonSchema(headerParam.type, ctx);
@@ -160,10 +175,4 @@ function buildHeaderParameters(operation: ScannedOperation, ctx: SchemaContext, 
       schema: propSchema,
     });
   }
-}
-
-function joinPaths(base: string, sub: string): string {
-  const b = base.endsWith("/") ? base.slice(0, -1) : base;
-  const s = sub.startsWith("/") ? sub : `/${sub}`;
-  return b + s || "/";
 }

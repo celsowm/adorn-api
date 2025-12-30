@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "generatedAt": "2025-12-30T03:44:53.058Z",
+  "generatedAt": "2025-12-30T03:58:36.920Z",
   "generator": {
     "name": "adorn-api",
     "version": "0.1.0",
@@ -60,14 +60,15 @@
                 "name": "id",
                 "index": 0,
                 "required": true,
-                "schemaRef": "#/components/schemas/InlinePathParam"
+                "schemaRef": "#/components/schemas/InlinePathParam",
+                "schemaType": "number"
               }
             ],
             "query": [
               {
                 "name": "verbose",
                 "index": 1,
-                "required": true,
+                "required": false,
                 "schemaRef": "#/components/schemas/InlineQueryParam"
               }
             ],

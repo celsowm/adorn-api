@@ -69,6 +69,7 @@ export interface NamedArgSpec {
   index: number;
   required: boolean;
   schemaRef: string;
+  schemaType?: string | string[];
 }
 
 export interface ResponseSpec {

@@ -17,9 +17,11 @@ export interface ScannedOperation {
   methodDeclaration: ts.MethodDeclaration;
   returnType: ts.Type;
   parameters: ScannedParameter[];
-  pathParams: string[];
-  queryParamName: string | null;
-  headerParamName: string | null;
+  pathParamIndices: number[];
+  bodyParamIndex: number | null;
+  queryParamIndices: number[];
+  queryObjectParamIndex: number | null;
+  headerObjectParamIndex: number | null;
 }
 
 export interface ScannedParameter {
@@ -128,8 +130,11 @@ function analyzeMethod(
     });
   }
 
-  const pathParams = extractPathParams(path);
-  const { queryParamName, headerParamName } = extractQueryAndHeaderParams(parameters, checker);
+  const pathParamNames = extractPathParams(path);
+  const pathParamIndices = matchPathParamsToIndices(pathParamNames, parameters);
+  
+  const { bodyParamIndex, queryParamIndices, queryObjectParamIndex, headerObjectParamIndex } = 
+    classifyParameters(parameters, httpMethod, pathParamIndices, checker);
 
   return {
     methodName,
@@ -139,9 +144,11 @@ function analyzeMethod(
     methodDeclaration: node,
     returnType,
     parameters,
-    pathParams,
-    queryParamName,
-    headerParamName,
+    pathParamIndices,
+    bodyParamIndex,
+    queryParamIndices,
+    queryObjectParamIndex,
+    headerObjectParamIndex,
   };
 }
 
@@ -151,27 +158,83 @@ function extractPathParams(path: string): string[] {
   return matches.map(m => m.slice(1));
 }
 
-function extractQueryAndHeaderParams(
-  parameters: ScannedParameter[],
-  checker: ts.TypeChecker
-): { queryParamName: string | null; headerParamName: string | null } {
-  if (parameters.length === 0) {
-    return { queryParamName: null, headerParamName: null };
-  }
-
-  const lastParam = parameters[parameters.length - 1];
-  let queryParamName: string | null = null;
-  let headerParamName: string | null = null;
-
-  if (isObjectType(lastParam.type, checker)) {
-    if (lastParam.name === "q" || lastParam.name === "query") {
-      queryParamName = lastParam.name;
-    } else if (lastParam.name === "h" || lastParam.name === "headers") {
-      headerParamName = lastParam.name;
+function matchPathParamsToIndices(pathParamNames: string[], parameters: ScannedParameter[]): number[] {
+  const indices: number[] = [];
+  for (const name of pathParamNames) {
+    const param = parameters.find(p => p.name === name);
+    if (param) {
+      indices.push(param.index);
     }
   }
+  return indices;
+}
 
-  return { queryParamName, headerParamName };
+function classifyParameters(
+  parameters: ScannedParameter[],
+  httpMethod: string,
+  pathParamIndices: number[],
+  checker: ts.TypeChecker
+): {
+  bodyParamIndex: number | null;
+  queryParamIndices: number[];
+  queryObjectParamIndex: number | null;
+  headerObjectParamIndex: number | null;
+} {
+  const usedIndices = new Set(pathParamIndices);
+  const queryParamIndices: number[] = [];
+  let bodyParamIndex: number | null = null;
+  let queryObjectParamIndex: number | null = null;
+  let headerObjectParamIndex: number | null = null;
+
+  const isBodyMethod = ["POST", "PUT", "PATCH"].includes(httpMethod);
+
+  for (let i = 0; i < parameters.length; i++) {
+    const param = parameters[i];
+    if (usedIndices.has(i)) continue;
+
+    const typeStr = param.type.getSymbol()?.getName() ?? "";
+
+    if (typeStr === "Body") {
+      bodyParamIndex = i;
+      usedIndices.add(i);
+      continue;
+    }
+
+    if (typeStr === "Query") {
+      queryObjectParamIndex = i;
+      usedIndices.add(i);
+      continue;
+    }
+
+    if (typeStr === "Headers") {
+      headerObjectParamIndex = i;
+      usedIndices.add(i);
+      continue;
+    }
+
+    if (isBodyMethod && bodyParamIndex === null) {
+      bodyParamIndex = i;
+      usedIndices.add(i);
+      continue;
+    }
+
+    const isObj = isObjectType(param.type, checker);
+    if (isObj && queryObjectParamIndex === null && !isBodyMethod) {
+      queryObjectParamIndex = i;
+      usedIndices.add(i);
+      continue;
+    }
+
+    queryParamIndices.push(i);
+    usedIndices.add(i);
+  }
+
+  return {
+    bodyParamIndex,
+    queryParamIndices,
+    queryObjectParamIndex,
+    headerObjectParamIndex,
+  };
 }
 
 function isObjectType(type: ts.Type, checker: ts.TypeChecker): boolean {

@@ -1,4 +1,4 @@
-import type { ScannedController, ScannedOperation, ScannedParameter } from "../analyze/scanControllers.js";
+import type { ScannedController, ScannedOperation } from "../analyze/scanControllers.js";
 import type { ManifestV1, ControllerEntry, OperationEntry, ArgsSpec, HttpMethod } from "./format.js";
 import { typeToJsonSchema } from "../schema/typeToJsonSchema.js";
 import type { SchemaContext } from "../schema/typeToJsonSchema.js";
@@ -47,13 +47,12 @@ function buildOperationEntry(op: ScannedOperation, ctx: SchemaContext): Operatio
     headers: [],
   };
 
-  const nonBodyParams = op.parameters.filter(p => !isBodyParam(p, op.httpMethod));
-  buildPathArgs(nonBodyParams, op.pathParams, ctx, args);
-  buildQueryArgs(nonBodyParams, op.queryParamName, ctx, args);
-  buildHeaderArgs(nonBodyParams, op.headerParamName, ctx, args);
+  buildPathArgs(op, ctx, args);
+  buildQueryArgs(op, ctx, args);
+  buildHeaderArgs(op, ctx, args);
 
-  if (["POST", "PUT", "PATCH"].includes(op.httpMethod)) {
-    const bodyParam = op.parameters.find(p => isBodyParam(p, op.httpMethod));
+  if (op.bodyParamIndex !== null) {
+    const bodyParam = op.parameters[op.bodyParamIndex];
     if (bodyParam) {
       const bodySchema = typeToJsonSchema(bodyParam.type, ctx);
       const schemaRef = bodySchema.$ref ?? "#/components/schemas/InlineBody";
@@ -101,101 +100,87 @@ function buildOperationEntry(op: ScannedOperation, ctx: SchemaContext): Operatio
   };
 }
 
-function isBodyParam(param: ScannedParameter, httpMethod: string): boolean {
-  if (["POST", "PUT", "PATCH"].includes(httpMethod)) {
-    return param.index === 0;
-  }
-  return false;
-}
-
-function buildPathArgs(
-  params: ScannedParameter[],
-  pathParamNames: string[],
-  ctx: SchemaContext,
-  args: ArgsSpec
-): void {
-  for (const paramName of pathParamNames) {
-    const param = params.find(p => p.name === paramName);
+function buildPathArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec): void {
+  for (const paramIndex of op.pathParamIndices) {
+    const param = op.parameters[paramIndex];
     if (param) {
       const paramSchema = typeToJsonSchema(param.type, ctx);
-      const schemaRef = paramSchema.$ref ?? "#/components/schemas/InlinePathParam";
 
       args.path.push({
-        name: paramName,
+        name: param.name,
         index: param.index,
         required: !param.isOptional,
-        schemaRef,
+        schemaRef: paramSchema.$ref ?? "#/components/schemas/InlinePathParam",
+        schemaType: paramSchema.type,
       });
     }
   }
 }
 
-function buildQueryArgs(
-  params: ScannedParameter[],
-  queryParamName: string | null,
-  ctx: SchemaContext,
-  args: ArgsSpec
-): void {
-  if (!queryParamName) return;
+function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec): void {
+  if (op.queryObjectParamIndex !== null) {
+    const queryParam = op.parameters[op.queryObjectParamIndex];
+    if (queryParam) {
+      const querySchema = typeToJsonSchema(queryParam.type, ctx);
+      if (!querySchema.properties) return;
 
-  const queryParam = params.find(p => p.name === queryParamName);
-  if (!queryParam) return;
+      for (const [propName, propSchema] of Object.entries(querySchema.properties as Record<string, any>)) {
+        const isRequired = querySchema.required?.includes(propName) ?? false;
+        let schemaRef = propSchema.$ref;
+        if (!schemaRef) {
+          schemaRef = "#/components/schemas/InlineQueryParam";
+        }
 
-  const querySchema = typeToJsonSchema(queryParam.type, ctx);
-  if (!querySchema.properties) return;
-
-  const queryObjProps = querySchema.properties;
-  for (const [propName, propSchema] of Object.entries(queryObjProps as Record<string, any>)) {
-    const isRequired = querySchema.required?.includes(propName) ?? false;
-    const propType = propSchema.type;
-    let schemaRef = propSchema.$ref;
-    if (!schemaRef && propType === "array" && propSchema.items?.$ref) {
-      schemaRef = propSchema.items.$ref;
-    } else if (!schemaRef) {
-      schemaRef = "#/components/schemas/InlineQueryParam";
+        args.query.push({
+          name: propName,
+          index: queryParam.index,
+          required: !isRequired,
+          schemaRef,
+          schemaType: propSchema.type,
+        });
+      }
     }
+  }
 
-    const paramIndex = params.findIndex(p => p.name === queryParamName);
-    args.query.push({
-      name: propName,
-      index: paramIndex,
-      required: !isRequired,
-      schemaRef,
-    });
+  for (const paramIndex of op.queryParamIndices) {
+    const param = op.parameters[paramIndex];
+    if (param) {
+      const paramSchema = typeToJsonSchema(param.type, ctx);
+      const schemaRef = paramSchema.$ref ?? "#/components/schemas/InlineQueryParam";
+
+      args.query.push({
+        name: param.name,
+        index: param.index,
+        required: !param.isOptional,
+        schemaRef,
+        schemaType: paramSchema.type,
+      });
+    }
   }
 }
 
-function buildHeaderArgs(
-  params: ScannedParameter[],
-  headerParamName: string | null,
-  ctx: SchemaContext,
-  args: ArgsSpec
-): void {
-  if (!headerParamName) return;
+function buildHeaderArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec): void {
+  if (op.headerObjectParamIndex === null) return;
 
-  const headerParam = params.find(p => p.name === headerParamName);
+  const headerParam = op.parameters[op.headerObjectParamIndex];
   if (!headerParam) return;
 
   const headerSchema = typeToJsonSchema(headerParam.type, ctx);
   if (!headerSchema.properties) return;
 
-  const headerObjProps = headerSchema.properties;
-  for (const [propName, propSchema] of Object.entries(headerObjProps as Record<string, any>)) {
+  for (const [propName, propSchema] of Object.entries(headerSchema.properties as Record<string, any>)) {
     const isRequired = headerSchema.required?.includes(propName) ?? false;
-    const propType = propSchema.type;
     let schemaRef = propSchema.$ref;
-    if (!schemaRef && propType === "array" && propSchema.items?.$ref) {
-      schemaRef = propSchema.items.$ref;
-    } else if (!schemaRef) {
+    if (!schemaRef) {
       schemaRef = "#/components/schemas/InlineHeaderParam";
     }
 
-    const paramIndex = params.findIndex(p => p.name === headerParamName);
     args.headers.push({
       name: propName,
-      index: paramIndex,
+      index: headerParam.index,
       required: !isRequired,
       schemaRef,
+      schemaType: propSchema.type,
     });
   }
 }

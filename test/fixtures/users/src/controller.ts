@@ -28,10 +28,10 @@ export class UserController {
   }
 
   @Get("/:id")
-  async getUser(id: number, query: { verbose?: boolean }): Promise<UserDto | null> {
+  async getUser(id: number, verbose?: boolean): Promise<UserDto | null> {
     const user = users.find(u => u.id === Number(id));
     if (!user) return null;
-    if (query.verbose) {
+    if (verbose) {
       return { id: user.id, name: user.name, phone: user.phone, role: user.role };
     }
     return user;
