@@ -13,6 +13,10 @@ export interface BoundRoute {
   responses: OperationEntry["responses"];
 }
 
+function convertToExpressPath(path: string): string {
+  return path.replace(/:([^/]+)/g, ":$1");
+}
+
 export function bindRoutes(params: {
   controllers: Array<new (...args: any[]) => any>;
   manifest: ManifestV1;
@@ -60,7 +64,8 @@ export function bindRoutes(params: {
         );
       }
 
-      const fullPath = joinPaths(basePath, routeOp.path);
+      const expressPath = convertToExpressPath(routeOp.path);
+      const fullPath = joinPaths(basePath, expressPath);
 
       bound.push({
         operationId: opId,

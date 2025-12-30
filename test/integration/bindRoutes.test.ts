@@ -44,6 +44,20 @@ describe("bindRoutes", () => {
               ],
             },
             {
+              operationId: "UserController_getUser",
+              http: { method: "GET", path: "/:id" },
+              handler: { methodName: "getUser" },
+              args: {
+                body: null,
+                path: [{ name: "id", index: 0, required: true, schemaRef: "#/components/schemas/Number" }],
+                query: [{ name: "verbose", index: 1, required: false, schemaRef: "#/components/schemas/Boolean" }],
+                headers: [],
+              },
+              responses: [
+                { status: 200, contentType: "application/json", schemaRef: "#/components/schemas/UserDto" },
+              ],
+            },
+            {
               operationId: "UserController_createUser",
               http: { method: "POST", path: "/" },
               handler: { methodName: "createUser" },
@@ -64,11 +78,13 @@ describe("bindRoutes", () => {
 
     const routes = bindRoutes({ controllers: [UserController], manifest });
 
-    expect(routes).toHaveLength(2);
+    expect(routes).toHaveLength(3);
     expect(routes[0].fullPath).toBe("/users/");
     expect(routes[0].httpMethod).toBe("GET");
-    expect(routes[1].fullPath).toBe("/users/");
-    expect(routes[1].httpMethod).toBe("POST");
+    expect(routes[1].fullPath).toBe("/users/:id");
+    expect(routes[1].httpMethod).toBe("GET");
+    expect(routes[2].fullPath).toBe("/users/");
+    expect(routes[2].httpMethod).toBe("POST");
   });
 
   it("should throw on route drift", async () => {

@@ -17,6 +17,9 @@ export interface ScannedOperation {
   methodDeclaration: ts.MethodDeclaration;
   returnType: ts.Type;
   parameters: ScannedParameter[];
+  pathParams: string[];
+  queryParamName: string | null;
+  headerParamName: string | null;
 }
 
 export interface ScannedParameter {
@@ -125,6 +128,9 @@ function analyzeMethod(
     });
   }
 
+  const pathParams = extractPathParams(path);
+  const { queryParamName, headerParamName } = extractQueryAndHeaderParams(parameters, checker);
+
   return {
     methodName,
     httpMethod,
@@ -133,7 +139,55 @@ function analyzeMethod(
     methodDeclaration: node,
     returnType,
     parameters,
+    pathParams,
+    queryParamName,
+    headerParamName,
   };
+}
+
+function extractPathParams(path: string): string[] {
+  const matches = path.match(/:([^/]+)/g);
+  if (!matches) return [];
+  return matches.map(m => m.slice(1));
+}
+
+function extractQueryAndHeaderParams(
+  parameters: ScannedParameter[],
+  checker: ts.TypeChecker
+): { queryParamName: string | null; headerParamName: string | null } {
+  if (parameters.length === 0) {
+    return { queryParamName: null, headerParamName: null };
+  }
+
+  const lastParam = parameters[parameters.length - 1];
+  let queryParamName: string | null = null;
+  let headerParamName: string | null = null;
+
+  if (isObjectType(lastParam.type, checker)) {
+    if (lastParam.name === "q" || lastParam.name === "query") {
+      queryParamName = lastParam.name;
+    } else if (lastParam.name === "h" || lastParam.name === "headers") {
+      headerParamName = lastParam.name;
+    }
+  }
+
+  return { queryParamName, headerParamName };
+}
+
+function isObjectType(type: ts.Type, checker: ts.TypeChecker): boolean {
+  const objectFlags = (type.flags & ts.TypeFlags.Object) !== 0;
+  if (!objectFlags) return false;
+
+  const symbol = type.getSymbol();
+  if (symbol?.getName() === "__object") return true;
+
+  const properties = checker.getPropertiesOfType(type);
+  if (properties.length > 0) return true;
+
+  const callSignatures = type.getCallSignatures();
+  if (callSignatures && callSignatures.length > 0) return false;
+
+  return true;
 }
 
 function findDecorator(node: ts.HasDecorators, name: string): ts.Decorator | null {

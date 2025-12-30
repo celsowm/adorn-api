@@ -95,7 +95,7 @@ describe("Compiler Build - Users Fixture", () => {
     const controller = generatedManifest.controllers[0];
     expect(controller.controllerId).toBe("UserController");
     expect(controller.basePath).toBe("/users");
-    expect(controller.operations).toHaveLength(2);
+    expect(controller.operations).toHaveLength(3);
 
     const getOp = controller.operations.find(op => op.operationId === "UserController_getUsers");
     expect(getOp).toBeDefined();

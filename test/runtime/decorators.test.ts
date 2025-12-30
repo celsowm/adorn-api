@@ -22,12 +22,14 @@ describe("Stage-3 Decorator Metadata", () => {
 
     expect(bucket).not.toBeNull();
     expect(bucket!.basePath).toBe("/users");
-    expect(bucket!.ops).toHaveLength(2);
+    expect(bucket!.ops).toHaveLength(3);
 
-    const getOp = bucket!.ops.find(op => op.httpMethod === "GET");
-    expect(getOp).toBeDefined();
-    expect(getOp!.path).toBe("/");
-    expect(getOp!.methodName).toBe("getUsers");
+    const getOps = bucket!.ops.filter(op => op.httpMethod === "GET");
+    expect(getOps).toHaveLength(2);
+    expect(getOps.find(op => op.path === "/")).toBeDefined();
+    expect(getOps.find(op => op.path === "/")?.methodName).toBe("getUsers");
+    expect(getOps.find(op => op.path === "/:id")).toBeDefined();
+    expect(getOps.find(op => op.path === "/:id")?.methodName).toBe("getUser");
 
     const postOp = bucket!.ops.find(op => op.httpMethod === "POST");
     expect(postOp).toBeDefined();

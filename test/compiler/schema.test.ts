@@ -21,7 +21,7 @@ describe("Compiler Introspection", () => {
     expect(controllers).toHaveLength(1);
     expect(controllers[0].className).toBe("UserController");
     expect(controllers[0].basePath).toBe("/users");
-    expect(controllers[0].operations).toHaveLength(2);
+    expect(controllers[0].operations).toHaveLength(3);
   });
 
   it("should generate OpenAPI with correct schemas", () => {
@@ -34,6 +34,8 @@ describe("Compiler Introspection", () => {
     expect(openapi.paths["/users/"]).toBeDefined();
     expect(openapi.paths["/users/"]["get"]).toBeDefined();
     expect(openapi.paths["/users/"]["post"]).toBeDefined();
+    expect(openapi.paths["/users/{id}"]).toBeDefined();
+    expect(openapi.paths["/users/{id}"]["get"]).toBeDefined();
 
     expect(openapi.components.schemas["UserDto"]).toBeDefined();
     expect(openapi.components.schemas["CreateUserPayload"]).toBeDefined();
@@ -55,11 +57,18 @@ describe("Compiler Introspection", () => {
 
     const ops = manifest.controllers[0].operations;
     expect(ops.find(op => op.operationId === "UserController_getUsers")).toBeDefined();
+    expect(ops.find(op => op.operationId === "UserController_getUser")).toBeDefined();
     expect(ops.find(op => op.operationId === "UserController_createUser")).toBeDefined();
 
     const createOp = ops.find(op => op.operationId === "UserController_createUser")!;
     expect(createOp.args.body).not.toBeNull();
     expect(createOp.args.body?.index).toBe(0);
     expect(createOp.args.body?.required).toBe(true);
+
+    const getUserOp = ops.find(op => op.operationId === "UserController_getUser")!;
+    expect(getUserOp.args.path).toHaveLength(1);
+    expect(getUserOp.args.path[0].name).toBe("id");
+    expect(getUserOp.args.query).toHaveLength(1);
+    expect(getUserOp.args.query[0].name).toBe("verbose");
   });
 });

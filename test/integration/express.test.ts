@@ -40,6 +40,18 @@ describe("Express Integration", () => {
               responses: [{ status: 200, contentType: "application/json", schemaRef: "#/components/schemas/UserDto", isArray: true }],
             },
             {
+              operationId: "UserController_getUser",
+              http: { method: "GET", path: "/:id" },
+              handler: { methodName: "getUser" },
+              args: {
+                body: null,
+                path: [{ name: "id", index: 0, required: true, schemaRef: "#/components/schemas/Number" }],
+                query: [{ name: "verbose", index: 1, required: false, schemaRef: "#/components/schemas/Boolean" }],
+                headers: [],
+              },
+              responses: [{ status: 200, contentType: "application/json", schemaRef: "#/components/schemas/UserDto" }],
+            },
+            {
               operationId: "UserController_createUser",
               http: { method: "POST", path: "/" },
               handler: { methodName: "createUser" },

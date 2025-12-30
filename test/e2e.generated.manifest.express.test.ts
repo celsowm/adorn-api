@@ -59,6 +59,40 @@ describe("E2E - Generated Manifest with Express", () => {
     expect(res.body.id).toBe(2);
   });
 
+  it("should serve GET /users/:id with path params using generated manifest", async () => {
+    const controllerPath = resolve(fixtureRoot, "dist/controller.js");
+    const mod = await import(pathToFileURL(controllerPath).href);
+    const { UserController } = mod;
+
+    const { createExpressRouter } = await import("../dist/express.js");
+
+    const app = express();
+    app.use(express.json());
+    app.use(createExpressRouter({ controllers: [UserController], artifactsDir }));
+
+    const res = await request(app).get("/users/1");
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(1);
+    expect(res.body.name).toBe("Alan Turing");
+  });
+
+  it("should serve GET /users/:id with query params using generated manifest", async () => {
+    const controllerPath = resolve(fixtureRoot, "dist/controller.js");
+    const mod = await import(pathToFileURL(controllerPath).href);
+    const { UserController } = mod;
+
+    const { createExpressRouter } = await import("../dist/express.js");
+
+    const app = express();
+    app.use(express.json());
+    app.use(createExpressRouter({ controllers: [UserController], artifactsDir }));
+
+    const res = await request(app).get("/users/1?verbose=true");
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(1);
+    expect(res.body.name).toBe("Alan Turing");
+  });
+
   it("should serve POST and GET requests using generated manifest", async () => {
     const controllerPath = resolve(fixtureRoot, "dist/controller.js");
     const mod = await import(pathToFileURL(controllerPath).href);

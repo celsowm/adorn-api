@@ -50,6 +50,28 @@ export function createExpressRouter(options: CreateRouterOptions): Router {
           args[route.args.body.index] = req.body;
         }
 
+        for (const pathArg of route.args.path) {
+          args[pathArg.index] = req.params[pathArg.name];
+        }
+
+        if (route.args.query.length > 0) {
+          const queryArg = route.args.query[0];
+          const queryIndex = queryArg.index;
+          args[queryIndex] = {};
+          for (const q of route.args.query) {
+            args[queryIndex][q.name] = req.query[q.name];
+          }
+        }
+
+        if (route.args.headers.length > 0) {
+          const headerArg = route.args.headers[0];
+          const headerIndex = headerArg.index;
+          args[headerIndex] = {};
+          for (const h of route.args.headers) {
+            args[headerIndex][h.name] = req.headers[h.name.toLowerCase()];
+          }
+        }
+
         const result = await handler.apply(instance, args);
 
         const primaryResponse = route.responses[0];

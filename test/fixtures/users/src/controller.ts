@@ -12,6 +12,10 @@ class CreateUserPayload {
   phone!: string;
 }
 
+interface GetUserQuery {
+  verbose?: boolean;
+}
+
 const users: UserDto[] = [
   { id: 1, name: "Alan Turing", phone: "+44 123 456", role: "admin" },
 ];
@@ -21,6 +25,16 @@ export class UserController {
   @Get("/")
   async getUsers(): Promise<UserDto[]> {
     return users;
+  }
+
+  @Get("/:id")
+  async getUser(id: number, query: { verbose?: boolean }): Promise<UserDto | null> {
+    const user = users.find(u => u.id === Number(id));
+    if (!user) return null;
+    if (query.verbose) {
+      return { id: user.id, name: user.name, phone: user.phone, role: user.role };
+    }
+    return user;
   }
 
   @Post("/")
