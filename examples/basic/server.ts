@@ -11,14 +11,17 @@ const router = await createExpressRouter({
   artifactsDir: "./.adorn",
 });
 
-app.use("/api", router);
+app.use(router);
 
 app.get("/docs/openapi.json", async (req, res) => {
   res.json((await import("./.adorn/openapi.json")).default);
 });
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(null, {
-  swaggerOptions: { url: "/docs/openapi.json" },
+  swaggerOptions: { 
+    url: "/docs/openapi.json",
+    servers: [{ url: "http://localhost:3000/api" }]
+  },
 }));
 
 const PORT = process.env.PORT || 3000;
