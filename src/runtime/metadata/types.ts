@@ -12,9 +12,20 @@ export interface RouteOperation {
   path: string;
   methodName: string;
   operationId?: string;
+  use?: Array<string | ExpressMw>;
+  auth?: AuthMeta | "public";
 }
+
+export interface AuthMeta {
+  scheme: string;
+  scopes?: string[];
+  optional?: boolean;
+}
+
+export type ExpressMw = (req: any, res: any, next: (err?: any) => void) => any;
 
 export interface AdornBucket {
   basePath?: string;
+  controllerUse?: Array<string | ExpressMw>;
   ops: RouteOperation[];
 }

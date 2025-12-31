@@ -11,6 +11,9 @@ export interface BoundRoute {
   methodName: string;
   args: OperationEntry["args"];
   responses: OperationEntry["responses"];
+  use?: Array<string | ((req: any, res: any, next: (err?: any) => void) => any)>;
+  auth?: { scheme: string; scopes?: string[]; optional?: boolean } | "public";
+  controllerUse?: Array<string | ((req: any, res: any, next: (err?: any) => void) => any)>;
 }
 
 function convertToExpressPath(path: string): string {
@@ -75,6 +78,9 @@ export function bindRoutes(params: {
         methodName: routeOp.methodName,
         args: manifestOp.args,
         responses: manifestOp.responses,
+        use: routeOp.use,
+        auth: routeOp.auth,
+        controllerUse: bucket.controllerUse,
       });
     }
   }

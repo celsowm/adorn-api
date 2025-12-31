@@ -13,11 +13,18 @@ function createMethodDecorator(httpMethod: HttpMethod, path: string) {
     const methodName = String(context.name);
     const bucket = getBucket(context.metadata);
 
-    bucket.ops.push({
-      httpMethod,
-      path,
-      methodName,
-    });
+    let op = bucket.ops.find(op => op.methodName === methodName);
+    if (!op) {
+      op = {
+        httpMethod,
+        path,
+        methodName,
+      };
+      bucket.ops.push(op);
+    } else {
+      op.httpMethod = httpMethod;
+      op.path = path;
+    }
   };
 }
 

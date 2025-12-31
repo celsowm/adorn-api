@@ -7,8 +7,11 @@ export function getBucket(metadata: DecoratorMetadata): AdornBucket {
   }
   let bucket = metadata[ADORN_META] as AdornBucket | undefined;
   if (!bucket) {
-    bucket = { ops: [] };
+    bucket = { ops: [], controllerUse: [] };
     metadata[ADORN_META] = bucket;
+  }
+  if (!bucket.controllerUse) {
+    bucket.controllerUse = [];
   }
   return bucket;
 }

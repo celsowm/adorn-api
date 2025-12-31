@@ -3,15 +3,21 @@ import type { Request, Response, NextFunction } from "express";
 import { readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import type { ManifestV1 } from "../../compiler/manifest/format.js";
-import { bindRoutes } from "./merge.js";
-import type { BoundRoute } from "./merge.js";
+import { bindRoutes, type BoundRoute } from "./merge.js";
 import { createValidator, formatValidationErrors } from "../../runtime/validation/ajv.js";
+import type { AuthSchemeRuntime } from "../../runtime/auth/runtime.js";
 
 interface OpenAPI31 {
   openapi: string;
   components: {
     schemas: Record<string, Record<string, unknown>>;
+    securitySchemes?: Record<string, Record<string, unknown>>;
   };
+  security?: Array<Record<string, string[]>>;
+}
+
+interface AuthenticatedRequest extends Request {
+  auth?: any;
 }
 
 export interface CreateRouterOptions {
@@ -19,10 +25,17 @@ export interface CreateRouterOptions {
   artifactsDir?: string;
   manifest?: ManifestV1;
   openapi?: OpenAPI31;
+  auth?: {
+    schemes: Record<string, AuthSchemeRuntime>;
+  };
+  middleware?: {
+    global?: Array<string | ((req: any, res: any, next: (err?: any) => void) => any)>;
+    named?: Record<string, (req: any, res: any, next: (err?: any) => void) => any>;
+  };
 }
 
 export function createExpressRouter(options: CreateRouterOptions): Router {
-  const { controllers, artifactsDir = ".adorn" } = options;
+  const { controllers, artifactsDir = ".adorn", middleware = {} } = options;
 
   const manifest: ManifestV1 = options.manifest ?? JSON.parse(
     readFileSync(resolve(artifactsDir, "manifest.json"), "utf-8")
@@ -47,6 +60,73 @@ export function createExpressRouter(options: CreateRouterOptions): Router {
     return instanceCache.get(Ctor);
   }
 
+  function resolveMiddleware(
+    items: Array<string | ((req: any, res: any, next: (err?: any) => void) => any)>,
+    named: Record<string, (req: any, res: any, next: (err?: any) => void) => any> = {}
+  ): Array<(req: any, res: any, next: (err?: any) => void) => any> {
+    return items.map(item => {
+      if (typeof item === "string") {
+        const fn = named[item];
+        if (!fn) {
+          throw new Error(`Named middleware "${item}" not found in middleware registry`);
+        }
+        return fn;
+      }
+      return item;
+    });
+  }
+
+  function createAuthMiddleware(
+    authConfig: NonNullable<CreateRouterOptions["auth"]>,
+    routeAuth: BoundRoute["auth"],
+    globalSecurity: NonNullable<OpenAPI31["security"]>
+  ) {
+    return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      const isPublic = routeAuth === "public";
+      const hasAuthDecorator = routeAuth && routeAuth !== "public";
+      const hasGlobalSecurity = globalSecurity && globalSecurity.length > 0;
+
+      if (!hasAuthDecorator && !hasGlobalSecurity) {
+        return next();
+      }
+
+      if (isPublic) {
+        return next();
+      }
+
+      const authMeta = routeAuth as { scheme: string; scopes?: string[]; optional?: boolean };
+      const scheme = authMeta.scheme;
+      const requiredScopes = authMeta.scopes || [];
+      const isOptional = authMeta.optional ?? false;
+
+      const authRuntime = authConfig.schemes[scheme];
+      if (!authRuntime) {
+        throw new Error(`Auth scheme "${scheme}" not found in auth configuration`);
+      }
+
+      const result = await authRuntime.authenticate(req);
+
+      if (!result) {
+        if (isOptional) {
+          req.auth = null;
+          return next();
+        }
+        return authRuntime.challenge(res);
+      }
+
+      req.auth = result.principal;
+
+      if (authRuntime.authorize && requiredScopes.length > 0) {
+        if (!authRuntime.authorize(result, requiredScopes)) {
+          res.status(403).json({ error: "Forbidden", message: "Insufficient scopes" });
+          return;
+        }
+      }
+
+      next();
+    };
+  }
+
   function getSchemaByRef(ref: string): Record<string, unknown> | null {
     if (!ref.startsWith("#/components/schemas/")) return null;
     const schemaName = ref.replace("#/components/schemas/", "");
@@ -56,7 +136,26 @@ export function createExpressRouter(options: CreateRouterOptions): Router {
   for (const route of routes) {
     const method = route.httpMethod.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
 
-    router[method](route.fullPath, async (req: Request, res: Response, next: NextFunction) => {
+    const middlewareChain: Array<(req: any, res: any, next: (err?: any) => void) => any> = [];
+
+    if (middleware.global) {
+      middlewareChain.push(...resolveMiddleware(middleware.global, middleware.named || {}));
+    }
+
+    if (route.controllerUse) {
+      middlewareChain.push(...resolveMiddleware(route.controllerUse, middleware.named || {}));
+    }
+
+    if (route.use) {
+      middlewareChain.push(...resolveMiddleware(route.use, middleware.named || {}));
+    }
+
+    if (options.auth) {
+      const authMw = createAuthMiddleware(options.auth, route.auth, openapi.security || []);
+      middlewareChain.push(authMw);
+    }
+
+    router[method](route.fullPath, ...middlewareChain, async (req: Request, res: Response, next: NextFunction) => {
       try {
         const validationErrors = validateRequest(route, req, openapi, validator);
         if (validationErrors) {
@@ -115,6 +214,10 @@ export function createExpressRouter(options: CreateRouterOptions): Router {
               args[h.index] = headerValue ?? undefined;
             }
           }
+        }
+
+        if (args.length === 0) {
+          args.push(req);
         }
 
         const result = await handler.apply(instance, args);
