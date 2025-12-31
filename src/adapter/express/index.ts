@@ -7,6 +7,7 @@ import { bindRoutes, type BoundRoute } from "./merge.js";
 import { createValidator, formatValidationErrors } from "../../runtime/validation/ajv.js";
 import type { AuthSchemeRuntime } from "../../runtime/auth/runtime.js";
 import { loadArtifacts } from "../../compiler/cache/loadArtifacts.js";
+import swaggerUi from "swagger-ui-express";
 
 interface OpenAPI31 {
   openapi: string;
@@ -32,6 +33,17 @@ export interface CreateRouterOptions {
   middleware?: {
     global?: Array<string | ((req: any, res: any, next: (err?: any) => void) => any)>;
     named?: Record<string, (req: any, res: any, next: (err?: any) => void) => any>;
+  };
+}
+
+export interface SetupSwaggerOptions {
+  artifactsDir?: string;
+  jsonPath?: string;
+  uiPath?: string;
+  swaggerOptions?: {
+    url?: string;
+    servers?: Array<{ url: string; description?: string }>;
+    [key: string]: any;
   };
 }
 
@@ -526,3 +538,28 @@ function parseCookies(cookieHeader: string | undefined): Record<string, string> 
 
   return cookies;
 }
+
+export function setupSwagger(options: SetupSwaggerOptions = {}): Router {
+  const {
+    artifactsDir = ".adorn",
+    jsonPath = "/docs/openapi.json",
+    uiPath = "/docs",
+    swaggerOptions = {},
+  } = options;
+
+  const router = Router();
+
+  router.get(jsonPath, (req, res) => {
+    res.sendFile(resolve(process.cwd(), artifactsDir, "openapi.json"));
+  });
+
+  router.use(uiPath, swaggerUi.serve, swaggerUi.setup(null, {
+    swaggerOptions: {
+      url: jsonPath,
+      ...swaggerOptions,
+    },
+  }));
+
+  return router;
+}
+
