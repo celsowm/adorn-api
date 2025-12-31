@@ -28,25 +28,36 @@ async function main() {
     console.log(`\n✅ Server running at http://localhost:3000/docs\n`);
     console.log("Press Ctrl+C to stop\n");
     
-    // execSync works cross-platform (Windows/Linux/macOS)
-    // It automatically uses the appropriate shell for each platform
-    const command = "npm run dev";
-    
-    try {
-      execSync(command, {
-        cwd: examplePath,
-        stdio: "inherit",
+    const child = spawn("npm", ["run", "dev"], {
+      cwd: examplePath,
+      stdio: "inherit",
+      shell: true,
+    });
+
+    // Handle signals properly
+    process.on("SIGINT", () => {
+      child.kill("SIGINT");
+    });
+
+    process.on("SIGTERM", () => {
+      child.kill("SIGTERM");
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      child.on("exit", (code) => {
+        if (code === 0 || code === null) {
+          resolve();
+        } else {
+          reject(new Error(`Process exited with code ${code}`));
+        }
       });
-    } catch (error) {
-      // User pressed Ctrl+C, which is expected
-      if ((error as any).signal === "SIGINT") {
-        process.exit(0);
-      }
-      throw error;
-    }
+      child.on("error", reject);
+    });
   } catch (err: any) {
-    console.error(`\n❌ Error: ${err.message}`);
-    process.exit(1);
+    if (err.code !== "SIGINT" && err.code !== "SIGTERM") {
+      console.error(`\n❌ Error: ${err.message}`);
+      process.exit(1);
+    }
   }
 }
 
