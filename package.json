@@ -36,7 +36,8 @@
     "./package.json": "./package.json"
   },
   "bin": {
-    "adorn-api": "./dist/bin/adorn-api.cjs"
+    "adorn-api": "./dist/cli.cjs",
+    "adorn-example": "./dist/scripts/adorn-example.cjs"
   },
   "files": [
     "dist",
@@ -47,15 +48,17 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint src --ext .ts",
     "check": "npm run typecheck && npm run test",
-    "build:js": "tsup src/index.ts src/express.ts src/cli.ts src/schema/index.ts src/metal/index.ts --format esm,cjs --out-dir dist --sourcemap",
+    "build:js": "tsup src/index.ts src/express.ts src/cli.ts src/schema/index.ts src/metal/index.ts --format esm,cjs --out-dir dist --sourcemap --no-splitting && tsup scripts/adorn-example.ts --format esm,cjs --out-dir dist/scripts --sourcemap --no-splitting",
     "build:types": "tsc -p tsconfig.build.json",
     "build": "npm run clean && npm run build:js && npm run build:types",
     "test": "vitest run",
     "test:staleness": "vitest run test/cache/staleness.test.ts",
     "dev": "tsx src/cli.ts dev",
     "example": "tsx scripts/run-example.ts",
-    "example:basic": "npm run example -- basic",
+    "example:list": "tsx scripts/adorn-example.ts --list",
+    "example:blog-platform": "npm run example -- blog-platform",
     "example:task-manager": "npm run example -- task-manager",
+    "example:basic": "npm run example -- basic",
     "examples:install": "cd examples/basic && npm install"
   },
   "dependencies": {
