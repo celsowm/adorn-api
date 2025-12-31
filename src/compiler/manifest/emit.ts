@@ -45,11 +45,13 @@ function buildOperationEntry(op: ScannedOperation, ctx: SchemaContext): Operatio
     path: [],
     query: [],
     headers: [],
+    cookies: [],
   };
 
   buildPathArgs(op, ctx, args);
   buildQueryArgs(op, ctx, args);
   buildHeaderArgs(op, ctx, args);
+  buildCookieArgs(op, ctx, args);
 
   if (op.bodyParamIndex !== null) {
     const bodyParam = op.parameters[op.bodyParamIndex];
@@ -60,7 +62,7 @@ function buildOperationEntry(op: ScannedOperation, ctx: SchemaContext): Operatio
       args.body = {
         index: bodyParam.index,
         required: !bodyParam.isOptional,
-        contentType: "application/json",
+        contentType: op.bodyContentType ?? "application/json",
         schemaRef,
       };
     }
@@ -181,6 +183,33 @@ function buildHeaderArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpe
       required: !isRequired,
       schemaRef,
       schemaType: propSchema.type,
+    });
+  }
+}
+
+function buildCookieArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec): void {
+  if (op.cookieObjectParamIndex === null) return;
+
+  const cookieParam = op.parameters[op.cookieObjectParamIndex];
+  if (!cookieParam) return;
+
+  const cookieSchema = typeToJsonSchema(cookieParam.type, ctx);
+  if (!cookieSchema.properties) return;
+
+  for (const [propName, propSchema] of Object.entries(cookieSchema.properties as Record<string, any>)) {
+    const isRequired = cookieSchema.required?.includes(propName) ?? false;
+    let schemaRef = propSchema.$ref;
+    if (!schemaRef) {
+      schemaRef = "#/components/schemas/InlineCookieParam";
+    }
+
+    args.cookies.push({
+      name: propName,
+      index: cookieParam.index,
+      required: !isRequired,
+      schemaRef,
+      schemaType: propSchema.type,
+      serialization: { style: "form", explode: true },
     });
   }
 }

@@ -6,6 +6,7 @@ export type ContentType =
   | "application/json"
   | "text/plain"
   | "application/octet-stream"
+  | "multipart/form-data"
   | string;
 
 export interface ManifestV1 {
@@ -55,6 +56,7 @@ export interface ArgsSpec {
   path: NamedArgSpec[];
   query: NamedArgSpec[];
   headers: NamedArgSpec[];
+  cookies: NamedArgSpec[];
 }
 
 export interface BodyArgSpec {
@@ -62,6 +64,12 @@ export interface BodyArgSpec {
   required: boolean;
   contentType: ContentType;
   schemaRef: string;
+  encoding?: Record<string, EncodingSpec>;
+}
+
+export interface EncodingSpec {
+  contentType?: string;
+  headers?: Record<string, string>;
 }
 
 export interface NamedArgSpec {
@@ -70,6 +78,13 @@ export interface NamedArgSpec {
   required: boolean;
   schemaRef: string;
   schemaType?: string | string[];
+  serialization?: SerializationSpec;
+}
+
+export interface SerializationSpec {
+  style?: "form" | "spaceDelimited" | "pipeDelimited" | "deepObject";
+  explode?: boolean;
+  allowReserved?: boolean;
 }
 
 export interface ResponseSpec {

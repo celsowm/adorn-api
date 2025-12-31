@@ -1,6 +1,6 @@
 import ts from "typescript";
 import type { ScannedController, ScannedOperation, ScannedParameter } from "../analyze/scanControllers.js";
-import { typeToJsonSchema } from "./typeToJsonSchema.js";
+import { typeToJsonSchema, createSchemaContext } from "./typeToJsonSchema.js";
 import { extractPropertySchemaFragments, mergeFragments } from "./extractAnnotations.js";
 import type { SchemaContext, JsonSchema } from "./typeToJsonSchema.js";
 
@@ -22,7 +22,7 @@ export function generateOpenAPI(
   options: { title?: string; version?: string } = {}
 ): OpenAPI31 {
   const components = new Map<string, JsonSchema>();
-  const ctx: SchemaContext = { checker, components };
+  const ctx = createSchemaContext(checker);
 
   const paths: Record<string, Record<string, any>> = {};
 
@@ -35,7 +35,7 @@ export function generateOpenAPI(
       }
 
       const method = operation.httpMethod.toLowerCase();
-      paths[fullPath][method] = buildOperation(operation, ctx);
+      paths[fullPath][method] = buildOperation(operation, ctx, controller.consumes);
     }
   }
 
@@ -58,7 +58,7 @@ function convertToOpenApiPath(basePath: string, path: string): string {
   return base + converted || "/";
 }
 
-function buildOperation(operation: ScannedOperation, ctx: SchemaContext): any {
+function buildOperation(operation: ScannedOperation, ctx: SchemaContext, controllerConsumes?: string[]): any {
   const op: any = {
     operationId: operation.operationId,
     responses: {},
@@ -69,6 +69,7 @@ function buildOperation(operation: ScannedOperation, ctx: SchemaContext): any {
   buildPathParameters(operation, ctx, parameters);
   buildQueryParameters(operation, ctx, parameters);
   buildHeaderParameters(operation, ctx, parameters);
+  buildCookieParameters(operation, ctx, parameters);
 
   if (parameters.length > 0) {
     op.parameters = parameters;
@@ -91,14 +92,25 @@ function buildOperation(operation: ScannedOperation, ctx: SchemaContext): any {
     if (bodyParam) {
       let bodySchema = typeToJsonSchema(bodyParam.type, ctx);
       bodySchema = mergeBodySchemaAnnotations(bodyParam, ctx, bodySchema);
-      op.requestBody = {
+      
+      const contentType = operation.bodyContentType ?? controllerConsumes?.[0] ?? "application/json";
+      
+      const requestBody: any = {
         required: !bodyParam.isOptional,
-        content: {
-          "application/json": {
-            schema: bodySchema,
-          },
-        },
+        content: {},
       };
+
+      if (contentType === "multipart/form-data") {
+        requestBody.content["multipart/form-data"] = {
+          schema: bodySchema,
+        };
+      } else {
+        requestBody.content[contentType] = {
+          schema: bodySchema,
+        };
+      }
+
+      op.requestBody = requestBody;
     }
   }
 
@@ -175,11 +187,13 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
     const queryObjProps = querySchema.properties;
     for (const [propName, propSchema] of Object.entries(queryObjProps as Record<string, any>)) {
       const isRequired = querySchema.required?.includes(propName) ?? false;
+      const serialization = determineQuerySerialization(propSchema.type);
       parameters.push({
         name: propName,
         in: "query",
         required: isRequired,
         schema: propSchema,
+        ...(Object.keys(serialization).length > 0 ? serialization : {}),
       });
     }
   }
@@ -194,6 +208,7 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
           paramSchema = mergeFragments(paramSchema as Record<string, unknown>, ...frags) as JsonSchema;
         }
       }
+      const serialization = determineQuerySerialization(paramSchema.type);
       parameters.push({
         name: param.name,
         in: "query",
@@ -201,9 +216,21 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
         schema: paramSchema.$ref
           ? { type: "string", $ref: paramSchema.$ref }
           : paramSchema,
+        ...(Object.keys(serialization).length > 0 ? serialization : {}),
       });
     }
   }
+}
+
+function determineQuerySerialization(schemaType: string | string[] | undefined): { style?: string; explode?: boolean } {
+  const typeArray = Array.isArray(schemaType) ? schemaType : schemaType ? [schemaType] : [];
+  const isArray = typeArray.includes("array");
+  
+  if (isArray) {
+    return { style: "form", explode: true };
+  }
+  
+  return {};
 }
 
 function buildHeaderParameters(operation: ScannedOperation, ctx: SchemaContext, parameters: any[]): void {
@@ -223,6 +250,29 @@ function buildHeaderParameters(operation: ScannedOperation, ctx: SchemaContext, 
       in: "header",
       required: isRequired,
       schema: propSchema,
+    });
+  }
+}
+
+function buildCookieParameters(operation: ScannedOperation, ctx: SchemaContext, parameters: any[]): void {
+  if (operation.cookieObjectParamIndex === null) return;
+
+  const cookieParam = operation.parameters[operation.cookieObjectParamIndex];
+  if (!cookieParam) return;
+
+  const cookieSchema = typeToJsonSchema(cookieParam.type, ctx);
+  if (!cookieSchema.properties) return;
+
+  const cookieObjProps = cookieSchema.properties;
+  for (const [propName, propSchema] of Object.entries(cookieObjProps as Record<string, any>)) {
+    const isRequired = cookieSchema.required?.includes(propName) ?? false;
+    parameters.push({
+      name: propName,
+      in: "cookie",
+      required: isRequired,
+      schema: propSchema,
+      style: "form",
+      explode: true,
     });
   }
 }

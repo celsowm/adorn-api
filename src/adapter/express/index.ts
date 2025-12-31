@@ -187,12 +187,14 @@ export function createExpressRouter(options: CreateRouterOptions): Router {
           if (allSameIndex) {
             args[firstQueryIndex] = {};
             for (const q of route.args.query) {
-              const coerced = coerceValue(req.query[q.name], q.schemaType);
+              const parsed = parseQueryValue(req.query[q.name], q);
+              const coerced = coerceValue(parsed, q.schemaType);
               args[firstQueryIndex][q.name] = coerced;
             }
           } else {
             for (const q of route.args.query) {
-              const coerced = coerceValue(req.query[q.name], q.schemaType);
+              const parsed = parseQueryValue(req.query[q.name], q);
+              const coerced = coerceValue(parsed, q.schemaType);
               args[q.index] = coerced;
             }
           }
@@ -212,6 +214,27 @@ export function createExpressRouter(options: CreateRouterOptions): Router {
             for (const h of route.args.headers) {
               const headerValue = req.headers[h.name.toLowerCase()];
               args[h.index] = headerValue ?? undefined;
+            }
+          }
+        }
+
+        if (route.args.cookies.length > 0) {
+          const firstCookieIndex = route.args.cookies[0].index;
+          const allSameIndex = route.args.cookies.every(c => c.index === firstCookieIndex);
+          const cookies = parseCookies(req.headers.cookie);
+
+          if (allSameIndex) {
+            args[firstCookieIndex] = {};
+            for (const c of route.args.cookies) {
+              const cookieValue = cookies[c.name];
+              const coerced = coerceValue(cookieValue, c.schemaType);
+              args[firstCookieIndex][c.name] = coerced;
+            }
+          } else {
+            for (const c of route.args.cookies) {
+              const cookieValue = cookies[c.name];
+              const coerced = coerceValue(cookieValue, c.schemaType);
+              args[c.index] = coerced;
             }
           }
         }
@@ -365,4 +388,54 @@ function coerceValue(value: any, schemaType?: string | string[]): any {
   }
 
   return value;
+}
+
+function parseQueryValue(value: any, param: { schemaType?: string | string[]; serialization?: { style?: string; explode?: boolean } }): any {
+  if (value === undefined || value === null) return value;
+
+  const isArray = Array.isArray(param.schemaType)
+    ? param.schemaType.includes("array")
+    : param.schemaType === "array";
+
+  if (!isArray) return value;
+
+  const style = param.serialization?.style ?? "form";
+  const explode = param.serialization?.explode ?? true;
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (style === "form") {
+    if (explode) {
+      return value;
+    }
+    return value.split(",");
+  }
+
+  if (style === "spaceDelimited") {
+    return value.split(" ");
+  }
+
+  if (style === "pipeDelimited") {
+    return value.split("|");
+  }
+
+  return value;
+}
+
+function parseCookies(cookieHeader: string | undefined): Record<string, string> {
+  if (!cookieHeader) return {};
+
+  const cookies: Record<string, string> = {};
+  const pairs = cookieHeader.split(";");
+
+  for (const pair of pairs) {
+    const [name, ...valueParts] = pair.trim().split("=");
+    if (name) {
+      cookies[name] = valueParts.join("=");
+    }
+  }
+
+  return cookies;
 }

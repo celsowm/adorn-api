@@ -6,3 +6,13 @@ export type { HttpMethod, RouteOperation, AdornBucket, AuthMeta, ExpressMw } fro
 export type { AuthSchemeRuntime, AuthResult } from "./runtime/auth/runtime.js";
 export * from "./schema/index.js";
 export { createValidator, formatValidationErrors, ValidationErrorResponse } from "./runtime/validation/index.js";
+export {
+  QueryStyle,
+  File,
+  PartType,
+  Consumes,
+  Produces,
+} from "./http.js";
+export type { Cookies } from "./http.js";
+export type { QueryStyleOptions, FilePartOptions, HttpMetadata } from "./http.js";
+export type { UploadFile } from "./runtime/upload.js";

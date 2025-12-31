@@ -7,6 +7,8 @@ export interface ScannedController {
   sourceFile: ts.SourceFile;
   classDeclaration: ts.ClassDeclaration;
   operations: ScannedOperation[];
+  consumes?: string[];
+  produces?: string[];
 }
 
 export interface ScannedOperation {
@@ -22,6 +24,8 @@ export interface ScannedOperation {
   queryParamIndices: number[];
   queryObjectParamIndex: number | null;
   headerObjectParamIndex: number | null;
+  cookieObjectParamIndex: number | null;
+  bodyContentType?: string;
 }
 
 export interface ScannedParameter {
@@ -65,6 +69,9 @@ function analyzeClass(
   const basePath = extractDecoratorStringArg(controllerDecorator) ?? "/";
   const className = node.name.text;
 
+  const consumes = extractClassConsumes(node, checker);
+  const produces = extractClassProduces(node, checker);
+
   const operations: ScannedOperation[] = [];
 
   for (const member of node.members) {
@@ -84,7 +91,51 @@ function analyzeClass(
     sourceFile,
     classDeclaration: node,
     operations,
+    consumes,
+    produces,
   };
+}
+
+function extractClassConsumes(node: ts.ClassDeclaration, checker: ts.TypeChecker): string[] | undefined {
+  const decorator = findDecorator(node, "Consumes");
+  if (!decorator) return undefined;
+
+  const callExpr = decorator.expression;
+  if (!ts.isCallExpression(callExpr)) return undefined;
+  const args = callExpr.arguments;
+  if (args.length === 0) return undefined;
+
+  const firstArg = args[0];
+  if (ts.isStringLiteral(firstArg)) {
+    return [firstArg.text];
+  }
+  if (ts.isArrayLiteralExpression(firstArg)) {
+    return firstArg.elements
+      .filter(ts.isStringLiteral)
+      .map(e => e.text);
+  }
+  return undefined;
+}
+
+function extractClassProduces(node: ts.ClassDeclaration, checker: ts.TypeChecker): string[] | undefined {
+  const decorator = findDecorator(node, "Produces");
+  if (!decorator) return undefined;
+
+  const callExpr = decorator.expression;
+  if (!ts.isCallExpression(callExpr)) return undefined;
+  const args = callExpr.arguments;
+  if (args.length === 0) return undefined;
+
+  const firstArg = args[0];
+  if (ts.isStringLiteral(firstArg)) {
+    return [firstArg.text];
+  }
+  if (ts.isArrayLiteralExpression(firstArg)) {
+    return firstArg.elements
+      .filter(ts.isStringLiteral)
+      .map(e => e.text);
+  }
+  return undefined;
 }
 
 function analyzeMethod(
@@ -135,7 +186,7 @@ function analyzeMethod(
   const pathParamNames = extractPathParams(path);
   const pathParamIndices = matchPathParamsToIndices(pathParamNames, parameters);
   
-  const { bodyParamIndex, queryParamIndices, queryObjectParamIndex, headerObjectParamIndex } = 
+  const { bodyParamIndex, queryParamIndices, queryObjectParamIndex, headerObjectParamIndex, cookieObjectParamIndex, bodyContentType } = 
     classifyParameters(parameters, httpMethod, pathParamIndices, checker);
 
   return {
@@ -151,6 +202,8 @@ function analyzeMethod(
     queryParamIndices,
     queryObjectParamIndex,
     headerObjectParamIndex,
+    cookieObjectParamIndex,
+    bodyContentType,
   };
 }
 
@@ -181,12 +234,15 @@ function classifyParameters(
   queryParamIndices: number[];
   queryObjectParamIndex: number | null;
   headerObjectParamIndex: number | null;
+  cookieObjectParamIndex: number | null;
+  bodyContentType: string | undefined;
 } {
   const usedIndices = new Set(pathParamIndices);
   const queryParamIndices: number[] = [];
   let bodyParamIndex: number | null = null;
   let queryObjectParamIndex: number | null = null;
   let headerObjectParamIndex: number | null = null;
+  let cookieObjectParamIndex: number | null = null;
 
   const isBodyMethod = ["POST", "PUT", "PATCH"].includes(httpMethod);
 
@@ -214,6 +270,12 @@ function classifyParameters(
       continue;
     }
 
+    if (typeStr === "Cookies") {
+      cookieObjectParamIndex = i;
+      usedIndices.add(i);
+      continue;
+    }
+
     if (isBodyMethod && bodyParamIndex === null) {
       bodyParamIndex = i;
       usedIndices.add(i);
@@ -236,6 +298,8 @@ function classifyParameters(
     queryParamIndices,
     queryObjectParamIndex,
     headerObjectParamIndex,
+    cookieObjectParamIndex,
+    bodyContentType: undefined,
   };
 }
 

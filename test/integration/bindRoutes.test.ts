@@ -38,7 +38,7 @@ describe("bindRoutes", () => {
               operationId: "UserController_getUsers",
               http: { method: "GET", path: "/" },
               handler: { methodName: "getUsers" },
-              args: { body: null, path: [], query: [], headers: [] },
+              args: { body: null, path: [], query: [], headers: [], cookies: [] },
               responses: [
                 { status: 200, contentType: "application/json", schemaRef: "#/components/schemas/UserDto", isArray: true },
               ],
@@ -52,6 +52,7 @@ describe("bindRoutes", () => {
                 path: [{ name: "id", index: 0, required: true, schemaRef: "#/components/schemas/Number" }],
                 query: [{ name: "verbose", index: 1, required: false, schemaRef: "#/components/schemas/Boolean" }],
                 headers: [],
+                cookies: [],
               },
               responses: [
                 { status: 200, contentType: "application/json", schemaRef: "#/components/schemas/UserDto" },
@@ -66,6 +67,7 @@ describe("bindRoutes", () => {
                 path: [],
                 query: [],
                 headers: [],
+                cookies: [],
               },
               responses: [
                 { status: 201, contentType: "application/json", schemaRef: "#/components/schemas/UserDto" },
@@ -109,7 +111,7 @@ describe("bindRoutes", () => {
               operationId: "UserController_getUsers",
               http: { method: "GET", path: "/wrong" },
               handler: { methodName: "getUsers" },
-              args: { body: null, path: [], query: [], headers: [] },
+              args: { body: null, path: [], query: [], headers: [], cookies: [] },
               responses: [],
             },
           ],
