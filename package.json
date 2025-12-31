@@ -52,7 +52,10 @@
     "build": "npm run clean && npm run build:js && npm run build:types",
     "test": "vitest run",
     "test:staleness": "vitest run test/cache/staleness.test.ts",
-    "dev": "tsx src/cli.ts dev"
+    "dev": "tsx src/cli.ts dev",
+    "example": "tsx scripts/run-example.ts",
+    "example:basic": "npm run example -- basic",
+    "examples:install": "cd examples/basic && npm install"
   },
   "dependencies": {
     "ajv": "^8.17.1",
