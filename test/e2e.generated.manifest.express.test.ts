@@ -28,7 +28,7 @@ describe("E2E - Generated Manifest with Express", () => {
 
     const app = express();
     app.use(express.json());
-    app.use(createExpressRouter({ controllers: [UserController], artifactsDir }));
+    app.use(await createExpressRouter({ controllers: [UserController], artifactsDir }));
 
     const res = await request(app).get("/users/");
     expect(res.status).toBe(200);
@@ -47,7 +47,7 @@ describe("E2E - Generated Manifest with Express", () => {
 
     const app = express();
     app.use(express.json());
-    app.use(createExpressRouter({ controllers: [UserController], artifactsDir }));
+    app.use(await createExpressRouter({ controllers: [UserController], artifactsDir }));
 
     const newUser = { name: "Grace Hopper", phone: "+1 555 123" };
     const res = await request(app).post("/users/").send(newUser);
@@ -68,7 +68,7 @@ describe("E2E - Generated Manifest with Express", () => {
 
     const app = express();
     app.use(express.json());
-    app.use(createExpressRouter({ controllers: [UserController], artifactsDir }));
+    app.use(await createExpressRouter({ controllers: [UserController], artifactsDir }));
 
     const res = await request(app).get("/users/1");
     expect(res.status).toBe(200);
@@ -85,7 +85,7 @@ describe("E2E - Generated Manifest with Express", () => {
 
     const app = express();
     app.use(express.json());
-    app.use(createExpressRouter({ controllers: [UserController], artifactsDir }));
+    app.use(await createExpressRouter({ controllers: [UserController], artifactsDir }));
 
     const res = await request(app).get("/users/1?verbose=true");
     expect(res.status).toBe(200);
@@ -102,7 +102,7 @@ describe("E2E - Generated Manifest with Express", () => {
 
     const app = express();
     app.use(express.json());
-    app.use(createExpressRouter({ controllers: [UserController], artifactsDir }));
+    app.use(await createExpressRouter({ controllers: [UserController], artifactsDir }));
 
     const res1 = await request(app).post("/users/").send({ name: "Test User", phone: "123" });
     expect(res1.status).toBe(201);

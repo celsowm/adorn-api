@@ -18,7 +18,15 @@ const openapi = {
         type: "object",
       },
     },
+    securitySchemes: {
+      BearerAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+      },
+    },
   },
+  security: [{ BearerAuth: [] }],
 };
 
 describe("middleware order", () => {
@@ -52,7 +60,7 @@ describe("middleware order", () => {
     }
 
     const app = express();
-    app.use(createExpressRouter({
+    app.use(await createExpressRouter({
       controllers: [TestController],
       manifest: {
         manifestVersion: 1,
@@ -102,7 +110,7 @@ describe("middleware order", () => {
     }
 
     const app = express();
-    app.use(createExpressRouter({
+    app.use(await createExpressRouter({
       controllers: [TestController],
       manifest: {
         manifestVersion: 1,
@@ -167,7 +175,7 @@ describe("auth", () => {
     }
 
     const app = express();
-    app.use(createExpressRouter({
+    app.use(await createExpressRouter({
       controllers: [TestController],
       manifest: {
         manifestVersion: 1,
@@ -234,7 +242,7 @@ describe("auth", () => {
     }
 
     const app = express();
-    app.use(createExpressRouter({
+    app.use(await createExpressRouter({
       controllers: [TestController],
       manifest: {
         manifestVersion: 1,
@@ -303,7 +311,7 @@ describe("auth", () => {
     }
 
     const app = express();
-    app.use(createExpressRouter({
+    app.use(await createExpressRouter({
       controllers: [TestController],
       manifest: {
         manifestVersion: 1,

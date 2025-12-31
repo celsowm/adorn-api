@@ -39,7 +39,11 @@ function computeManifestHash(manifest: ManifestV1): string {
 }
 
 function getControllerIds(controllers: Array<new (...args: any[]) => any>): string[] {
-  return controllers.map(c => c.name).sort();
+  return controllers.map(c => c.name);
+}
+
+function getControllerUniqueIds(controllers: Array<new (...args: any[]) => any>): string[] {
+  return controllers.map(c => `${c.name}:${c.toString()}`);
 }
 
 export function bindRoutes(params: {
@@ -51,7 +55,7 @@ export function bindRoutes(params: {
 
   if (useCache) {
     const manifestHash = computeManifestHash(manifest);
-    const controllerIds = getControllerIds(controllers);
+    const controllerIds = getControllerUniqueIds(controllers);
     const cacheKey = `${manifestHash}:${controllerIds.join(",")}`;
 
     const cached = routeCache.get(cacheKey);

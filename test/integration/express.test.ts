@@ -99,7 +99,7 @@ describe("Express Integration", () => {
 
     const app = express();
     app.use(express.json());
-    app.use(createExpressRouter({ controllers: [UserController], manifest, openapi }));
+    app.use(await createExpressRouter({ controllers: [UserController], manifest, openapi }));
 
     const getRes = await request(app).get("/users/");
     expect(getRes.status).toBe(200);
