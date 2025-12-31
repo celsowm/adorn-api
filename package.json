@@ -55,6 +55,7 @@
     "dev": "tsx src/cli.ts dev",
     "example": "tsx scripts/run-example.ts",
     "example:basic": "npm run example -- basic",
+    "example:task-manager": "npm run example -- task-manager",
     "examples:install": "cd examples/basic && npm install"
   },
   "dependencies": {
