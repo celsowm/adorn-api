@@ -143,5 +143,38 @@ export function Const<T>(val: T): PropertyDecorator {
   };
 }
 
+export function Default<T>(val: T): PropertyDecorator {
+  return function (target: Object, propertyKey: string | symbol): void {
+    pushSchemaFrag(target, propertyKey, {}, { default: val });
+  };
+}
+
+export function AdditionalProperties(value: boolean | Record<string, unknown>): PropertyDecorator {
+  return function (target: Object, propertyKey: string | symbol): void {
+    pushSchemaFrag(target, propertyKey, {}, { additionalProperties: value });
+  };
+}
+
+export function Closed(): PropertyDecorator {
+  return function (target: Object, propertyKey: string | symbol): void {
+    pushSchemaFrag(target, propertyKey, {}, { additionalProperties: false });
+  };
+}
+
+export function ClosedUnevaluated(): PropertyDecorator {
+  return function (target: Object, propertyKey: string | symbol): void {
+    pushSchemaFrag(target, propertyKey, {}, { unevaluatedProperties: false });
+  };
+}
+
+export function Union(mode: "anyOf" | "oneOf" | "allOf"): ClassDecorator {
+  return function (target: Function): void {
+    (target as any)[ADORN_META] = (target as any)[ADORN_META] ?? {};
+    const meta = (target as any)[ADORN_META] as SchemaMetadata;
+    meta.schema = meta.schema ?? { props: {} };
+    (meta.schema as any).unionMode = mode;
+  };
+}
+
 export { ADORN_META };
 export type { SchemaFrag, SchemaMetadata };

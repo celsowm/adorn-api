@@ -10,7 +10,12 @@ export function generateManifest(
   version: string
 ): ManifestV1 {
   const components = new Map<string, any>();
-  const ctx: SchemaContext = { checker, components };
+  const ctx: SchemaContext = {
+    checker,
+    components,
+    typeStack: new Set(),
+    typeNameStack: [],
+  };
 
   const controllerEntries: ControllerEntry[] = controllers.map(ctrl => ({
     controllerId: ctrl.className,

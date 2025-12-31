@@ -22,7 +22,12 @@ export function generateOpenAPI(
   options: { title?: string; version?: string } = {}
 ): OpenAPI31 {
   const components = new Map<string, JsonSchema>();
-  const ctx = createSchemaContext(checker);
+  const ctx: SchemaContext = {
+    checker,
+    components,
+    typeStack: new Set(),
+    typeNameStack: [],
+  };
 
   const paths: Record<string, Record<string, any>> = {};
 

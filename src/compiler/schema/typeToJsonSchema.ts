@@ -351,39 +351,33 @@ function handleObjectType(
   ctx: SchemaContext,
   typeNode?: ts.TypeNode
 ): JsonSchema {
-  const { checker, components } = ctx;
+  const { checker, components, typeStack } = ctx;
   const symbol = type.getSymbol();
   const typeName = symbol?.getName?.() ?? getTypeNameFromNode(typeNode, ctx);
 
   if (typeName && typeName !== "__type") {
-    const typeId = getTypeId(type, typeName);
-
-    if (ctx.typeStack.has(type)) {
-      return { $ref: `#/components/schemas/${typeName}` };
-    }
-
-    ctx.typeStack.add(type);
-    ctx.typeNameStack.push(typeName);
-
     if (components.has(typeName)) {
-      ctx.typeStack.delete(type);
-      ctx.typeNameStack.pop();
       return { $ref: `#/components/schemas/${typeName}` };
     }
+
+    if (typeStack.has(type)) {
+      return { $ref: `#/components/schemas/${typeName}` };
+    }
+
+    typeStack.add(type);
   }
 
   const schema = buildObjectSchema(type, ctx, typeNode);
 
-  if (typeName && typeName !== "__type" && !components.has(typeName)) {
-    components.set(typeName, schema);
-    ctx.typeStack.delete(type);
-    ctx.typeNameStack.pop();
+  if (typeName && typeName !== "__type") {
+    typeStack.delete(type);
+    if (!components.has(typeName)) {
+      components.set(typeName, schema);
+    }
     return { $ref: `#/components/schemas/${typeName}` };
   }
 
-  ctx.typeStack.delete(type);
-  ctx.typeNameStack.pop();
-
+  typeStack.delete(type);
   return schema;
 }
 

@@ -45,7 +45,9 @@
           "phone": {
             "type": "string"
           },
-          "age": {}
+          "age": {
+            "type": "number"
+          }
         },
         "required": [
           "name",
@@ -128,7 +130,22 @@
             "name": "verbose",
             "in": "query",
             "required": false,
-            "schema": {}
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean",
+                  "enum": [
+                    false
+                  ]
+                },
+                {
+                  "type": "boolean",
+                  "enum": [
+                    true
+                  ]
+                }
+              ]
+            }
           }
         ]
       }
