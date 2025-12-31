@@ -13,13 +13,13 @@ const router = await createExpressRouter({
 
 app.use("/api", router);
 
+app.get("/docs/openapi.json", async (req, res) => {
+  res.json((await import("./.adorn/openapi.json")).default);
+});
+
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(null, {
   swaggerOptions: { url: "/docs/openapi.json" },
 }));
-
-app.get("/docs/openapi.json", (req, res) => {
-  res.json(require("./.adorn/openapi.json"));
-});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

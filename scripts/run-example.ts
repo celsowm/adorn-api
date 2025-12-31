@@ -16,9 +16,13 @@ try {
   execSync("npm run build", { cwd: examplePath, stdio: "inherit" });
 
   console.log("🌐 Starting server...\n");
-  const server = spawn("npm.cmd", ["run", "dev"], {
+  const isWindows = process.platform === "win32";
+  const cmd = isWindows ? "npm.cmd" : "npm";
+  const server = spawn(cmd, ["run", "dev"], {
     cwd: examplePath,
     stdio: "inherit",
+    shell: true,
+    windowsHide: true,
   });
 
   server.on("error", (err) => {
@@ -30,8 +34,17 @@ try {
   console.log("Press Ctrl+C to stop\n");
 
   process.on("SIGINT", () => {
-    server.kill();
+    server.kill("SIGTERM");
     process.exit(0);
+  });
+
+  process.on("SIGTERM", () => {
+    server.kill("SIGTERM");
+    process.exit(0);
+  });
+
+  server.on("close", (code) => {
+    process.exit(code);
   });
 } catch (err: any) {
   console.error(`\n❌ Error: ${err.message}`);
