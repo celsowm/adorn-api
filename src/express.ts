@@ -4,4 +4,5 @@ export { createExpressRouter, type CreateRouterOptions } from "./adapter/express
 export { bindRoutes, type BoundRoute } from "./adapter/express/merge.js";
 export { createValidator, formatValidationErrors, ValidationErrorResponse } from "./runtime/validation/index.js";
 export { setupSwagger, type SetupSwaggerOptions } from "./adapter/express/index.js";
+export { bootstrap, type BootstrapOptions } from "./adapter/express/bootstrap.js";
 

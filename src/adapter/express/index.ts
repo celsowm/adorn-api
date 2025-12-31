@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
-import { readFileSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve, join, isAbsolute } from "node:path";
 import type { ManifestV1 } from "../../compiler/manifest/format.js";
 import { bindRoutes, type BoundRoute } from "./merge.js";
 import { createValidator, formatValidationErrors } from "../../runtime/validation/ajv.js";
@@ -539,6 +539,8 @@ function parseCookies(cookieHeader: string | undefined): Record<string, string> 
   return cookies;
 }
 
+export { bootstrap, type BootstrapOptions } from "./bootstrap.js";
+
 export function setupSwagger(options: SetupSwaggerOptions = {}): Router {
   const {
     artifactsDir = ".adorn",
@@ -550,7 +552,13 @@ export function setupSwagger(options: SetupSwaggerOptions = {}): Router {
   const router = Router();
 
   router.get(jsonPath, (req, res) => {
-    res.sendFile(resolve(process.cwd(), artifactsDir, "openapi.json"));
+    const openApiPath = isAbsolute(artifactsDir)
+      ? resolve(artifactsDir, "openapi.json")
+      : resolve(process.cwd(), artifactsDir, "openapi.json");
+    
+    const content = readFileSync(openApiPath, "utf-8");
+    res.setHeader("Content-Type", "application/json");
+    res.send(content);
   });
 
   router.use(uiPath, swaggerUi.serve, swaggerUi.setup(null, {

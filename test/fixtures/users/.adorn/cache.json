@@ -12,7 +12,7 @@
     },
     "lockfile": {
       "path": "C:\\Users\\celso\\Documents\\projetos\\adorn-api\\package-lock.json",
-      "mtimeMs": 1767149738105.8235
+      "mtimeMs": 1767186756946.6602
     }
   },
   "inputs": {
@@ -74,18 +74,18 @@
     "C:/Users/celso/Documents/projetos/adorn-api/node_modules/typescript/lib/lib.esnext.decorators.d.ts": 1767061713357.9001,
     "C:/Users/celso/Documents/projetos/adorn-api/node_modules/typescript/lib/lib.decorators.d.ts": 1767061713173.5437,
     "C:/Users/celso/Documents/projetos/adorn-api/node_modules/typescript/lib/lib.decorators.legacy.d.ts": 1767061713175.5657,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/runtime/polyfill.d.ts": 1767151478209.789,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/decorators/Controller.d.ts": 1767151478284.033,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/decorators/methods.d.ts": 1767151478293.0752,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/runtime/metadata/types.d.ts": 1767151478216.2969,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/decorators/Use.d.ts": 1767151478296.1428,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/decorators/Auth.d.ts": 1767151478299.0813,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/decorators/Public.d.ts": 1767151478301.4614,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/decorators/index.d.ts": 1767151478303.7124,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/runtime/metadata/read.d.ts": 1767151478219.0022,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/runtime/auth/runtime.d.ts": 1767151478256.3232,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/schema/decorators.d.ts": 1767151478309.269,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/schema/index.d.ts": 1767151478310.5623,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/runtime/polyfill.d.ts": 1767192725763.5828,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/decorators/Controller.d.ts": 1767192725867.6267,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/decorators/methods.d.ts": 1767192725877.205,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/runtime/metadata/types.d.ts": 1767192725772.1704,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/decorators/Use.d.ts": 1767192725878.7158,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/decorators/Auth.d.ts": 1767192725883.595,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/decorators/Public.d.ts": 1767192725887.1206,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/decorators/index.d.ts": 1767192725888.1223,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/runtime/metadata/read.d.ts": 1767192725774.1726,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/runtime/auth/runtime.d.ts": 1767192725832.6838,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/schema/decorators.d.ts": 1767192725893.1135,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/schema/index.d.ts": 1767192725895.5886,
     "C:/Users/celso/Documents/projetos/adorn-api/node_modules/fast-uri/types/index.d.ts": 1767143830803.9036,
     "C:/Users/celso/Documents/projetos/adorn-api/node_modules/ajv/dist/compile/codegen/code.d.ts": 1767143831976.9373,
     "C:/Users/celso/Documents/projetos/adorn-api/node_modules/ajv/dist/compile/codegen/scope.d.ts": 1767143832378.1184,
@@ -131,12 +131,12 @@
     "C:/Users/celso/Documents/projetos/adorn-api/node_modules/ajv/dist/compile/index.d.ts": 1767143832109.053,
     "C:/Users/celso/Documents/projetos/adorn-api/node_modules/ajv/dist/types/index.d.ts": 1767143832121.7996,
     "C:/Users/celso/Documents/projetos/adorn-api/node_modules/ajv/dist/ajv.d.ts": 1767143831953.888,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/runtime/validation/ajv.d.ts": 1767151478236.4758,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/runtime/validation/index.d.ts": 1767151478270.4348,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/http.d.ts": 1767151478276.416,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/runtime/upload.d.ts": 1767151478313.215,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/compiler/cache/loadArtifacts.d.ts": 1767151478261.9592,
-    "C:/Users/celso/Documents/projetos/adorn-api/dist/index.d.ts": 1767151478315.2327,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/runtime/validation/ajv.d.ts": 1767192725809.948,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/runtime/validation/index.d.ts": 1767192725851.9446,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/http.d.ts": 1767192725860.0315,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/runtime/upload.d.ts": 1767192725896.6074,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/compiler/cache/loadArtifacts.d.ts": 1767192725840.1292,
+    "C:/Users/celso/Documents/projetos/adorn-api/dist/index.d.ts": 1767192725899.4207,
     "C:/Users/celso/Documents/projetos/adorn-api/test/fixtures/users/src/controller.ts": 1767144865229.555,
     "C:/Users/celso/Documents/projetos/adorn-api/node_modules/@types/node/compatibility/disposable.d.ts": 1767061712734.6736,
     "C:/Users/celso/Documents/projetos/adorn-api/node_modules/@types/node/compatibility/indexable.d.ts": 1767061712742.1614,
@@ -265,6 +265,7 @@
     "C:/Users/celso/Documents/projetos/adorn-api/node_modules/@types/supertest/types.d.ts": 1767063933787.8137,
     "C:/Users/celso/Documents/projetos/adorn-api/node_modules/@types/supertest/lib/agent.d.ts": 1767063933812.5693,
     "C:/Users/celso/Documents/projetos/adorn-api/node_modules/@types/supertest/lib/test.d.ts": 1767063933823.3867,
-    "C:/Users/celso/Documents/projetos/adorn-api/node_modules/@types/supertest/index.d.ts": 1767063933681.2747
+    "C:/Users/celso/Documents/projetos/adorn-api/node_modules/@types/supertest/index.d.ts": 1767063933681.2747,
+    "C:/Users/celso/Documents/projetos/adorn-api/node_modules/@types/swagger-ui-express/index.d.ts": 1767186754451.3442
   }
 }

@@ -25,36 +25,25 @@ async function main() {
     execSync("npm run build", { cwd: examplePath, stdio: "inherit" });
 
     console.log("🌐 Starting server...\n");
-    const isWindows = process.platform === "win32";
-    const cmd = isWindows ? "npm.cmd" : "npm";
-    const server = spawn(cmd, ["run", "dev"], {
-      cwd: examplePath,
-      stdio: "inherit",
-      shell: true,
-      windowsHide: true,
-    });
-
-    server.on("error", (err) => {
-      console.error(`Failed to start server: ${err.message}`);
-      process.exit(1);
-    });
-
     console.log(`\n✅ Server running at http://localhost:3000/docs\n`);
     console.log("Press Ctrl+C to stop\n");
-
-    process.on("SIGINT", () => {
-      server.kill("SIGTERM");
-      process.exit(0);
-    });
-
-    process.on("SIGTERM", () => {
-      server.kill("SIGTERM");
-      process.exit(0);
-    });
-
-    server.on("close", (code) => {
-      process.exit(code);
-    });
+    
+    // execSync works cross-platform (Windows/Linux/macOS)
+    // It automatically uses the appropriate shell for each platform
+    const command = "npm run dev";
+    
+    try {
+      execSync(command, {
+        cwd: examplePath,
+        stdio: "inherit",
+      });
+    } catch (error) {
+      // User pressed Ctrl+C, which is expected
+      if ((error as any).signal === "SIGINT") {
+        process.exit(0);
+      }
+      throw error;
+    }
   } catch (err: any) {
     console.error(`\n❌ Error: ${err.message}`);
     process.exit(1);
