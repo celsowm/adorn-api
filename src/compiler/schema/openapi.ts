@@ -1,6 +1,7 @@
 import ts from "typescript";
 import type { ScannedController, ScannedOperation, ScannedParameter } from "../analyze/scanControllers.js";
 import { typeToJsonSchema } from "./typeToJsonSchema.js";
+import { extractPropertySchemaFragments, mergeFragments } from "./extractAnnotations.js";
 import type { SchemaContext, JsonSchema } from "./typeToJsonSchema.js";
 
 export interface OpenAPI31 {
@@ -88,7 +89,8 @@ function buildOperation(operation: ScannedOperation, ctx: SchemaContext): any {
   if (["POST", "PUT", "PATCH"].includes(operation.httpMethod) && operation.bodyParamIndex !== null) {
     const bodyParam = operation.parameters[operation.bodyParamIndex];
     if (bodyParam) {
-      const bodySchema = typeToJsonSchema(bodyParam.type, ctx);
+      let bodySchema = typeToJsonSchema(bodyParam.type, ctx);
+      bodySchema = mergeBodySchemaAnnotations(bodyParam, ctx, bodySchema);
       op.requestBody = {
         required: !bodyParam.isOptional,
         content: {
@@ -103,11 +105,53 @@ function buildOperation(operation: ScannedOperation, ctx: SchemaContext): any {
   return op;
 }
 
+function mergeBodySchemaAnnotations(
+  bodyParam: ScannedParameter,
+  ctx: SchemaContext,
+  schema: JsonSchema
+): JsonSchema {
+  if (!schema.properties) return schema;
+
+  const typeSymbol = bodyParam.type.getSymbol();
+  if (!typeSymbol) return schema;
+
+  const declarations = typeSymbol.getDeclarations();
+  if (!declarations || declarations.length === 0) return schema;
+
+  const classDecl = declarations[0];
+  if (!ts.isClassDeclaration(classDecl)) return schema;
+
+  const result = { ...schema };
+  const props = { ...result.properties as Record<string, JsonSchema> };
+
+  for (const member of classDecl.members) {
+    if (!ts.isPropertyDeclaration(member) || !member.name) continue;
+
+    const propName = ts.isIdentifier(member.name) ? member.name.text : null;
+    if (!propName) continue;
+    if (!props[propName]) continue;
+
+    const frags = extractPropertySchemaFragments(ctx.checker, member);
+    if (frags.length > 0) {
+      props[propName] = mergeFragments(props[propName] as Record<string, unknown>, ...frags) as JsonSchema;
+    }
+  }
+
+  result.properties = props;
+  return result;
+}
+
 function buildPathParameters(operation: ScannedOperation, ctx: SchemaContext, parameters: any[]): void {
   for (const paramIndex of operation.pathParamIndices) {
     const param = operation.parameters[paramIndex];
     if (param) {
-      const paramSchema = typeToJsonSchema(param.type, ctx);
+      let paramSchema = typeToJsonSchema(param.type, ctx);
+      if (param.paramNode) {
+        const frags = extractPropertySchemaFragments(ctx.checker, param.paramNode);
+        if (frags.length > 0) {
+          paramSchema = mergeFragments(paramSchema as Record<string, unknown>, ...frags) as JsonSchema;
+        }
+      }
       parameters.push({
         name: param.name,
         in: "path",
@@ -143,7 +187,13 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
   for (const paramIndex of operation.queryParamIndices) {
     const param = operation.parameters[paramIndex];
     if (param) {
-      const paramSchema = typeToJsonSchema(param.type, ctx);
+      let paramSchema = typeToJsonSchema(param.type, ctx);
+      if (param.paramNode) {
+        const frags = extractPropertySchemaFragments(ctx.checker, param.paramNode);
+        if (frags.length > 0) {
+          paramSchema = mergeFragments(paramSchema as Record<string, unknown>, ...frags) as JsonSchema;
+        }
+      }
       parameters.push({
         name: param.name,
         in: "query",

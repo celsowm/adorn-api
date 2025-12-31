@@ -29,6 +29,7 @@ export interface ScannedParameter {
   index: number;
   type: ts.Type;
   isOptional: boolean;
+  paramNode?: ts.ParameterDeclaration;
 }
 
 export function scanControllers(
@@ -127,6 +128,7 @@ function analyzeMethod(
       index: i,
       type: paramType,
       isOptional,
+      paramNode: param,
     });
   }
 

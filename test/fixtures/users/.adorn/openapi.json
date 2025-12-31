@@ -44,7 +44,8 @@
           },
           "phone": {
             "type": "string"
-          }
+          },
+          "age": {}
         },
         "required": [
           "name",

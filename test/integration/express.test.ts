@@ -45,8 +45,8 @@ describe("Express Integration", () => {
               handler: { methodName: "getUser" },
               args: {
                 body: null,
-                path: [{ name: "id", index: 0, required: true, schemaRef: "#/components/schemas/Number" }],
-                query: [{ name: "verbose", index: 1, required: false, schemaRef: "#/components/schemas/Boolean" }],
+                path: [{ name: "id", index: 0, required: true, schemaRef: "#/components/schemas/Number", schemaType: "number" }],
+                query: [{ name: "verbose", index: 1, required: false, schemaRef: "#/components/schemas/Boolean", schemaType: "boolean" }],
                 headers: [],
               },
               responses: [{ status: 200, contentType: "application/json", schemaRef: "#/components/schemas/UserDto" }],
@@ -68,9 +68,36 @@ describe("Express Integration", () => {
       ],
     };
 
+    const openapi = {
+      openapi: "3.1.0",
+      components: {
+        schemas: {
+          UserDto: {
+            type: "object",
+            properties: {
+              id: { type: "number" },
+              name: { type: "string" },
+              phone: { type: ["string", "null"] },
+              role: { type: "string", enum: ["admin", "user"] },
+            },
+            required: ["id", "name", "phone", "role"],
+          },
+          CreateUserPayload: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              phone: { type: "string" },
+              age: { type: "number" },
+            },
+            required: ["name", "phone"],
+          },
+        },
+      },
+    };
+
     const app = express();
     app.use(express.json());
-    app.use(createExpressRouter({ controllers: [UserController], manifest }));
+    app.use(createExpressRouter({ controllers: [UserController], manifest, openapi }));
 
     const getRes = await request(app).get("/users/");
     expect(getRes.status).toBe(200);

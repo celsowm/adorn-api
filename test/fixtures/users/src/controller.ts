@@ -10,6 +10,7 @@ class UserDto {
 class CreateUserPayload {
   name!: string;
   phone!: string;
+  age?: number;
 }
 
 interface GetUserQuery {
