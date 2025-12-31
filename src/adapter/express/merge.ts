@@ -2,6 +2,7 @@ import type { ManifestV1, OperationEntry } from "../../compiler/manifest/format.
 import { readAdornBucket } from "../../runtime/metadata/read.js";
 import { defaultOperationId } from "../../utils/operationId.js";
 import { joinPaths } from "../../utils/path.js";
+import crypto from "node:crypto";
 
 export interface BoundRoute {
   operationId: string;
@@ -16,16 +17,66 @@ export interface BoundRoute {
   controllerUse?: Array<string | ((req: any, res: any, next: (err?: any) => void) => any)>;
 }
 
+interface RouteCacheEntry {
+  boundRoutes: BoundRoute[];
+  manifestHash: string;
+  controllerIds: string[];
+}
+
+const routeCache = new Map<string, RouteCacheEntry>();
+
 function convertToExpressPath(path: string): string {
   return path.replace(/:([^/]+)/g, ":$1");
+}
+
+function computeManifestHash(manifest: ManifestV1): string {
+  const ops = manifest.controllers.flatMap(c => c.operations.map(o => o.operationId)).sort();
+  const data = JSON.stringify({
+    ops,
+    validation: manifest.validation,
+  });
+  return crypto.createHash("sha256").update(data).digest("hex").slice(0, 16);
+}
+
+function getControllerIds(controllers: Array<new (...args: any[]) => any>): string[] {
+  return controllers.map(c => c.name).sort();
 }
 
 export function bindRoutes(params: {
   controllers: Array<new (...args: any[]) => any>;
   manifest: ManifestV1;
+  useCache?: boolean;
 }): BoundRoute[] {
-  const { controllers, manifest } = params;
+  const { controllers, manifest, useCache = true } = params;
 
+  if (useCache) {
+    const manifestHash = computeManifestHash(manifest);
+    const controllerIds = getControllerIds(controllers);
+    const cacheKey = `${manifestHash}:${controllerIds.join(",")}`;
+
+    const cached = routeCache.get(cacheKey);
+    if (cached) {
+      return cached.boundRoutes;
+    }
+
+    const bound = computeBoundRoutes(controllers, manifest);
+
+    routeCache.set(cacheKey, {
+      boundRoutes: bound,
+      manifestHash,
+      controllerIds,
+    });
+
+    return bound;
+  }
+
+  return computeBoundRoutes(controllers, manifest);
+}
+
+function computeBoundRoutes(
+  controllers: Array<new (...args: any[]) => any>,
+  manifest: ManifestV1
+): BoundRoute[] {
   const manifestByOpId = new Map<string, OperationEntry>();
   for (const ctrl of manifest.controllers) {
     for (const op of ctrl.operations) {
@@ -87,3 +138,15 @@ export function bindRoutes(params: {
 
   return bound;
 }
+
+export function clearRouteCache(): void {
+  routeCache.clear();
+}
+
+export function getRouteCacheStats(): { size: number; keys: string[] } {
+  return {
+    size: routeCache.size,
+    keys: Array.from(routeCache.keys()),
+  };
+}
+

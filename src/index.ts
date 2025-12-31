@@ -16,3 +16,4 @@ export {
 export type { Cookies } from "./http.js";
 export type { QueryStyleOptions, FilePartOptions, HttpMetadata } from "./http.js";
 export type { UploadFile } from "./runtime/upload.js";
+export { loadArtifacts, clearArtifactCache, getArtifactCacheStats } from "./compiler/cache/loadArtifacts.js";

@@ -6,6 +6,7 @@ import type { ManifestV1 } from "../../compiler/manifest/format.js";
 import { bindRoutes, type BoundRoute } from "./merge.js";
 import { createValidator, formatValidationErrors } from "../../runtime/validation/ajv.js";
 import type { AuthSchemeRuntime } from "../../runtime/auth/runtime.js";
+import { loadArtifacts } from "../../compiler/cache/loadArtifacts.js";
 
 interface OpenAPI31 {
   openapi: string;
@@ -34,20 +35,34 @@ export interface CreateRouterOptions {
   };
 }
 
-export function createExpressRouter(options: CreateRouterOptions): Router {
+export async function createExpressRouter(options: CreateRouterOptions): Promise<Router> {
   const { controllers, artifactsDir = ".adorn", middleware = {} } = options;
 
-  const manifest: ManifestV1 = options.manifest ?? JSON.parse(
-    readFileSync(resolve(artifactsDir, "manifest.json"), "utf-8")
-  );
+  let manifest: ManifestV1;
+  let openapi: OpenAPI31;
+  let precompiledValidators: Record<string, { body?: (data: unknown) => boolean; response: Record<string, (data: unknown) => boolean> }> | null = null;
 
-  const openapi: OpenAPI31 = options.openapi ?? JSON.parse(
-    readFileSync(resolve(artifactsDir, "openapi.json"), "utf-8")
-  );
+  if (options.manifest && options.openapi) {
+    manifest = options.manifest;
+    openapi = options.openapi;
+    if (manifest.validation.mode === "precompiled" && manifest.validation.precompiledModule) {
+      try {
+        const validatorPath = join(artifactsDir, manifest.validation.precompiledModule);
+        precompiledValidators = require(validatorPath).validators;
+      } catch (err) {
+        console.warn(`Failed to load precompiled validators: ${err}`);
+      }
+    }
+  } else {
+    const artifacts = await loadArtifacts({ outDir: artifactsDir });
+    manifest = artifacts.manifest as unknown as ManifestV1;
+    openapi = artifacts.openapi as unknown as OpenAPI31;
+    precompiledValidators = artifacts.validators?.validators as Record<string, { body?: (data: unknown) => boolean; response: Record<string, (data: unknown) => boolean> }> ?? null;
+  }
 
   const routes = bindRoutes({ controllers, manifest });
 
-  const validator = createValidator();
+  const validator = precompiledValidators ? null : createValidator();
 
   const router = Router();
 
@@ -157,7 +172,9 @@ export function createExpressRouter(options: CreateRouterOptions): Router {
 
     router[method](route.fullPath, ...middlewareChain, async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const validationErrors = validateRequest(route, req, openapi, validator);
+        const validationErrors = precompiledValidators
+          ? validateRequestWithPrecompiled(route, req, precompiledValidators)
+          : validateRequest(route, req, openapi, validator!);
         if (validationErrors) {
           return res.status(400).json(formatValidationErrors(validationErrors));
         }
@@ -263,6 +280,76 @@ interface ValidationError {
   message: string;
   keyword: string;
   params: Record<string, unknown>;
+}
+
+function validateRequestWithPrecompiled(
+  route: BoundRoute,
+  req: Request,
+  validators: Record<string, { body?: (data: unknown) => boolean; response: Record<string, (data: unknown) => boolean> }>
+): ValidationError[] | null {
+  const errors: ValidationError[] = [];
+
+  if (route.args.body) {
+    const validator = validators[route.operationId]?.body;
+    if (validator) {
+      const valid = validator(req.body);
+      if (!valid) {
+        const v = validators[route.operationId].body as any;
+        for (const err of v.errors || []) {
+          errors.push({
+            path: `#/body${err.instancePath}`,
+            message: err.message || "Invalid value",
+            keyword: err.keyword,
+            params: err.params as Record<string, unknown>,
+          });
+        }
+      }
+    }
+  }
+
+  for (const q of route.args.query) {
+    const value = req.query[q.name];
+    if (value === undefined) continue;
+
+    const schema: Record<string, unknown> = {};
+    if (q.schemaType) {
+      const type = Array.isArray(q.schemaType) ? q.schemaType[0] : q.schemaType;
+      schema.type = type;
+    }
+
+    const coerced = coerceValue(value, q.schemaType);
+    if (Object.keys(schema).length > 0 && coerced !== undefined) {
+      errors.push({
+        path: `#/query/${q.name}`,
+        message: `Schema validation not supported for query params in precompiled mode`,
+        keyword: "notSupported",
+        params: {},
+      });
+    }
+  }
+
+  for (const p of route.args.path) {
+    const value = req.params[p.name];
+    if (value === undefined) continue;
+
+    const schema: Record<string, unknown> = {};
+    if (p.schemaType) {
+      const type = Array.isArray(p.schemaType) ? p.schemaType[0] : p.schemaType;
+      schema.type = type;
+    }
+
+    const coerced = coerceValue(value, p.schemaType);
+    if (Object.keys(schema).length > 0 && coerced !== undefined) {
+      errors.push({
+        path: `#/path/${p.name}`,
+        message: `Schema validation not supported for path params in precompiled mode`,
+        keyword: "notSupported",
+        params: {},
+      });
+    }
+  }
+
+  return errors.length > 0 ? errors : null;
 }
 
 function validateRequest(

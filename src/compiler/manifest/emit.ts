@@ -4,10 +4,13 @@ import { typeToJsonSchema } from "../schema/typeToJsonSchema.js";
 import type { SchemaContext } from "../schema/typeToJsonSchema.js";
 import ts from "typescript";
 
+type ValidationMode = "none" | "ajv-runtime" | "precompiled";
+
 export function generateManifest(
   controllers: ScannedController[],
   checker: ts.TypeChecker,
-  version: string
+  version: string,
+  validationMode: ValidationMode = "ajv-runtime"
 ): ManifestV1 {
   const components = new Map<string, any>();
   const ctx: SchemaContext = {
@@ -23,6 +26,13 @@ export function generateManifest(
     operations: ctrl.operations.map(op => buildOperationEntry(op, ctx)),
   }));
 
+  const validationConfig: { mode: "none" | "ajv-runtime" | "precompiled"; precompiledModule: string | null } = 
+    validationMode === "precompiled"
+    ? { mode: "precompiled", precompiledModule: null }
+    : validationMode === "none"
+      ? { mode: "none", precompiledModule: null }
+      : { mode: "ajv-runtime", precompiledModule: null };
+
   return {
     manifestVersion: 1,
     generatedAt: new Date().toISOString(),
@@ -36,10 +46,7 @@ export function generateManifest(
       file: "./openapi.json",
       componentsSchemasPointer: "/components/schemas",
     },
-    validation: {
-      mode: "ajv-runtime",
-      precompiledModule: null,
-    },
+    validation: validationConfig,
     controllers: controllerEntries,
   };
 }

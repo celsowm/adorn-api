@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "generatedAt": "2025-12-31T02:34:22.863Z",
+  "generatedAt": "2025-12-31T02:52:42.028Z",
   "generator": {
     "name": "adorn-api",
     "version": "0.1.0",
@@ -12,8 +12,8 @@
     "componentsSchemasPointer": "/components/schemas"
   },
   "validation": {
-    "mode": "ajv-runtime",
-    "precompiledModule": null
+    "mode": "precompiled",
+    "precompiledModule": "./validators.mjs"
   },
   "controllers": [
     {

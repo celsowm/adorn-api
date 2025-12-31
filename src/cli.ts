@@ -1,16 +1,19 @@
 #!/usr/bin/env node
-import { writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
+import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { createProgramFromConfig } from "./compiler/runner/createProgram.js";
 import { scanControllers } from "./compiler/analyze/scanControllers.js";
 import { generateOpenAPI } from "./compiler/schema/openapi.js";
 import { generateManifest } from "./compiler/manifest/emit.js";
+import { emitPrecompiledValidators } from "./compiler/validation/emitPrecompiledValidators.js";
 import { isStale } from "./compiler/cache/isStale.js";
 import { writeCache } from "./compiler/cache/writeCache.js";
 import ts from "typescript";
 import process from "node:process";
 
 const ADORN_VERSION = "0.1.0";
+
+type ValidationMode = "none" | "ajv-runtime" | "precompiled";
 
 function log(msg: string) {
   process.stdout.write(msg + "\n");
@@ -29,6 +32,16 @@ async function buildCommand(args: string[]) {
     ? args[args.indexOf("--output") + 1]
     : ".adorn";
   const ifStale = args.includes("--if-stale");
+  
+  const validationModeIndex = args.indexOf("--validation-mode");
+  const validationMode: ValidationMode = validationModeIndex !== -1 
+    ? (args[validationModeIndex + 1] as ValidationMode) 
+    : "ajv-runtime";
+
+  if (validationMode !== "none" && validationMode !== "ajv-runtime" && validationMode !== "precompiled") {
+    console.error(`Invalid validation mode: ${validationMode}. Valid values: none, ajv-runtime, precompiled`);
+    process.exit(1);
+  }
 
   const outputPath = resolve(outputDir);
 
@@ -62,12 +75,37 @@ async function buildCommand(args: string[]) {
   log(`Found ${controllers.length} controller(s)`);
 
   const openapi = generateOpenAPI(controllers, checker, { title: "API", version: "1.0.0" });
-  const manifest = generateManifest(controllers, checker, ADORN_VERSION);
+  const manifest = generateManifest(controllers, checker, ADORN_VERSION, validationMode);
 
   mkdirSync(outputPath, { recursive: true });
 
   writeFileSync(resolve(outputPath, "openapi.json"), JSON.stringify(openapi, null, 2));
   writeFileSync(resolve(outputPath, "manifest.json"), JSON.stringify(manifest, null, 2));
+
+  if (validationMode === "precompiled") {
+    log("Generating precompiled validators...");
+    
+    const manifestObj = JSON.parse(readFileSync(resolve(outputPath, "manifest.json"), "utf-8"));
+    
+    await emitPrecompiledValidators({
+      outDir: outputPath,
+      openapi,
+      manifest: manifestObj,
+      strict: "off",
+      formatsMode: "full"
+    });
+
+    manifestObj.validation = {
+      mode: "precompiled",
+      precompiledModule: "./validators.mjs"
+    };
+    
+    writeFileSync(resolve(outputPath, "manifest.json"), JSON.stringify(manifestObj, null, 2));
+    
+    log("  - validators.cjs");
+    log("  - validators.mjs");
+    log("  - validators.meta.json");
+  }
 
   writeCache({
     outDir: outputDir,
@@ -114,13 +152,15 @@ Commands:
   clean     Remove generated artifacts
 
 Options:
-  -p <path>       Path to tsconfig.json (default: ./tsconfig.json)
-  --output <dir>  Output directory (default: .adorn)
-  --if-stale     Only rebuild if artifacts are stale
+  -p <path>                Path to tsconfig.json (default: ./tsconfig.json)
+  --output <dir>           Output directory (default: .adorn)
+  --if-stale               Only rebuild if artifacts are stale
+  --validation-mode <mode> Validation mode: none, ajv-runtime, precompiled (default: ajv-runtime)
 
 Examples:
   adorn-api build -p ./tsconfig.json --output .adorn
   adorn-api build --if-stale
+  adorn-api build --validation-mode precompiled
   adorn-api clean
-`);
+  `);
 }
