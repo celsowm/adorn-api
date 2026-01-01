@@ -1,10 +1,7 @@
 import express from "express";
 import { type Server } from "http";
 import { createExpressRouter, type CreateRouterOptions, setupSwagger, type SetupSwaggerOptions } from "./index.js";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export interface BootstrapOptions {
   controllers: Array<new (...args: any[]) => any>;

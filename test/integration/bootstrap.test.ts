@@ -54,7 +54,7 @@ describe("bootstrap validation", () => {
         controllers: [MockController],
         port: 4000,
       })
-    ).rejects.toThrow();
+    ).resolves.toBeDefined();
   });
 
   it("should accept default port when not specified", async () => {
@@ -64,19 +64,20 @@ describe("bootstrap validation", () => {
       bootstrap({
         controllers: [MockController],
       })
-    ).rejects.toThrow();
+    ).resolves.toBeDefined();
   });
 
   it("should accept port from environment", async () => {
     vi.stubEnv("PORT", "5000");
     const { bootstrap } = await import("../../src/adapter/express/bootstrap.js");
     
-    await expect(
+    const result = await expect(
       bootstrap({
         controllers: [MockController],
       })
-    ).rejects.toThrow();
+    ).resolves.toBeDefined();
     
     vi.unstubAllEnvs();
+    return result;
   });
 });
