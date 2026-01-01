@@ -65,8 +65,9 @@ Options:
 
   const cmd = isWindows() ? "npx.cmd" : "npx";
   const result = spawnSync(cmd, scriptArgs, {
-    cwd: join(__dirname, ".."),
-    stdio: "inherit",
+  cwd: join(__dirname, ".."),
+  stdio: "inherit",
+  shell: isWindows(),
   });
 
   process.exit(result.status || 0);

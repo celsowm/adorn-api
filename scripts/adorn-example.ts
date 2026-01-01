@@ -36,6 +36,7 @@ function spawnCommand(args: string[], cwd: string): Promise<ChildProcess> {
     const child = spawn(cmd, args, {
       cwd,
       stdio: "inherit",
+      shell: isWindows(),
     });
 
     child.on("error", reject);
