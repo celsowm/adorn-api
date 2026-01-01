@@ -8,21 +8,21 @@ export class UsersController {
   @Get("/")
   async getUsers(): Promise<User[]> {
     const session = getSession();
-    const [users] = await selectFromEntity(User)
+    const users = await selectFromEntity(User)
       .select("id", "email", "name", "bio", "createdAt")
-      .executePlain(session);
-    return users as unknown as User[];
+      .execute(session);
+    return users;
   }
 
   @Get("/:id")
   async getUser(id: number): Promise<User | null> {
     const session = getSession();
     const U = entityRef(User);
-    const [user] = await selectFromEntity(User)
+    const users = await selectFromEntity(User)
       .select("id", "email", "name", "bio", "createdAt")
       .where(eq(U.id, id))
-      .executePlain(session);
-    return (user as unknown as User) ?? null;
+      .execute(session);
+    return users[0] ?? null;
   }
 
   @Post("/")

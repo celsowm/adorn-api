@@ -1,26 +1,28 @@
 import { Controller, Get, Post, Delete } from "adorn-api";
 import { Category } from "../entities/index.js";
 import { getSession } from "../db.js";
-import { selectFromEntity } from "metal-orm";
+import { selectFromEntity, entityRef, eq } from "metal-orm";
 
 @Controller("/categories")
 export class CategoriesController {
   @Get("/")
   async getCategories(): Promise<Category[]> {
     const session = getSession();
-    const [categories] = await selectFromEntity(Category)
+    const categories = await selectFromEntity(Category)
       .select("id", "name", "slug", "description")
-      .executePlain(session);
-    return categories as unknown as Category[];
+      .execute(session);
+    return categories;
   }
 
   @Get("/:id")
   async getCategory(id: number): Promise<Category | null> {
     const session = getSession();
-    const [category] = await selectFromEntity(Category)
+    const C = entityRef(Category);
+    const categories = await selectFromEntity(Category)
       .select("id", "name", "slug", "description")
-      .executePlain(session);
-    return (category as unknown as Category) ?? null;
+      .where(eq(C.id, id))
+      .execute(session);
+    return categories[0] ?? null;
   }
 
   @Post("/")

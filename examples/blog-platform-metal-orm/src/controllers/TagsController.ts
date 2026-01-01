@@ -1,26 +1,28 @@
 import { Controller, Get, Post, Delete } from "adorn-api";
 import { Tag } from "../entities/index.js";
 import { getSession } from "../db.js";
-import { selectFromEntity } from "metal-orm";
+import { selectFromEntity, entityRef, eq } from "metal-orm";
 
 @Controller("/tags")
 export class TagsController {
   @Get("/")
   async getTags(): Promise<Tag[]> {
     const session = getSession();
-    const [tags] = await selectFromEntity(Tag)
+    const tags = await selectFromEntity(Tag)
       .select("id", "name", "color")
-      .executePlain(session);
-    return tags as unknown as Tag[];
+      .execute(session);
+    return tags;
   }
 
   @Get("/:id")
   async getTag(id: number): Promise<Tag | null> {
     const session = getSession();
-    const [tag] = await selectFromEntity(Tag)
+    const T = entityRef(Tag);
+    const tags = await selectFromEntity(Tag)
       .select("id", "name", "color")
-      .executePlain(session);
-    return (tag as unknown as Tag) ?? null;
+      .where(eq(T.id, id))
+      .execute(session);
+    return tags[0] ?? null;
   }
 
   @Post("/")

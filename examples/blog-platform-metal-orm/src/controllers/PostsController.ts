@@ -25,8 +25,8 @@ export class PostsController {
       qb = qb.where(or(...conditions));
     }
 
-    const [posts] = await qb.executePlain(session);
-    return posts as unknown as PostEntity[];
+    const posts = await qb.execute(session);
+    return posts;
   }
 
   @Get("/:id")
@@ -34,11 +34,11 @@ export class PostsController {
 
     const session = getSession();
     const P = entityRef(PostEntity);
-    const [post] = await selectFromEntity(PostEntity)
+    const posts = await selectFromEntity(PostEntity)
       .select("id", "authorId", "categoryId", "title", "content", "status", "publishedAt", "createdAt")
       .where(eq(P.id, id))
-      .executePlain(session);
-    return (post as unknown as PostEntity) ?? null;
+      .execute(session);
+    return posts[0] ?? null;
 
   }
 

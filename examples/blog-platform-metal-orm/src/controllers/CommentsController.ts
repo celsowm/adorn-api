@@ -9,31 +9,31 @@ export class CommentsController {
   async getCommentsByPost(postId: number): Promise<Comment[]> {
     const session = getSession();
     const C = entityRef(Comment);
-    const [comments] = await selectFromEntity(Comment)
+    const comments = await selectFromEntity(Comment)
       .select("id", "postId", "authorId", "content", "createdAt")
       .where(eq(C.postId, postId))
-      .executePlain(session);
-    return comments as unknown as Comment[];
+      .execute(session);
+    return comments;
   }
 
   @Get("/")
   async getComments(): Promise<Comment[]> {
     const session = getSession();
-    const [comments] = await selectFromEntity(Comment)
+    const comments = await selectFromEntity(Comment)
       .select("id", "postId", "authorId", "content", "createdAt")
-      .executePlain(session);
-    return comments as unknown as Comment[];
+      .execute(session);
+    return comments;
   }
 
   @Get("/:id")
   async getComment(id: number): Promise<Comment | null> {
     const session = getSession();
     const C = entityRef(Comment);
-    const [comment] = await selectFromEntity(Comment)
+    const comments = await selectFromEntity(Comment)
       .select("id", "postId", "authorId", "content", "createdAt")
       .where(eq(C.id, id))
-      .executePlain(session);
-    return (comment as unknown as Comment) ?? null;
+      .execute(session);
+    return comments[0] ?? null;
   }
 
   @Post("/post/:postId")
