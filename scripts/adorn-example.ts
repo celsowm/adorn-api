@@ -13,12 +13,11 @@
  */
 
 import { execSync, spawn, ChildProcess } from "child_process";
-import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { existsSync, readdirSync, statSync } from "fs";
 import process from "node:process";
 
-const __filename = fileURLToPath(import.meta.url);
+const __filename = process.cwd() + "/index.js";
 const __dirname = dirname(__filename);
 
 function isWindows(): boolean {

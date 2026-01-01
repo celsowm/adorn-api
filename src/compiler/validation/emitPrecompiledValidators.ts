@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { createRequire } from "node:module";
 
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
@@ -147,7 +146,6 @@ export async function emitPrecompiledValidators(opts: EmitPrecompiledValidatorsO
   addFormats.default(ajv, { mode: opts.formatsMode ?? "full" });
 
   let cjs: string;
-  const require = createRequire(import.meta.url);
   const standaloneModule = require("ajv/dist/standalone");
   if (typeof standaloneModule === "function") {
     cjs = standaloneModule(ajv);
