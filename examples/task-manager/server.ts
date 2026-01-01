@@ -4,10 +4,14 @@ import { TasksController } from "./src/controller.js";
 import { TagsController } from "./src/controller.js";
 import { StatsController } from "./src/controller.js";
 
-await initializeDatabase();
-await createTables();
-await seedData();
+async function main() {
+  await initializeDatabase();
+  await createTables();
+  await seedData();
 
-await bootstrap({
-  controllers: [TasksController, TagsController, StatsController],
-});
+  await bootstrap({
+    controllers: [TasksController, TagsController, StatsController],
+  });
+}
+
+main().catch(console.error);
