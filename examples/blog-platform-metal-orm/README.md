@@ -1,61 +1,64 @@
-# Blog Platform Example
+# Blog Platform Example (Metal-ORM)
 
-A complete blog platform API using metal-orm decorators with SQLite in-memory database and adorn-api for automatic OpenAPI documentation.
+A complete blog platform API using **metal-orm** with SQLite in-memory database and **adorn-api** for automatic OpenAPI documentation.
 
 ## Features
 
 - **Metal-ORM Decorators**: `@Entity`, `@Column`, `@PrimaryKey`, `@HasMany`, `@BelongsTo`, `@BelongsToMany`
+- **Type-Safe Column Definitions**: Using `col.*` type factories
+- **Explicit Relationships**: Full relationship definitions between entities
 - **Automatic OpenAPI Schema**: Entities are automatically converted to OpenAPI schemas using `registerMetalEntities()`
-- **Type-Safe Queries**: Full TypeScript inference with `selectFromEntity()` and `entityRef()`
+- **Type-Safe Queries**: Full TypeScript inference with `selectFromEntity()`, `entityRef()`, and `eq()`
 - **Many-to-Many Relationships**: Posts and Tags with pivot table
 - **Relations**: Users have Posts, Posts have Comments, Posts belong to Categories
 
 ## Entities
 
 ### User
-- `id` (UUID, primary key)
-- `email` (varchar, unique, not null)
-- `name` (varchar, not null)
+- `id` (INT, auto-increment, primary key)
+- `email` (varchar(255), unique, not null)
+- `name` (varchar(255), not null)
 - `bio` (text, nullable)
 - `createdAt` (timestamp, not null)
 - Relations: `posts`, `comments`
 
 ### Post
-- `id` (UUID, primary key)
-- `authorId` (UUID, foreign key to User)
-- `categoryId` (UUID, foreign key to Category, nullable)
-- `title` (varchar, not null)
+- `id` (INT, auto-increment, primary key)
+- `authorId` (INT, foreign key to User)
+- `categoryId` (INT, foreign key to Category, nullable)
+- `title` (varchar(255), not null)
 - `content` (text, not null)
-- `status` (varchar, default: 'draft')
+- `status` (varchar(20), default: 'draft')
 - `publishedAt` (timestamp, nullable)
 - `createdAt` (timestamp, not null)
 - Relations: `author`, `category`, `comments`, `tags`
 
 ### Comment
-- `id` (UUID, primary key)
-- `postId` (UUID, foreign key to Post)
-- `authorId` (UUID, foreign key to User)
+- `id` (INT, auto-increment, primary key)
+- `postId` (INT, foreign key to Post)
+- `authorId` (INT, foreign key to User)
 - `content` (text, not null)
 - `createdAt` (timestamp, not null)
 - Relations: `post`, `author`
 
 ### Category
-- `id` (UUID, primary key)
-- `name` (varchar, unique, not null)
-- `slug` (varchar, unique, not null)
+- `id` (INT, auto-increment, primary key)
+- `name` (varchar(255), unique, not null)
+- `slug` (varchar(255), unique, not null)
 - `description` (text, nullable)
 - Relations: `posts`
 
 ### Tag
-- `id` (UUID, primary key)
-- `name` (varchar, unique, not null)
-- `color` (varchar, default: '#6B7280')
+- `id` (INT, auto-increment, primary key)
+- `name` (varchar(255), unique, not null)
+- `color` (varchar(20), default: '#6B7280')
 - Relations: `posts` (many-to-many via PostTag)
 
 ### PostTag (Pivot Table)
-- `id` (UUID, primary key)
-- `postId` (UUID, foreign key to Post)
-- `tagId` (UUID, foreign key to Tag)
+- `id` (INT, auto-increment, primary key)
+- `postId` (INT, foreign key to Post)
+- `tagId` (INT, foreign key to Tag)
+- Relations: `post`, `tag`
 
 ## API Endpoints
 
@@ -74,32 +77,29 @@ A complete blog platform API using metal-orm decorators with SQLite in-memory da
 - `DELETE /api/posts/:id` - Delete post
 
 ### Comments
-- `GET /api/posts/:postId/comments` - Get comments for a post
-- `POST /api/posts/:postId/comments` - Create comment for a post
-- `PUT /api/comments/:id` - Update comment
+- `GET /api/comments/post/:postId` - Get comments for a post
+- `GET /api/comments` - List all comments
+- `GET /api/comments/:id` - Get comment by ID
+- `POST /api/comments/post/:postId` - Create comment for a post
 - `DELETE /api/comments/:id` - Delete comment
 
 ### Categories
 - `GET /api/categories` - List all categories
 - `GET /api/categories/:id` - Get category by ID
 - `POST /api/categories` - Create category
-- `PUT /api/categories/:id` - Update category
 - `DELETE /api/categories/:id` - Delete category
 
 ### Tags
 - `GET /api/tags` - List all tags
 - `GET /api/tags/:id` - Get tag by ID
 - `POST /api/tags` - Create tag
-- `PUT /api/tags/:id` - Update tag
 - `DELETE /api/tags/:id` - Delete tag
-- `POST /api/posts/:postId/tags/:tagId` - Add tag to post
-- `DELETE /api/posts/:postId/tags/:tagId` - Remove tag from post
 
 ## Quick Start
 
 ```bash
 # From the project root
-npm run example blog-platform
+npm run example blog-platform-metal-orm
 
 # Then open http://localhost:3000/docs
 ```
@@ -108,7 +108,7 @@ npm run example blog-platform
 
 ```bash
 # Install dependencies
-cd examples/blog-platform
+cd examples/blog-platform-metal-orm
 npm install
 
 # Build TypeScript & generate .adorn artifacts
@@ -123,7 +123,7 @@ npm run start
 
 ## Database Schema
 
-The database is automatically created from metal-orm entity decorators using `bootstrapEntities()` and `executeSchemaSqlFor()`.
+The database is automatically created from metal-orm entity decorators using `bootstrapEntities()`.
 
 ### Seed Data
 
@@ -136,76 +136,88 @@ The following data is automatically seeded on startup:
 **Categories:**
 - Technology
 - Lifestyle
-- Education
 
 **Tags:**
 - TypeScript (blue)
 - JavaScript (yellow)
-- SQL (green)
-- Architecture (purple)
 
 **Posts:**
 - "Getting Started with Metal-ORM" by Alice (published)
-- "Building APIs with adorn-api" by Alice (draft)
+- "Building APIs" by Alice (draft)
 
 **Comments:**
 - "Great article!" by Bob on the first post
 
 ## Key Patterns
 
-### Entity Definition with Decorators
+### Entity Definition with Type-Safe Columns
 
 ```typescript
-import { Entity, Column, PrimaryKey, HasMany, BelongsTo } from "metal-orm/decorators";
+import { Entity, Column, PrimaryKey, HasMany, BelongsTo } from "metal-orm";
 
 @Entity()
 export class User {
-  @PrimaryKey({ type: "uuid" })
-  id!: string;
+  @PrimaryKey({ type: "int", autoIncrement: true })
+  id!: number;
 
-  @Column({ type: "varchar", length: 255, notNull: true, unique: true })
+  @Column({ type: "varchar", args: [255], notNull: true, unique: true })
   email!: string;
 
-  @HasMany(() => Post, "authorId")
-  posts?: Post[];
+  @Column({ type: "varchar", args: [255], notNull: true })
+  name!: string;
+
+  @Column({ type: "text" })
+  bio?: string;
+
+  @HasMany({ target: () => Post, foreignKey: "authorId" })
+  posts!: import("metal-orm").HasManyCollection<Post>;
 }
 ```
 
-### Simple Insert for Seeding
+### Type-Safe Queries with metal-orm
 
 ```typescript
-const executeInsert = async (builder: ReturnType<typeof insertInto>) => {
-  const compiled = builder.compile(session.dialect);
-  await session.executor.executeSql(compiled.sql, compiled.params);
-};
+import { selectFromEntity, entityRef, eq } from "metal-orm";
 
-await executeInsert(
-  insertInto(User).values({
-    id: "usr_001",
-    email: "alice@example.com",
-    name: "Alice Johnson",
-  })
-);
-```
-
-### Type-Safe Queries
-
-```typescript
+const session = getSession();
 const U = entityRef(User);
-const [user] = await selectFromEntity(User)
-  .where(eq(U.id, "usr_001"))
-  .execute(session);
+
+const [users] = await selectFromEntity(User)
+  .select("id", "email", "name", "bio", "createdAt")
+  .where(eq(U.id, 1))
+  .executePlain(session);
 ```
 
-### Save with Relations
+### Persist and Flush
 
 ```typescript
-const session = orm.createSession();
-const [post] = await saveGraph(session, Post, {
-  title: "New Post",
-  content: "Post content",
-  authorId: "usr_001",
-} as any);
+const session = getSession();
+const user = new User();
+user.email = "new@example.com";
+user.name = "New User";
+user.createdAt = new Date().toISOString();
+
+await session.persist(user);
+await session.flush();
+```
+
+### Find and Update
+
+```typescript
+const session = getSession();
+const user = await session.find(User, 1);
+if (user) {
+  user.name = "Updated Name";
+  await session.flush();
+}
+```
+
+### Many-to-Many Relations
+
+```typescript
+const post = await session.find(Post, 1);
+await post.tags.attach(tag1);
+await post.tags.detach(tag1);
 await session.flush();
 ```
 
@@ -224,7 +236,7 @@ registerMetalEntities(openapi, [User, Post, Comment, Category, Tag], {
 ## Project Structure
 
 ```
-blog-platform/
+blog-platform-metal-orm/
 ├── src/
 │   ├── entities/
 │   │   ├── index.ts         # Export all entities
@@ -241,7 +253,7 @@ blog-platform/
 │   │   ├── CommentsController.ts
 │   │   ├── CategoriesController.ts
 │   │   └── TagsController.ts
-│   ├── db.ts                # Database setup + seed data
+│   ├── db.ts                # Database setup + seed data using metal-orm
 │   └── server.ts            # Express server + adorn-api bootstrap
 ├── README.md
 ├── package.json

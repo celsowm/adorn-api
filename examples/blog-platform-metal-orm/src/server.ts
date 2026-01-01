@@ -1,12 +1,10 @@
 import { bootstrap } from "adorn-api/express";
-import { initializeDatabase, createTables, seedData } from "./db.js";
+import { initDatabase } from "./db.js";
 import { UsersController, PostsController, CommentsController, CategoriesController, TagsController } from "./controllers/index.js";
 
 async function main() {
   try {
-    await initializeDatabase();
-    await createTables();
-    await seedData();
+    await initDatabase();
 
     const result = await bootstrap({
       controllers: [UsersController, PostsController, CommentsController, CategoriesController, TagsController],
@@ -25,7 +23,7 @@ async function main() {
     });
 
   } catch (error) {
-    console.error("❌ Failed to start server:", error);
+    console.error("Failed to start server:", error);
     process.exit(1);
   }
 }
