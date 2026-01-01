@@ -117,7 +117,6 @@ async function main(): Promise<void> {
     runCommand("npm run build", examplePath);
 
     console.log("🌐 Starting server...\n");
-    console.log(`\n✅ Server running at http://localhost:3000/docs\n`);
     console.log("Press Ctrl+C to stop\n");
 
     child = await spawnCommand(["run", "dev"], examplePath);
