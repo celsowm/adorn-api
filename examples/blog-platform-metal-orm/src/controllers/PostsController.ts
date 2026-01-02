@@ -1,32 +1,75 @@
-import { Controller, Get, Post, Put, Delete } from "adorn-api";
-import { BlogPost } from "../entities/index.js";
+import { Controller, Get, Post, Put, Delete, QueryStyle } from "adorn-api";
+import { BlogPost, Category, Comment, Tag, User } from "../entities/index.js";
 import { getSession } from "../db.js";
-import { selectFromEntity, entityRef, eq, or } from "metal-orm";
+import { selectFromEntity, entityRef, eq, and } from "metal-orm";
+
+type PostSearchWhere = {
+  author?: { id?: number; email?: string };
+  category?: { id?: number; slug?: string };
+  tags?: { name?: string };
+  comments?: { author?: { name?: string } };
+  status?: { eq?: string };
+};
 
 @Controller("/posts")
 export class PostsController {
 
   @Get("/")
-  async getPosts(
-    query?: { authorId?: number; categoryId?: number; status?: string }
-  ): Promise<BlogPost[]> {
+  @QueryStyle({ style: "deepObject" })
+  async getPosts(where?: PostSearchWhere): Promise<BlogPost[]> {
 
     const session = getSession();
     const P = entityRef(BlogPost);
+    const U = entityRef(User);
+    const C = entityRef(Category);
+    const Cm = entityRef(Comment);
+    const T = entityRef(Tag);
     let qb = selectFromEntity(BlogPost)
       .select("id", "authorId", "categoryId", "title", "content", "status", "publishedAt", "createdAt");
 
     const conditions = [];
-    if (query?.authorId) conditions.push(eq(P.authorId, query.authorId));
-    if (query?.categoryId) conditions.push(eq(P.categoryId, query.categoryId));
-    if (query?.status) conditions.push(eq(P.status, query.status));
+
+    if (where?.author?.email) {
+      qb = qb.include("author", {
+        filter: eq(U.email, where.author.email),
+      });
+    }
+
+    if (where?.category?.slug) {
+      qb = qb.include("category", {
+        filter: eq(C.slug, where.category.slug),
+      });
+    }
+
+    if (where?.tags?.name) {
+      qb = qb.include("tags", {
+        filter: eq(T.$.name, where.tags.name),
+      });
+    }
+
+    if (where?.comments?.author?.name) {
+      qb = qb.innerJoin(Cm, eq(Cm.postId, P.id));
+      qb = qb.innerJoin(U, eq(Cm.authorId, U.id));
+      conditions.push(eq(U.$.name, where.comments.author.name));
+    }
+
+    if (where?.author?.id !== undefined) {
+      conditions.push(eq(P.authorId, Number(where.author.id)));
+    }
+    if (where?.category?.id !== undefined) {
+      conditions.push(eq(P.categoryId, Number(where.category.id)));
+    }
+    if (where?.status?.eq) {
+      conditions.push(eq(P.status, where.status.eq));
+    }
 
     if (conditions.length > 0) {
-      qb = qb.where(or(...conditions));
+      qb = qb.where(and(...conditions));
     }
 
     const posts = await qb.execute(session);
     return posts;
+
   }
 
   @Get("/:id")

@@ -34,15 +34,11 @@ describe("Express Query Object Integration", () => {
     app.use(express.json());
     app.use(await createExpressRouter({ controllers: [PostController], manifest, openapi }));
 
-    const res = await request(app).get("/posts?status=published");
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: "published" });
+    const nestedRes = await request(app).get("/posts?where[responsavel][perfil][nome]=Admin");
+    expect(nestedRes.status).toBe(200);
+    expect(nestedRes.body).toEqual({ responsavel: { perfil: { nome: "Admin" } } });
 
-    const deepRes = await request(app).get("/posts/search?where[responsavel][perfil][nome]=Admin");
-    expect(deepRes.status).toBe(200);
-    expect(deepRes.body).toEqual({ responsavel: { perfil: { nome: "Admin" } } });
-
-    const tagsRes = await request(app).get("/posts/search?where[tags]=a&where[tags]=b");
+    const tagsRes = await request(app).get("/posts?where[tags]=a&where[tags]=b");
     expect(tagsRes.status).toBe(200);
     expect(tagsRes.body).toEqual({ tags: ["a", "b"] });
   });

@@ -71,7 +71,7 @@ A complete blog platform API using **metal-orm** with SQLite in-memory database 
 - `DELETE /api/users/:id` - Delete user
 
 ### Posts
-- `GET /api/posts` - List all posts with optional filtering
+- `GET /api/posts` - List all posts with optional filtering (supports deep-object `where` filters)
 - `GET /api/posts/:id` - Get post by ID
 - `POST /api/posts` - Create post
 - `PUT /api/posts/:id` - Update post
@@ -189,6 +189,29 @@ const [users] = await selectFromEntity(User)
   .where(eq(U.id, 1))
   .executePlain(session);
 ```
+
+### Deep Query Filtering (deepObject)
+
+Use `@QueryStyle({ style: "deepObject" })` to opt into nested query objects on your primary get route:
+
+```typescript
+@Get("/")
+@QueryStyle({ style: "deepObject" })
+async getPosts(where?: {
+  author?: { id?: number; email?: string };
+  category?: { id?: number; slug?: string };
+  tags?: { name?: string };
+  status?: { eq?: string };
+}) {
+  return where;
+}
+```
+
+Example requests:
+- `GET /api/posts?where[author][email]=alice@example.com`
+- `GET /api/posts?where[tags][name]=TypeScript&where[status][eq]=published`
+- `GET /api/posts?where[comments][author][name]=Alice`
+- `GET /api/posts?where[category][slug]=technology&where[author][id]=1`
 
 ### Persist and Flush
 

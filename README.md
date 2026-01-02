@@ -176,16 +176,16 @@ type WhereFilter = {
   tags?: string[];
 };
 
-@Get("/search")
-@QueryStyle({ style: "deepObject" })
-async search(where?: WhereFilter) {
+@Get("/")
+  @QueryStyle({ style: "deepObject" })
+async list(where?: WhereFilter) {
   return where;
 }
 ```
 
-Requests:
-- `GET /posts/search?where[responsavel][perfil][nome]=Admin`
-- `GET /posts/search?where[tags]=a&where[tags]=b`
+- `GET /posts?where[responsavel][perfil][nome]=Admin`
+- `GET /posts?where[tags]=a&where[tags]=b`
+- `GET /posts?where[comments][author][name]=Alice`
 
 Notes:
 - Deep object is explicit and only applies to the query object parameter on that method.

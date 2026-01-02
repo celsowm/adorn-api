@@ -15,7 +15,7 @@ describe("Compiler DeepObject Query Fixture", () => {
     const manifest = generateManifest(controllers, checker, "0.1.0");
     const openapi = generateOpenAPI(controllers, checker);
 
-    const op = manifest.controllers[0].operations.find(o => o.operationId === "PostController_search");
+    const op = manifest.controllers[0].operations.find(o => o.operationId === "PostController_list");
     expect(op).toBeDefined();
 
     const queryArgs = op?.args.query ?? [];
@@ -24,7 +24,7 @@ describe("Compiler DeepObject Query Fixture", () => {
     expect(queryArgs[0].serialization?.style).toBe("deepObject");
     expect(queryArgs[0].serialization?.explode).toBe(true);
 
-    const openApiOp = openapi.paths["/posts/search"]?.get;
+    const openApiOp = openapi.paths["/posts/"]?.get;
     expect(openApiOp).toBeDefined();
     const param = openApiOp?.parameters?.find((p: { name: string }) => p.name === "where");
     expect(param?.style).toBe("deepObject");
