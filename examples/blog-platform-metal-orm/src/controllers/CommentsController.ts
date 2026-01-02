@@ -42,12 +42,15 @@ export class CommentsController {
     body: Pick<Comment, "authorId" | "content">
   ): Promise<Comment> {
     const session = getSession();
-    const comment = new Comment();
-    comment.postId = postId;
-    comment.authorId = body.authorId;
-    comment.content = body.content;
-    comment.createdAt = new Date().toISOString();
-    await session.persist(comment);
+    const comment = await session.saveGraph(
+      Comment,
+      {
+        postId,
+        ...body,
+        createdAt: new Date()
+      },
+      { coerce: "json", transactional: false }
+    );
     await session.flush();
     return comment;
   }

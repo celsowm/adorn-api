@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryKey, BelongsTo } from "metal-orm";
-import { Post } from "./Post.js";
+import { BlogPost } from "./BlogPost.js";
 import { User } from "./User.js";
 
 @Entity()
@@ -16,11 +16,11 @@ export class Comment {
   @Column({ type: "text", notNull: true })
   content!: string;
 
-  @Column({ type: "timestamp", notNull: true })
-  createdAt!: string;
+  @Column({ type: "timestamp", notNull: true, tsType: Date })
+  createdAt!: Date;
 
-  @BelongsTo({ target: () => Post, foreignKey: "postId" })
-  post!: import("metal-orm").BelongsToReference<Post>;
+  @BelongsTo({ target: () => BlogPost, foreignKey: "postId" })
+  post!: import("metal-orm").BelongsToReference<BlogPost>;
 
   @BelongsTo({ target: () => User, foreignKey: "authorId" })
   author!: import("metal-orm").BelongsToReference<User>;

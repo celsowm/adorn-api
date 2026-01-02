@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Put, Delete } from "adorn-api";
-import { Post as PostEntity } from "../entities/index.js";
+import { BlogPost } from "../entities/index.js";
 import { getSession } from "../db.js";
 import { selectFromEntity, entityRef, eq, or } from "metal-orm";
 
@@ -9,11 +9,11 @@ export class PostsController {
   @Get("/")
   async getPosts(
     query?: { authorId?: number; categoryId?: number; status?: string }
-  ): Promise<PostEntity[]> {
+  ): Promise<BlogPost[]> {
 
     const session = getSession();
-    const P = entityRef(PostEntity);
-    let qb = selectFromEntity(PostEntity)
+    const P = entityRef(BlogPost);
+    let qb = selectFromEntity(BlogPost)
       .select("id", "authorId", "categoryId", "title", "content", "status", "publishedAt", "createdAt");
 
     const conditions = [];
@@ -30,11 +30,11 @@ export class PostsController {
   }
 
   @Get("/:id")
-  async getPost(id: number): Promise<PostEntity | null> {
+  async getPost(id: number): Promise<BlogPost | null> {
 
     const session = getSession();
-    const P = entityRef(PostEntity);
-    const posts = await selectFromEntity(PostEntity)
+    const P = entityRef(BlogPost);
+    const posts = await selectFromEntity(BlogPost)
       .select("id", "authorId", "categoryId", "title", "content", "status", "publishedAt", "createdAt")
       .where(eq(P.id, id))
       .execute(session);
@@ -44,18 +44,19 @@ export class PostsController {
 
   @Post("/")
   async createPost(
-    body: Pick<PostEntity, "title" | "content" | "authorId" | "categoryId">
-  ): Promise<PostEntity> {
+    body: Pick<BlogPost, "title" | "content" | "authorId" | "categoryId">
+  ): Promise<BlogPost> {
 
     const session = getSession();
-    const post = new PostEntity();
-    post.title = body.title;
-    post.content = body.content;
-    post.authorId = body.authorId;
-    post.categoryId = body.categoryId;
-    post.status = "draft";
-    post.createdAt = new Date().toISOString();
-    await session.persist(post);
+    const post = await session.saveGraph(
+      BlogPost,
+      {
+        ...body,
+        status: "draft",
+        createdAt: new Date()
+      },
+      { coerce: "json", transactional: false }
+    );
     await session.flush();
     return post;
 
@@ -64,17 +65,17 @@ export class PostsController {
   @Put("/:id")
   async updatePost(
     id: number,
-    body: Pick<PostEntity, "title" | "content" | "status" | "categoryId" | "publishedAt">
-  ): Promise<PostEntity | null> {
+    body: Pick<BlogPost, "title" | "content" | "status" | "categoryId" | "publishedAt">
+  ): Promise<BlogPost | null> {
 
     const session = getSession();
-    const post = await session.find(PostEntity, id);
-    if (!post) return null;
-    if (body.title !== undefined) post.title = body.title;
-    if (body.content !== undefined) post.content = body.content;
-    if (body.status !== undefined) post.status = body.status;
-    if (body.categoryId !== undefined) post.categoryId = body.categoryId;
-    if (body.publishedAt !== undefined) post.publishedAt = body.publishedAt;
+    const existing = await session.find(BlogPost, id);
+    if (!existing) return null;
+    const post = await session.saveGraph(
+      BlogPost,
+      { id, ...body },
+      { coerce: "json", transactional: false }
+    );
     await session.flush();
     return post;
 
@@ -84,7 +85,7 @@ export class PostsController {
   async deletePost(id: number): Promise<{ success: boolean }> {
 
     const session = getSession();
-    const post = await session.find(PostEntity, id);
+    const post = await session.find(BlogPost, id);
     if (post) {
       await session.remove(post);
       await session.flush();

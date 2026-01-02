@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryKey, BelongsToMany } from "metal-orm";
-import { Post } from "./Post.js";
+import { BlogPost } from "./BlogPost.js";
 import { PostTag } from "./PostTag.js";
 
 @Entity()
@@ -13,6 +13,6 @@ export class Tag {
   @Column({ type: "varchar", args: [20], notNull: true, default: "#6B7280" })
   color!: string;
 
-  @BelongsToMany({ target: () => Post, pivotTable: () => PostTag })
-  posts!: import("metal-orm").ManyToManyCollection<Post, PostTag>;
+  @BelongsToMany({ target: () => BlogPost, pivotTable: () => PostTag })
+  posts!: import("metal-orm").ManyToManyCollection<BlogPost, PostTag>;
 }

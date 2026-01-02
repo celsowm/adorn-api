@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryKey, HasMany } from "metal-orm";
-import { Post } from "./Post.js";
+import { BlogPost } from "./BlogPost.js";
 
 @Entity({ tableName: "categories" })
 export class Category {
@@ -15,6 +15,6 @@ export class Category {
   @Column({ type: "text" })
   description?: string;
 
-  @HasMany({ target: () => Post, foreignKey: "categoryId" })
-  posts!: import("metal-orm").HasManyCollection<Post>;
+  @HasMany({ target: () => BlogPost, foreignKey: "categoryId" })
+  posts!: import("metal-orm").HasManyCollection<BlogPost>;
 }

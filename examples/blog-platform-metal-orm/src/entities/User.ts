@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryKey, HasMany } from "metal-orm";
-import { Post } from "./Post.js";
+import { BlogPost } from "./BlogPost.js";
 import { Comment } from "./Comment.js";
 
 @Entity()
@@ -16,11 +16,11 @@ export class User {
   @Column({ type: "text" })
   bio?: string;
 
-  @Column({ type: "timestamp", notNull: true })
-  createdAt!: string;
+  @Column({ type: "timestamp", notNull: true, tsType: Date })
+  createdAt!: Date;
 
-  @HasMany({ target: () => Post, foreignKey: "authorId" })
-  posts!: import("metal-orm").HasManyCollection<Post>;
+  @HasMany({ target: () => BlogPost, foreignKey: "authorId" })
+  posts!: import("metal-orm").HasManyCollection<BlogPost>;
 
   @HasMany({ target: () => Comment, foreignKey: "authorId" })
   comments!: import("metal-orm").HasManyCollection<Comment>;

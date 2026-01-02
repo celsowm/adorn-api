@@ -6,7 +6,7 @@ import {
   eq, entityRef, or,
   createSqliteExecutor,
 } from "metal-orm";
-import { User, Post, Comment, Category, Tag, PostTag } from "./entities/index.js";
+import { User, BlogPost, Comment, Category, Tag, PostTag } from "./entities/index.js";
 
 let orm: Orm | null = null;
 let session: OrmSession | null = null;

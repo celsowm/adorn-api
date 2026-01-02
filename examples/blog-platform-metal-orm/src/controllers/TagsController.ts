@@ -28,10 +28,11 @@ export class TagsController {
   @Post("/")
   async createTag(body: Pick<Tag, "name" | "color">): Promise<Tag> {
     const session = getSession();
-    const tag = new Tag();
-    tag.name = body.name;
-    tag.color = body.color;
-    await session.persist(tag);
+    const tag = await session.saveGraph(
+      Tag,
+      { ...body },
+      { transactional: false }
+    );
     await session.flush();
     return tag;
   }

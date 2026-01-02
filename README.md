@@ -272,7 +272,7 @@ Database-driven API using Metal ORM entities. See: `examples/blog-platform-metal
 
 ```typescript
 import { Controller, Get, Post, Put, Delete } from "adorn-api";
-import { Post as PostEntity } from "../entities/index.js";
+import { BlogPost } from "../entities/index.js";
 import { getSession, selectFromEntity, eq } from "metal-orm";
 
 @Controller("/posts")
@@ -280,9 +280,9 @@ export class PostsController {
   @Get("/")
   async getPosts(query?: { authorId?: number; status?: string }) {
     const session = getSession();
-    let qb = selectFromEntity(PostEntity);
-    if (query?.authorId) qb = qb.where(eq(PostEntity.authorId, query.authorId));
-    if (query?.status) qb = qb.where(eq(PostEntity.status, query.status));
+    let qb = selectFromEntity(BlogPost);
+    if (query?.authorId) qb = qb.where(eq(BlogPost.authorId, query.authorId));
+    if (query?.status) qb = qb.where(eq(BlogPost.status, query.status));
     return qb.execute(session);
   }
 
@@ -290,9 +290,9 @@ export class PostsController {
   async getPost(id: number) { /* ... */ }
 
   @Post("/")
-  async createPost(body: Pick<PostEntity, "title" | "content" | "authorId">) {
+  async createPost(body: Pick<BlogPost, "title" | "content" | "authorId">) {
     const session = getSession();
-    const post = new PostEntity();
+    const post = new BlogPost();
     Object.assign(post, body);
     await session.persist(post);
     await session.flush();
@@ -300,7 +300,7 @@ export class PostsController {
   }
 
   @Put("/:id")
-  async updatePost(id: number, body: Partial<PostEntity>) { /* ... */ }
+  async updatePost(id: number, body: Partial<BlogPost>) { /* ... */ }
 
   @Delete("/:id")
   async deletePost(id: number) { return { success: true }; }

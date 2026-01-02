@@ -1,5 +1,5 @@
 export { User } from "./User.js";
-export { Post } from "./Post.js";
+export { BlogPost } from "./BlogPost.js";
 export { Comment } from "./Comment.js";
 export { Category } from "./Category.js";
 export { Tag } from "./Tag.js";

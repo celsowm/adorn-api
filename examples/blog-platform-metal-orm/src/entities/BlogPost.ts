@@ -6,7 +6,7 @@ import { Tag } from "./Tag.js";
 import { PostTag } from "./PostTag.js";
 
 @Entity()
-export class Post {
+export class BlogPost {
   @PrimaryKey({ type: "int", autoIncrement: true })
   id!: number;
 
@@ -25,11 +25,11 @@ export class Post {
   @Column({ type: "varchar", args: [20], notNull: true, default: "draft" })
   status!: string;
 
-  @Column({ type: "timestamp" })
-  publishedAt?: string;
+  @Column({ type: "timestamp", tsType: Date })
+  publishedAt?: Date;
 
-  @Column({ type: "timestamp", notNull: true })
-  createdAt!: string;
+  @Column({ type: "timestamp", notNull: true, tsType: Date })
+  createdAt!: Date;
 
   @BelongsTo({ target: () => User, foreignKey: "authorId" })
   author!: import("metal-orm").BelongsToReference<User>;

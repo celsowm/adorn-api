@@ -9,8 +9,8 @@ A complete blog platform API using **metal-orm** with SQLite in-memory database 
 - **Explicit Relationships**: Full relationship definitions between entities
 - **Automatic OpenAPI Schema**: Entities are automatically converted to OpenAPI schemas using `registerMetalEntities()`
 - **Type-Safe Queries**: Full TypeScript inference with `selectFromEntity()`, `entityRef()`, and `eq()`
-- **Many-to-Many Relationships**: Posts and Tags with pivot table
-- **Relations**: Users have Posts, Posts have Comments, Posts belong to Categories
+- **Many-to-Many Relationships**: BlogPosts and Tags with pivot table
+- **Relations**: Users have BlogPosts, BlogPosts have Comments, BlogPosts belong to Categories
 
 ## Entities
 
@@ -22,7 +22,7 @@ A complete blog platform API using **metal-orm** with SQLite in-memory database 
 - `createdAt` (timestamp, not null)
 - Relations: `posts`, `comments`
 
-### Post
+### BlogPost (posts table)
 - `id` (INT, auto-increment, primary key)
 - `authorId` (INT, foreign key to User)
 - `categoryId` (INT, foreign key to Category, nullable)
@@ -35,7 +35,7 @@ A complete blog platform API using **metal-orm** with SQLite in-memory database 
 
 ### Comment
 - `id` (INT, auto-increment, primary key)
-- `postId` (INT, foreign key to Post)
+- `postId` (INT, foreign key to BlogPost)
 - `authorId` (INT, foreign key to User)
 - `content` (text, not null)
 - `createdAt` (timestamp, not null)
@@ -56,7 +56,7 @@ A complete blog platform API using **metal-orm** with SQLite in-memory database 
 
 ### PostTag (Pivot Table)
 - `id` (INT, auto-increment, primary key)
-- `postId` (INT, foreign key to Post)
+- `postId` (INT, foreign key to BlogPost)
 - `tagId` (INT, foreign key to Tag)
 - Relations: `post`, `tag`
 
@@ -154,6 +154,7 @@ The following data is automatically seeded on startup:
 
 ```typescript
 import { Entity, Column, PrimaryKey, HasMany, BelongsTo } from "metal-orm";
+import { BlogPost } from "./BlogPost.js";
 
 @Entity()
 export class User {
@@ -169,8 +170,8 @@ export class User {
   @Column({ type: "text" })
   bio?: string;
 
-  @HasMany({ target: () => Post, foreignKey: "authorId" })
-  posts!: import("metal-orm").HasManyCollection<Post>;
+  @HasMany({ target: () => BlogPost, foreignKey: "authorId" })
+  posts!: import("metal-orm").HasManyCollection<BlogPost>;
 }
 ```
 
@@ -195,7 +196,7 @@ const session = getSession();
 const user = new User();
 user.email = "new@example.com";
 user.name = "New User";
-user.createdAt = new Date().toISOString();
+user.createdAt = new Date();
 
 await session.persist(user);
 await session.flush();
@@ -215,7 +216,7 @@ if (user) {
 ### Many-to-Many Relations
 
 ```typescript
-const post = await session.find(Post, 1);
+const post = await session.find(BlogPost, 1);
 await post.tags.attach(tag1);
 await post.tags.detach(tag1);
 await session.flush();
@@ -225,8 +226,9 @@ await session.flush();
 
 ```typescript
 import { registerMetalEntities } from "adorn-api/metal";
+import { User, BlogPost, Comment, Category, Tag } from "./entities/index.js";
 
-registerMetalEntities(openapi, [User, Post, Comment, Category, Tag], {
+registerMetalEntities(openapi, [User, BlogPost, Comment, Category, Tag], {
   mode: "read",
   stripEntitySuffix: true,
   includeRelations: "inline",
@@ -241,7 +243,7 @@ blog-platform-metal-orm/
 │   ├── entities/
 │   │   ├── index.ts         # Export all entities
 │   │   ├── User.ts
-│   │   ├── Post.ts
+│   │   ├── BlogPost.ts
 │   │   ├── Comment.ts
 │   │   ├── Category.ts
 │   │   ├── Tag.ts
