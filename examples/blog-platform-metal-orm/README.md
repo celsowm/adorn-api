@@ -11,6 +11,7 @@ A complete blog platform API using **metal-orm** with SQLite in-memory database 
 - **Type-Safe Queries**: Full TypeScript inference with `selectFromEntity()`, `entityRef()`, and `eq()`
 - **Many-to-Many Relationships**: BlogPosts and Tags with pivot table
 - **Relations**: Users have BlogPosts, BlogPosts have Comments, BlogPosts belong to Categories
+- **Graph Helpers**: `saveGraphAndFlush()` and `updateGraph()` with session defaults
 
 ## Entities
 
@@ -200,6 +201,33 @@ user.createdAt = new Date();
 
 await session.persist(user);
 await session.flush();
+```
+
+### Graph Helpers (Save/Update)
+
+```typescript
+const session = getSession();
+
+const post = await session.saveGraphAndFlush(BlogPost, {
+  title: "New Post",
+  content: "Hello!",
+  authorId: 1,
+  status: "draft",
+  createdAt: new Date()
+});
+
+const updated = await session.updateGraph(BlogPost, {
+  id: post.id,
+  status: "published",
+  publishedAt: new Date()
+});
+```
+
+### Graph Defaults (Session-Wide)
+
+```typescript
+const session = new OrmSession({ orm, executor })
+  .withSaveGraphDefaults({ coerce: "json", transactional: false, flush: true });
 ```
 
 ### Find and Update

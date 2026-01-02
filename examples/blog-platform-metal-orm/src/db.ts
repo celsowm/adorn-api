@@ -2,11 +2,9 @@ import sqlite3 from "sqlite3";
 import { open as sqliteOpen } from "sqlite";
 import {
   Orm, OrmSession, SqliteDialect,
-  bootstrapEntities, selectFromEntity,
-  eq, entityRef, or,
+  bootstrapEntities,
   createSqliteExecutor,
 } from "metal-orm";
-import { User, BlogPost, Comment, Category, Tag, PostTag } from "./entities/index.js";
 
 let orm: Orm | null = null;
 let session: OrmSession | null = null;
@@ -34,7 +32,8 @@ export async function initDatabase(): Promise<OrmSession> {
   });
 
   bootstrapEntities();
-  session = new OrmSession({ orm, executor });
+  session = new OrmSession({ orm, executor })
+    .withSaveGraphDefaults({ coerce: "json", transactional: false, flush: true });
 
   return session;
 }

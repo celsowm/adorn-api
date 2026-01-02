@@ -28,15 +28,13 @@ export class UsersController {
   @Post("/")
   async createUser(body: Pick<User, "email" | "name" | "bio">): Promise<User> {
     const session = getSession();
-    const user = await session.saveGraph(
+    const user = await session.saveGraphAndFlush(
       User,
       {
         ...body,
         createdAt: new Date()
-      },
-      { coerce: "json", transactional: false }
+      }
     );
-    await session.flush();
     return user;
   }
 
@@ -46,14 +44,10 @@ export class UsersController {
     body: Pick<User, "name" | "bio">
   ): Promise<User | null> {
     const session = getSession();
-    const existing = await session.find(User, id);
-    if (!existing) return null;
-    const user = await session.saveGraph(
+    const user = await session.updateGraph(
       User,
-      { id, ...body },
-      { coerce: "json", transactional: false }
+      { id, ...body }
     );
-    await session.flush();
     return user;
   }
 

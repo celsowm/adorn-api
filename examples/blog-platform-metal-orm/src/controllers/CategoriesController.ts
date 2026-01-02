@@ -28,12 +28,10 @@ export class CategoriesController {
   @Post("/")
   async createCategory(body: Pick<Category, "name" | "slug" | "description">): Promise<Category> {
     const session = getSession();
-    const category = await session.saveGraph(
+    const category = await session.saveGraphAndFlush(
       Category,
-      { ...body },
-      { transactional: false }
+      { ...body }
     );
-    await session.flush();
     return category;
   }
 

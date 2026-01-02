@@ -48,16 +48,14 @@ export class PostsController {
   ): Promise<BlogPost> {
 
     const session = getSession();
-    const post = await session.saveGraph(
+    const post = await session.saveGraphAndFlush(
       BlogPost,
       {
         ...body,
         status: "draft",
         createdAt: new Date()
-      },
-      { coerce: "json", transactional: false }
+      }
     );
-    await session.flush();
     return post;
 
   }
@@ -69,14 +67,10 @@ export class PostsController {
   ): Promise<BlogPost | null> {
 
     const session = getSession();
-    const existing = await session.find(BlogPost, id);
-    if (!existing) return null;
-    const post = await session.saveGraph(
+    const post = await session.updateGraph(
       BlogPost,
-      { id, ...body },
-      { coerce: "json", transactional: false }
+      { id, ...body }
     );
-    await session.flush();
     return post;
 
   }
