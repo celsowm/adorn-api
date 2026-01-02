@@ -21,24 +21,27 @@ interface FilePartOptions {
   headers?: Record<string, string>;
 }
 
-interface DecoratorMetadata {
-  [ADORN_META]?: HttpMetadata;
-}
+type DecoratorMetadata = Record<PropertyKey, unknown> & { [ADORN_META]?: HttpMetadata };
 
-function getMetadata(target: Object): HttpMetadata {
-  const metadata = (target as DecoratorMetadata)[ADORN_META] ?? {};
-  (target as DecoratorMetadata)[ADORN_META] = metadata;
+function getMetadata(target: Object | DecoratorMetadata): HttpMetadata {
+  const host = target as DecoratorMetadata;
+  const metadata = host[ADORN_META] ?? {};
+  host[ADORN_META] = metadata;
   return metadata;
 }
 
 export type QueryStyle = QueryStyleOptions;
 
-export function QueryStyle(options: QueryStyleOptions): ParameterDecorator {
-  return function (_target: Object, _propertyKey: string | symbol, _parameterIndex: number): void {
-    const metadata = getMetadata(_target);
+export function QueryStyle(options: QueryStyleOptions) {
+  return function <T extends (...args: any[]) => any>(
+    _target: T,
+    context: ClassMethodDecoratorContext<any, T>
+  ): void {
+    if (context.private || context.static) return;
+    const metadata = getMetadata(context.metadata);
     metadata.queryStyles ??= {};
-    metadata.queryStyles[_propertyKey.toString()] = options;
-  } as ParameterDecorator;
+    metadata.queryStyles[String(context.name)] = options;
+  };
 }
 
 export type PartType = FilePartOptions;
@@ -76,6 +79,9 @@ export function Produces(...contentTypes: string[]): ClassDecorator {
   };
 }
 
+export type Query<T = any> = T;
+export type Body<T = any> = T;
+export type Headers<T = any> = T;
 export type Cookies<T = any> = T;
 
 export { ADORN_META };

@@ -3,6 +3,7 @@ import type { ScannedController, ScannedOperation, ScannedParameter } from "../a
 import { typeToJsonSchema, createSchemaContext } from "./typeToJsonSchema.js";
 import { extractPropertySchemaFragments, mergeFragments } from "./extractAnnotations.js";
 import type { SchemaContext, JsonSchema } from "./typeToJsonSchema.js";
+import { extractQueryStyleOptions } from "../analyze/extractQueryStyle.js";
 
 export interface OpenAPI31 {
   openapi: "3.1.0";
@@ -186,20 +187,37 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
     const queryParam = operation.parameters[operation.queryObjectParamIndex];
     if (!queryParam) return;
 
+    const queryStyle = extractQueryStyleOptions(ctx.checker, operation.methodDeclaration);
     const querySchema = typeToJsonSchema(queryParam.type, ctx);
-    if (!querySchema.properties) return;
-
-    const queryObjProps = querySchema.properties;
-    for (const [propName, propSchema] of Object.entries(queryObjProps as Record<string, any>)) {
-      const isRequired = querySchema.required?.includes(propName) ?? false;
-      const serialization = determineQuerySerialization(propSchema.type);
-      parameters.push({
-        name: propName,
+    if (queryStyle?.style === "deepObject") {
+      const explode = queryStyle.explode ?? true;
+      const deepParam: Record<string, unknown> = {
+        name: queryParam.name,
         in: "query",
-        required: isRequired,
-        schema: propSchema,
-        ...(Object.keys(serialization).length > 0 ? serialization : {}),
-      });
+        required: !queryParam.isOptional,
+        schema: querySchema.$ref ? { $ref: querySchema.$ref } : querySchema,
+        style: "deepObject",
+        explode,
+      };
+      if (queryStyle.allowReserved !== undefined) {
+        deepParam.allowReserved = queryStyle.allowReserved;
+      }
+      parameters.push(deepParam);
+    } else {
+      if (!querySchema.properties) return;
+
+      const queryObjProps = querySchema.properties;
+      for (const [propName, propSchema] of Object.entries(queryObjProps as Record<string, any>)) {
+        const isRequired = querySchema.required?.includes(propName) ?? false;
+        const serialization = determineQuerySerialization(propSchema.type);
+        parameters.push({
+          name: propName,
+          in: "query",
+          required: isRequired,
+          schema: propSchema,
+          ...(Object.keys(serialization).length > 0 ? serialization : {}),
+        });
+      }
     }
   }
 

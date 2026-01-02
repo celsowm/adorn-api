@@ -6,7 +6,6 @@ import { pathToFileURL } from "node:url";
 const fixtureRoot = resolve(__dirname, "../fixtures/users");
 
 beforeAll(() => {
-  execSync("npm run build", { cwd: resolve(__dirname, "../.."), stdio: "inherit" });
   execSync("npx tsc -p tsconfig.json", { cwd: fixtureRoot, stdio: "inherit" });
 });
 

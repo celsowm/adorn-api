@@ -2,6 +2,7 @@ import type { ScannedController, ScannedOperation } from "../analyze/scanControl
 import type { ManifestV1, ControllerEntry, OperationEntry, ArgsSpec, HttpMethod } from "./format.js";
 import { typeToJsonSchema } from "../schema/typeToJsonSchema.js";
 import type { SchemaContext } from "../schema/typeToJsonSchema.js";
+import { extractQueryStyleOptions } from "../analyze/extractQueryStyle.js";
 import ts from "typescript";
 
 type ValidationMode = "none" | "ajv-runtime" | "precompiled";
@@ -135,23 +136,40 @@ function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec
   if (op.queryObjectParamIndex !== null) {
     const queryParam = op.parameters[op.queryObjectParamIndex];
     if (queryParam) {
+      const queryStyle = extractQueryStyleOptions(ctx.checker, op.methodDeclaration);
       const querySchema = typeToJsonSchema(queryParam.type, ctx);
-      if (!querySchema.properties) return;
-
-      for (const [propName, propSchema] of Object.entries(querySchema.properties as Record<string, any>)) {
-        const isRequired = querySchema.required?.includes(propName) ?? false;
-        let schemaRef = propSchema.$ref;
-        if (!schemaRef) {
-          schemaRef = "#/components/schemas/InlineQueryParam";
-        }
-
+      if (queryStyle?.style === "deepObject") {
+        const schemaRef = querySchema.$ref ?? "#/components/schemas/InlineQueryParam";
         args.query.push({
-          name: propName,
+          name: queryParam.name,
           index: queryParam.index,
-          required: !isRequired,
+          required: !queryParam.isOptional,
           schemaRef,
-          schemaType: propSchema.type,
+          schemaType: querySchema.type,
+          serialization: {
+            style: "deepObject",
+            explode: queryStyle.explode ?? true,
+            allowReserved: queryStyle.allowReserved,
+          },
         });
+      } else {
+        if (!querySchema.properties) return;
+
+        for (const [propName, propSchema] of Object.entries(querySchema.properties as Record<string, any>)) {
+          const isRequired = querySchema.required?.includes(propName) ?? false;
+          let schemaRef = propSchema.$ref;
+          if (!schemaRef) {
+            schemaRef = "#/components/schemas/InlineQueryParam";
+          }
+
+          args.query.push({
+            name: propName,
+            index: queryParam.index,
+            required: !isRequired,
+            schemaRef,
+            schemaType: propSchema.type,
+          });
+        }
       }
     }
   }

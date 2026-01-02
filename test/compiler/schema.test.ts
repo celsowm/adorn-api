@@ -1,5 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { execSync } from "node:child_process";
+import { describe, it, expect } from "vitest";
 import { resolve } from "node:path";
 import { createProgramFromConfig } from "../../src/compiler/runner/createProgram.js";
 import { scanControllers } from "../../src/compiler/analyze/scanControllers.js";
@@ -7,10 +6,6 @@ import { generateOpenAPI } from "../../src/compiler/schema/openapi.js";
 import { generateManifest } from "../../src/compiler/manifest/emit.js";
 
 const fixtureRoot = resolve(__dirname, "../fixtures/users");
-
-beforeAll(() => {
-  execSync("npm run build", { cwd: resolve(__dirname, "../.."), stdio: "inherit" });
-});
 
 describe("Compiler Introspection", () => {
   it("should scan controllers from TypeScript source", () => {

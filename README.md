@@ -140,6 +140,58 @@ export class ProductsController {
 }
 ```
 
+### Query Objects
+
+Use an object-typed parameter to bind flat query keys:
+
+```typescript
+import type { Query } from "adorn-api";
+
+type Filters = {
+  status?: string;
+  responsavelId?: number;
+};
+
+@Get("/")
+async list(query?: Query<Filters>) {
+  return query;
+}
+```
+
+`GET /posts?status=published&responsavelId=1`
+
+### Deep Object Query (opt-in)
+
+For bracketed query serialization, opt in with `@QueryStyle({ style: "deepObject" })`:
+
+```typescript
+import { QueryStyle } from "adorn-api";
+
+type WhereFilter = {
+  responsavel?: {
+    perfil?: {
+      nome?: string;
+    };
+  };
+  tags?: string[];
+};
+
+@Get("/search")
+@QueryStyle({ style: "deepObject" })
+async search(where?: WhereFilter) {
+  return where;
+}
+```
+
+Requests:
+- `GET /posts/search?where[responsavel][perfil][nome]=Admin`
+- `GET /posts/search?where[tags]=a&where[tags]=b`
+
+Notes:
+- Deep object is explicit and only applies to the query object parameter on that method.
+- Repeated keys become arrays (for example, `where[tags]=a&where[tags]=b`).
+- The `[]` shorthand is not supported; use repeated keys instead.
+
 ## Examples
 
 ### Basic Example

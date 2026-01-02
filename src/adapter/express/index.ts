@@ -251,27 +251,48 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
         }
 
         if (route.args.query.length > 0) {
-          const firstQueryIndex = route.args.query[0].index;
-          const allSameIndex = route.args.query.every(q => q.index === firstQueryIndex);
+          const deepObjectArgs = route.args.query.filter(q => q.serialization?.style === "deepObject");
+          const standardArgs = route.args.query.filter(q => q.serialization?.style !== "deepObject");
 
-          if (allSameIndex) {
-            args[firstQueryIndex] = {};
-            for (const q of route.args.query) {
-              const parsed = parseQueryValue(req.query[q.name], q);
+          if (deepObjectArgs.length > 0) {
+            const rawQuery = getRawQueryString(req);
+            const names = new Set(deepObjectArgs.map(q => q.name));
+            const parsedDeep = parseDeepObjectParams(rawQuery, names);
+
+            for (const q of deepObjectArgs) {
+              const rawValue = parsedDeep[q.name];
               const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "query", q.name)
                 ?? (q.schemaRef ? getSchemaByRef(q.schemaRef) : null)
                 ?? schemaFromType(q.schemaType);
-              const coerced = coerceParamValue(parsed, paramSchema, coerceQueryDates, openapi.components.schemas);
-              args[firstQueryIndex][q.name] = coerced;
-            }
-          } else {
-            for (const q of route.args.query) {
-              const parsed = parseQueryValue(req.query[q.name], q);
-              const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "query", q.name)
-                ?? (q.schemaRef ? getSchemaByRef(q.schemaRef) : null)
-                ?? schemaFromType(q.schemaType);
-              const coerced = coerceParamValue(parsed, paramSchema, coerceQueryDates, openapi.components.schemas);
+              const baseValue = rawValue === undefined ? {} : rawValue;
+              const coerced = coerceParamValue(baseValue, paramSchema, coerceQueryDates, openapi.components.schemas);
               args[q.index] = coerced;
+            }
+          }
+
+          if (standardArgs.length > 0) {
+            const firstQueryIndex = standardArgs[0].index;
+            const allSameIndex = standardArgs.every(q => q.index === firstQueryIndex);
+
+            if (allSameIndex) {
+              args[firstQueryIndex] = {};
+              for (const q of standardArgs) {
+                const parsed = parseQueryValue(req.query[q.name], q);
+                const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "query", q.name)
+                  ?? (q.schemaRef ? getSchemaByRef(q.schemaRef) : null)
+                  ?? schemaFromType(q.schemaType);
+                const coerced = coerceParamValue(parsed, paramSchema, coerceQueryDates, openapi.components.schemas);
+                args[firstQueryIndex][q.name] = coerced;
+              }
+            } else {
+              for (const q of standardArgs) {
+                const parsed = parseQueryValue(req.query[q.name], q);
+                const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "query", q.name)
+                  ?? (q.schemaRef ? getSchemaByRef(q.schemaRef) : null)
+                  ?? schemaFromType(q.schemaType);
+                const coerced = coerceParamValue(parsed, paramSchema, coerceQueryDates, openapi.components.schemas);
+                args[q.index] = coerced;
+              }
             }
           }
         }
@@ -423,6 +444,10 @@ function validateRequestWithPrecompiled(
   validators: Record<string, { body?: (data: unknown) => boolean; response: Record<string, (data: unknown) => boolean> }>
 ): ValidationError[] | null {
   const errors: ValidationError[] = [];
+  const deepNames = new Set(route.args.query.filter(q => q.serialization?.style === "deepObject").map(q => q.name));
+  const deepValues = deepNames.size > 0
+    ? parseDeepObjectParams(getRawQueryString(req), deepNames)
+    : {};
 
   if (route.args.body) {
     const validator = validators[route.operationId]?.body;
@@ -443,7 +468,7 @@ function validateRequestWithPrecompiled(
   }
 
   for (const q of route.args.query) {
-    const value = req.query[q.name];
+    const value = q.serialization?.style === "deepObject" ? deepValues[q.name] : req.query[q.name];
     if (value === undefined) continue;
 
     const schema = schemaFromType(q.schemaType) ?? {};
@@ -491,6 +516,10 @@ function validateRequest(
 
   const openapiOperation = getOpenApiOperation(openapi, route);
   const paramSchemaIndex = buildParamSchemaIndex(openapiOperation);
+  const deepNames = new Set(route.args.query.filter(q => q.serialization?.style === "deepObject").map(q => q.name));
+  const deepValues = deepNames.size > 0
+    ? parseDeepObjectParams(getRawQueryString(req), deepNames)
+    : {};
 
   const errors: ValidationError[] = [];
 
@@ -513,7 +542,7 @@ function validateRequest(
   }
 
   for (const q of route.args.query) {
-    const value = req.query[q.name];
+    const value = q.serialization?.style === "deepObject" ? deepValues[q.name] : req.query[q.name];
     const openapiSchema = getParamSchemaFromIndex(paramSchemaIndex, "query", q.name);
     let schema: Record<string, unknown> = {};
 
@@ -800,6 +829,87 @@ function parseQueryValue(value: any, param: { schemaType?: string | string[]; se
   }
 
   return value;
+}
+
+function getRawQueryString(req: Request): string {
+  const url = req.originalUrl ?? req.url ?? "";
+  const index = url.indexOf("?");
+  if (index === -1) return "";
+  return url.slice(index + 1);
+}
+
+function parseDeepObjectParams(
+  rawQuery: string,
+  names: Set<string>
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (!rawQuery || names.size === 0) return out;
+
+  const params = new URLSearchParams(rawQuery);
+  for (const [key, value] of params.entries()) {
+    const path = parseBracketPath(key);
+    if (path.length === 0) continue;
+    const root = path[0];
+    if (!names.has(root)) continue;
+    assignDeepValue(out, path, value);
+  }
+
+  return out;
+}
+
+function parseBracketPath(key: string): string[] {
+  const parts: string[] = [];
+  let current = "";
+
+  for (let i = 0; i < key.length; i++) {
+    const ch = key[i];
+    if (ch === "[") {
+      if (current) parts.push(current);
+      current = "";
+      continue;
+    }
+    if (ch === "]") {
+      if (current) parts.push(current);
+      current = "";
+      continue;
+    }
+    current += ch;
+  }
+
+  if (current) parts.push(current);
+  return parts;
+}
+
+function assignDeepValue(
+  target: Record<string, unknown>,
+  path: string[],
+  value: string
+): void {
+  let cursor: Record<string, unknown> = target;
+
+  for (let i = 0; i < path.length; i++) {
+    const key = path[i];
+    if (!key) continue;
+    const isLast = i === path.length - 1;
+
+    if (isLast) {
+      const existing = cursor[key];
+      if (existing === undefined) {
+        cursor[key] = value;
+      } else if (Array.isArray(existing)) {
+        existing.push(value);
+      } else {
+        cursor[key] = [existing as unknown, value];
+      }
+      return;
+    }
+
+    const next = cursor[key];
+    if (!isPlainObject(next)) {
+      cursor[key] = {};
+    }
+    cursor = cursor[key] as Record<string, unknown>;
+  }
 }
 
 function parseCookies(cookieHeader: string | undefined): Record<string, string> {

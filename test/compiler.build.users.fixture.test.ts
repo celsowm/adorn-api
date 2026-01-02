@@ -37,7 +37,6 @@ interface GeneratedManifest {
 }
 
 beforeAll(() => {
-  execSync("npm run build", { cwd: projectRoot, stdio: "inherit" });
   execSync("npx tsc -p tsconfig.json", { cwd: fixtureRoot, stdio: "inherit" });
   execSync(`npx tsx "${resolve(projectRoot, "src/cli.ts")}" build -p tsconfig.json --output .adorn`, {
     cwd: fixtureRoot,

@@ -9,7 +9,6 @@ import type { ManifestV1 } from "../../src/compiler/manifest/format.js";
 const fixtureRoot = resolve(__dirname, "../fixtures/users");
 
 beforeAll(() => {
-  execSync("npm run build", { cwd: resolve(__dirname, "../.."), stdio: "inherit" });
   execSync("npx tsc -p tsconfig.json", { cwd: fixtureRoot, stdio: "inherit" });
 });
 

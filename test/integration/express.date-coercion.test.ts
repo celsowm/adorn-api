@@ -1,14 +1,8 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { execSync } from "node:child_process";
-import { resolve } from "node:path";
+import { describe, it, expect } from "vitest";
 import express from "express";
 import request from "supertest";
 import { Controller, Post } from "../../dist/index.js";
 import type { ManifestV1 } from "../../src/compiler/manifest/format.js";
-
-beforeAll(() => {
-  execSync("npm run build", { cwd: resolve(__dirname, "../.."), stdio: "inherit" });
-});
 
 class DateInput {
   when!: Date;

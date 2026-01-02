@@ -1,14 +1,8 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { execSync } from "node:child_process";
-import { resolve } from "node:path";
+import { describe, it, expect } from "vitest";
 import express from "express";
 import request from "supertest";
 import { Controller, Get, Use, Auth, Public } from "../../dist/index.js";
 import { createExpressRouter } from "../../dist/express.js";
-
-beforeAll(() => {
-  execSync("npm run build", { cwd: resolve(__dirname, "../.."), stdio: "inherit" });
-});
 
 const openapi = {
   openapi: "3.1.0",

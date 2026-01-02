@@ -250,7 +250,8 @@ function classifyParameters(
     const param = parameters[i];
     if (usedIndices.has(i)) continue;
 
-    const typeStr = param.type.getSymbol()?.getName() ?? "";
+    const nonNullableType = checker.getNonNullableType(param.type);
+    const typeStr = getTypeName(param.type) || getTypeName(nonNullableType);
 
     if (typeStr === "Body") {
       bodyParamIndex = i;
@@ -282,7 +283,7 @@ function classifyParameters(
       continue;
     }
 
-    const isObj = isObjectType(param.type, checker);
+    const isObj = isObjectType(nonNullableType, checker);
     if (isObj && queryObjectParamIndex === null && !isBodyMethod) {
       queryObjectParamIndex = i;
       usedIndices.add(i);
@@ -317,6 +318,13 @@ function isObjectType(type: ts.Type, checker: ts.TypeChecker): boolean {
   if (callSignatures && callSignatures.length > 0) return false;
 
   return true;
+}
+
+function getTypeName(type: ts.Type): string {
+  const aliasSymbol = (type as ts.TypeReference).aliasSymbol ?? (type as any).aliasSymbol;
+  if (aliasSymbol) return aliasSymbol.getName();
+  const symbol = type.getSymbol();
+  return symbol?.getName() ?? "";
 }
 
 function findDecorator(node: ts.HasDecorators, name: string): ts.Decorator | null {

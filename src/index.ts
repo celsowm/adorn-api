@@ -13,7 +13,7 @@ export {
   Consumes,
   Produces,
 } from "./http.js";
-export type { Cookies } from "./http.js";
+export type { Query, Body, Headers, Cookies } from "./http.js";
 export type { QueryStyleOptions, FilePartOptions, HttpMetadata } from "./http.js";
 export type { UploadFile } from "./runtime/upload.js";
 export { loadArtifacts, clearArtifactCache, getArtifactCacheStats } from "./compiler/cache/loadArtifacts.js";
