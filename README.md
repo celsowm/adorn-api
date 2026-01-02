@@ -185,7 +185,7 @@ async list(where?: WhereFilter) {
 
 - `GET /posts?where[responsavel][perfil][nome]=Admin`
 - `GET /posts?where[tags]=a&where[tags]=b`
-- `GET /posts?where[comments][author][name]=Alice`
+- `GET /posts?where[comments][author][name]=Ali` (matches `Alice`)
 
 Notes:
 - Deep object is explicit and only applies to the query object parameter on that method.
@@ -327,8 +327,8 @@ import { Controller, Get, Post, Put, Delete } from "adorn-api";
 import { BlogPost } from "../entities/index.js";
 import { getSession, selectFromEntity, eq } from "metal-orm";
 
-@Controller("/posts")
-export class PostsController {
+@Controller("/blog-posts")
+export class BlogPostsController {
   @Get("/")
   async getPosts(query?: { authorId?: number; status?: string }) {
     const session = getSession();

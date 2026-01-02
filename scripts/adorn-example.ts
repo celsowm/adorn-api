@@ -17,8 +17,36 @@ import { dirname, join } from "path";
 import { existsSync, readdirSync, statSync } from "fs";
 import process from "node:process";
 
-const __filename = process.cwd() + "/index.js";
-const __dirname = dirname(__filename);
+function findRepoRoot(startDir: string): string | null {
+  let current = startDir;
+  while (true) {
+    const examplesDir = join(current, "examples");
+    const packageJson = join(current, "package.json");
+    if (existsSync(examplesDir) && existsSync(packageJson)) {
+      return current;
+    }
+    const parent = dirname(current);
+    if (parent === current) {
+      return null;
+    }
+    current = parent;
+  }
+}
+
+function resolveRepoRoot(): string {
+  const candidates = [process.env.INIT_CWD, process.cwd()].filter(
+    (dir): dir is string => Boolean(dir),
+  );
+
+  for (const candidate of candidates) {
+    const root = findRepoRoot(candidate);
+    if (root) return root;
+  }
+
+  return process.cwd();
+}
+
+const repoRoot = resolveRepoRoot();
 
 function isWindows(): boolean {
   return process.platform === "win32";
@@ -44,7 +72,7 @@ function spawnCommand(args: string[], cwd: string): Promise<ChildProcess> {
 }
 
 function getExamples(): string[] {
-  const examplesDir = join(__dirname, "..", "examples");
+  const examplesDir = join(repoRoot, "examples");
   if (!existsSync(examplesDir)) return [];
   return readdirSync(examplesDir).filter(name => {
     const path = join(examplesDir, name);
@@ -90,7 +118,7 @@ async function main(): Promise<void> {
   }
 
   const example = args[0] || "basic";
-  const examplePath = join(__dirname, "..", "examples", example);
+  const examplePath = join(repoRoot, "examples", example);
 
   if (!existsSync(examplePath)) {
     console.error(`\n❌ Example "${example}" not found.\n`);

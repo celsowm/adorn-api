@@ -23,7 +23,7 @@ A complete blog platform API using **metal-orm** with SQLite in-memory database 
 - `createdAt` (timestamp, not null)
 - Relations: `posts`, `comments`
 
-### BlogPost (posts table)
+### BlogPost (blog_posts table)
 - `id` (INT, auto-increment, primary key)
 - `authorId` (INT, foreign key to User)
 - `categoryId` (INT, foreign key to Category, nullable)
@@ -70,12 +70,12 @@ A complete blog platform API using **metal-orm** with SQLite in-memory database 
 - `PUT /api/users/:id` - Update user
 - `DELETE /api/users/:id` - Delete user
 
-### Posts
-- `GET /api/posts` - List all posts with optional filtering (supports deep-object `where` filters)
-- `GET /api/posts/:id` - Get post by ID
-- `POST /api/posts` - Create post
-- `PUT /api/posts/:id` - Update post
-- `DELETE /api/posts/:id` - Delete post
+### Blog Posts
+- `GET /api/blog-posts` - List all posts with optional filtering (supports deep-object `where` filters)
+- `GET /api/blog-posts/:id` - Get post by ID
+- `POST /api/blog-posts` - Create post
+- `PUT /api/blog-posts/:id` - Update post
+- `DELETE /api/blog-posts/:id` - Delete post
 
 ### Comments
 - `GET /api/comments/post/:postId` - Get comments for a post
@@ -208,10 +208,10 @@ async getPosts(where?: {
 ```
 
 Example requests:
-- `GET /api/posts?where[author][email]=alice@example.com`
-- `GET /api/posts?where[tags][name]=TypeScript&where[status][eq]=published`
-- `GET /api/posts?where[comments][author][name]=Alice`
-- `GET /api/posts?where[category][slug]=technology&where[author][id]=1`
+- `GET /api/blog-posts?where[author][email]=alice@example.com`
+- `GET /api/blog-posts?where[tags][name]=TypeScript&where[status][eq]=published`
+- `GET /api/blog-posts?where[comments][author][name]=Ali` (partial search matches “Alice”)
+- `GET /api/blog-posts?where[category][slug]=technology&where[author][id]=1`
 
 ### Persist and Flush
 
@@ -302,7 +302,7 @@ blog-platform-metal-orm/
 │   ├── controllers/
 │   │   ├── index.ts
 │   │   ├── UsersController.ts
-│   │   ├── PostsController.ts
+│   │   ├── BlogPostsController.ts
 │   │   ├── CommentsController.ts
 │   │   ├── CategoriesController.ts
 │   │   └── TagsController.ts

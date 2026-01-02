@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Put, Delete, QueryStyle } from "adorn-api";
 import { BlogPost, Category, Comment, Tag, User } from "../entities/index.js";
 import { getSession } from "../db.js";
-import { selectFromEntity, entityRef, eq, and } from "metal-orm";
+import { selectFromEntity, entityRef, eq, and, like } from "metal-orm";
 
 type PostSearchWhere = {
   author?: { id?: number; email?: string };
@@ -11,8 +11,8 @@ type PostSearchWhere = {
   status?: { eq?: string };
 };
 
-@Controller("/posts")
-export class PostsController {
+@Controller("/blog-posts")
+export class BlogPostsController {
 
   @Get("/")
   @QueryStyle({ style: "deepObject" })
@@ -50,7 +50,11 @@ export class PostsController {
     if (where?.comments?.author?.name) {
       qb = qb.innerJoin(Cm, eq(Cm.postId, P.id));
       qb = qb.innerJoin(U, eq(Cm.authorId, U.id));
-      conditions.push(eq(U.$.name, where.comments.author.name));
+      const nameFilter = where.comments.author.name.trim();
+      const pattern = nameFilter.includes("%")
+        ? nameFilter
+        : `%${nameFilter}%`;
+      conditions.push(like(U.$.name, pattern));
     }
 
     if (where?.author?.id !== undefined) {
