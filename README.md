@@ -652,6 +652,7 @@ await bootstrap({
   swaggerJsonPath?: string,   // Default: "/docs/openapi.json"
   middleware?: CreateRouterOptions["middleware"],
   auth?: CreateRouterOptions["auth"],
+  coerce?: CreateRouterOptions["coerce"],
 });
 ```
 
@@ -672,12 +673,23 @@ const router = await createExpressRouter({
   auth?: {
     schemes: Record<string, AuthSchemeRuntime>,
   },
+  coerce?: {
+    body?: boolean,
+    query?: boolean,
+    path?: boolean,
+    header?: boolean,
+    cookie?: boolean,
+    dateTime?: boolean,
+    date?: boolean,
+  },
   middleware?: {
     global?: Middleware[],
     named?: Record<string, Middleware>,
   },
 });
 ```
+
+Date properties in TypeScript map to OpenAPI `type: "string"` with `format: "date-time"`. Enable `coerce` to convert ISO 8601 date-time strings into `Date` instances before your handler runs. For date-only strings, use `@Format("date")` and keep `date` coercion off to avoid timezone shifts. You can disable per-field coercion with `@Schema({ "x-adorn-coerce": false })`.
 
 ### setupSwagger()
 

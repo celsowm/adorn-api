@@ -15,11 +15,22 @@ interface OpenAPI31 {
     schemas: Record<string, Record<string, unknown>>;
     securitySchemes?: Record<string, Record<string, unknown>>;
   };
+  paths?: Record<string, Record<string, any>>;
   security?: Array<Record<string, string[]>>;
 }
 
 interface AuthenticatedRequest extends Request {
   auth?: any;
+}
+
+export interface CoerceOptions {
+  body?: boolean;
+  query?: boolean;
+  path?: boolean;
+  header?: boolean;
+  cookie?: boolean;
+  dateTime?: boolean;
+  date?: boolean;
 }
 
 export interface CreateRouterOptions {
@@ -30,6 +41,7 @@ export interface CreateRouterOptions {
   auth?: {
     schemes: Record<string, AuthSchemeRuntime>;
   };
+  coerce?: CoerceOptions;
   middleware?: {
     global?: Array<string | ((req: any, res: any, next: (err?: any) => void) => any)>;
     named?: Record<string, (req: any, res: any, next: (err?: any) => void) => any>;
@@ -44,6 +56,18 @@ export interface SetupSwaggerOptions {
     url?: string;
     servers?: Array<{ url: string; description?: string }>;
     [key: string]: any;
+  };
+}
+
+function normalizeCoerceOptions(coerce?: CoerceOptions): Required<CoerceOptions> {
+  return {
+    body: coerce?.body ?? false,
+    query: coerce?.query ?? false,
+    path: coerce?.path ?? false,
+    header: coerce?.header ?? false,
+    cookie: coerce?.cookie ?? false,
+    dateTime: coerce?.dateTime ?? false,
+    date: coerce?.date ?? false,
   };
 }
 
@@ -79,6 +103,7 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
   const router = Router();
 
   const instanceCache = new Map<Function, any>();
+  const coerce = normalizeCoerceOptions(options.coerce);
 
   function getInstance(Ctor: new (...args: any[]) => any): any {
     if (!instanceCache.has(Ctor)) {
@@ -162,6 +187,15 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
 
   for (const route of routes) {
     const method = route.httpMethod.toLowerCase() as "get" | "post" | "put" | "patch" | "delete";
+    const openapiOperation = getOpenApiOperation(openapi, route);
+    const paramSchemaIndex = buildParamSchemaIndex(openapiOperation);
+    const bodySchema = getRequestBodySchema(openapiOperation, route.args.body?.contentType)
+      ?? (route.args.body ? getSchemaByRef(route.args.body.schemaRef) : null);
+    const coerceBodyDates = getDateCoercionOptions(coerce, "body");
+    const coerceQueryDates = getDateCoercionOptions(coerce, "query");
+    const coercePathDates = getDateCoercionOptions(coerce, "path");
+    const coerceHeaderDates = getDateCoercionOptions(coerce, "header");
+    const coerceCookieDates = getDateCoercionOptions(coerce, "cookie");
 
     const middlewareChain: Array<(req: any, res: any, next: (err?: any) => void) => any> = [];
 
@@ -201,11 +235,18 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
         const args: any[] = [];
 
         if (route.args.body) {
-          args[route.args.body.index] = req.body;
+          const coercedBody = (coerceBodyDates.date || coerceBodyDates.dateTime) && bodySchema
+            ? coerceDatesWithSchema(req.body, bodySchema, coerceBodyDates, openapi.components.schemas)
+            : req.body;
+          args[route.args.body.index] = coercedBody;
         }
 
         for (const pathArg of route.args.path) {
-          const coerced = coerceValue(req.params[pathArg.name], pathArg.schemaType);
+          const rawValue = req.params[pathArg.name];
+          const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "path", pathArg.name)
+            ?? (pathArg.schemaRef ? getSchemaByRef(pathArg.schemaRef) : null)
+            ?? schemaFromType(pathArg.schemaType);
+          const coerced = coerceParamValue(rawValue, paramSchema, coercePathDates, openapi.components.schemas);
           args[pathArg.index] = coerced;
         }
 
@@ -217,13 +258,19 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
             args[firstQueryIndex] = {};
             for (const q of route.args.query) {
               const parsed = parseQueryValue(req.query[q.name], q);
-              const coerced = coerceValue(parsed, q.schemaType);
+              const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "query", q.name)
+                ?? (q.schemaRef ? getSchemaByRef(q.schemaRef) : null)
+                ?? schemaFromType(q.schemaType);
+              const coerced = coerceParamValue(parsed, paramSchema, coerceQueryDates, openapi.components.schemas);
               args[firstQueryIndex][q.name] = coerced;
             }
           } else {
             for (const q of route.args.query) {
               const parsed = parseQueryValue(req.query[q.name], q);
-              const coerced = coerceValue(parsed, q.schemaType);
+              const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "query", q.name)
+                ?? (q.schemaRef ? getSchemaByRef(q.schemaRef) : null)
+                ?? schemaFromType(q.schemaType);
+              const coerced = coerceParamValue(parsed, paramSchema, coerceQueryDates, openapi.components.schemas);
               args[q.index] = coerced;
             }
           }
@@ -237,12 +284,20 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
             args[firstHeaderIndex] = {};
             for (const h of route.args.headers) {
               const headerValue = req.headers[h.name.toLowerCase()];
-              args[firstHeaderIndex][h.name] = headerValue ?? undefined;
+              const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "header", h.name)
+                ?? (h.schemaRef ? getSchemaByRef(h.schemaRef) : null)
+                ?? schemaFromType(h.schemaType);
+              const coerced = coerceParamValue(headerValue, paramSchema, coerceHeaderDates, openapi.components.schemas);
+              args[firstHeaderIndex][h.name] = coerced ?? undefined;
             }
           } else {
             for (const h of route.args.headers) {
               const headerValue = req.headers[h.name.toLowerCase()];
-              args[h.index] = headerValue ?? undefined;
+              const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "header", h.name)
+                ?? (h.schemaRef ? getSchemaByRef(h.schemaRef) : null)
+                ?? schemaFromType(h.schemaType);
+              const coerced = coerceParamValue(headerValue, paramSchema, coerceHeaderDates, openapi.components.schemas);
+              args[h.index] = coerced ?? undefined;
             }
           }
         }
@@ -256,13 +311,19 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
             args[firstCookieIndex] = {};
             for (const c of route.args.cookies) {
               const cookieValue = cookies[c.name];
-              const coerced = coerceValue(cookieValue, c.schemaType);
+              const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "cookie", c.name)
+                ?? (c.schemaRef ? getSchemaByRef(c.schemaRef) : null)
+                ?? schemaFromType(c.schemaType);
+              const coerced = coerceParamValue(cookieValue, paramSchema, coerceCookieDates, openapi.components.schemas);
               args[firstCookieIndex][c.name] = coerced;
             }
           } else {
             for (const c of route.args.cookies) {
               const cookieValue = cookies[c.name];
-              const coerced = coerceValue(cookieValue, c.schemaType);
+              const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "cookie", c.name)
+                ?? (c.schemaRef ? getSchemaByRef(c.schemaRef) : null)
+                ?? schemaFromType(c.schemaType);
+              const coerced = coerceParamValue(cookieValue, paramSchema, coerceCookieDates, openapi.components.schemas);
               args[c.index] = coerced;
             }
           }
@@ -285,6 +346,68 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
   }
 
   return router;
+}
+
+type CoerceLocation = "body" | "query" | "path" | "header" | "cookie";
+type DateCoercionOptions = { dateTime: boolean; date: boolean };
+
+function getDateCoercionOptions(
+  coerce: Required<CoerceOptions>,
+  location: CoerceLocation
+): DateCoercionOptions {
+  const enabled = coerce[location];
+  return {
+    dateTime: enabled && coerce.dateTime,
+    date: enabled && coerce.date,
+  };
+}
+
+function toOpenApiPath(path: string): string {
+  return path.replace(/:([^/]+)/g, "{$1}");
+}
+
+function getOpenApiOperation(openapi: OpenAPI31, route: BoundRoute): any | null {
+  const pathKey = toOpenApiPath(route.fullPath);
+  const pathItem = openapi.paths?.[pathKey];
+  if (!pathItem) return null;
+  return pathItem[route.httpMethod.toLowerCase()] ?? null;
+}
+
+function buildParamSchemaIndex(operation: any | null): Map<string, Record<string, unknown>> {
+  const index = new Map<string, Record<string, unknown>>();
+  const params = operation?.parameters ?? [];
+  for (const param of params) {
+    if (!param?.name || !param?.in) continue;
+    if (param.schema) {
+      index.set(`${param.in}:${param.name}`, param.schema);
+    }
+  }
+  return index;
+}
+
+function getParamSchemaFromIndex(
+  index: Map<string, Record<string, unknown>>,
+  location: "path" | "query" | "header" | "cookie",
+  name: string
+): Record<string, unknown> | null {
+  return index.get(`${location}:${name}`) ?? null;
+}
+
+function getRequestBodySchema(operation: any | null, contentType?: string): Record<string, unknown> | null {
+  const content = operation?.requestBody?.content;
+  if (!content) return null;
+
+  if (contentType && content[contentType]?.schema) {
+    return content[contentType].schema;
+  }
+
+  const first = Object.values(content)[0] as Record<string, unknown> | undefined;
+  return (first as any)?.schema ?? null;
+}
+
+function schemaFromType(schemaType?: string | string[]): Record<string, unknown> | null {
+  if (!schemaType) return null;
+  return { type: schemaType };
 }
 
 interface ValidationError {
@@ -323,13 +446,8 @@ function validateRequestWithPrecompiled(
     const value = req.query[q.name];
     if (value === undefined) continue;
 
-    const schema: Record<string, unknown> = {};
-    if (q.schemaType) {
-      const type = Array.isArray(q.schemaType) ? q.schemaType[0] : q.schemaType;
-      schema.type = type;
-    }
-
-    const coerced = coerceValue(value, q.schemaType);
+    const schema = schemaFromType(q.schemaType) ?? {};
+    const coerced = coerceParamValue(value, schema, { dateTime: false, date: false }, {});
     if (Object.keys(schema).length > 0 && coerced !== undefined) {
       errors.push({
         path: `#/query/${q.name}`,
@@ -344,13 +462,8 @@ function validateRequestWithPrecompiled(
     const value = req.params[p.name];
     if (value === undefined) continue;
 
-    const schema: Record<string, unknown> = {};
-    if (p.schemaType) {
-      const type = Array.isArray(p.schemaType) ? p.schemaType[0] : p.schemaType;
-      schema.type = type;
-    }
-
-    const coerced = coerceValue(value, p.schemaType);
+    const schema = schemaFromType(p.schemaType) ?? {};
+    const coerced = coerceParamValue(value, schema, { dateTime: false, date: false }, {});
     if (Object.keys(schema).length > 0 && coerced !== undefined) {
       errors.push({
         path: `#/path/${p.name}`,
@@ -376,6 +489,9 @@ function validateRequest(
     return openapi.components.schemas[schemaName] || null;
   }
 
+  const openapiOperation = getOpenApiOperation(openapi, route);
+  const paramSchemaIndex = buildParamSchemaIndex(openapiOperation);
+
   const errors: ValidationError[] = [];
 
   if (route.args.body) {
@@ -398,21 +514,26 @@ function validateRequest(
 
   for (const q of route.args.query) {
     const value = req.query[q.name];
-    const schema: Record<string, unknown> = {};
+    const openapiSchema = getParamSchemaFromIndex(paramSchemaIndex, "query", q.name);
+    let schema: Record<string, unknown> = {};
 
-    if (q.schemaType) {
-      const type = Array.isArray(q.schemaType) ? q.schemaType[0] : q.schemaType;
-      schema.type = type;
-    }
+    if (openapiSchema) {
+      schema = resolveSchema(openapiSchema, openapi.components.schemas);
+    } else {
+      if (q.schemaType) {
+        const type = Array.isArray(q.schemaType) ? q.schemaType[0] : q.schemaType;
+        schema.type = type;
+      }
 
-    if (q.schemaRef && q.schemaRef.includes("Inline")) {
-      const inlineSchema = getSchemaByRef(q.schemaRef);
-      if (inlineSchema) {
-        Object.assign(schema, inlineSchema);
+      if (q.schemaRef && q.schemaRef.includes("Inline")) {
+        const inlineSchema = getSchemaByRef(q.schemaRef);
+        if (inlineSchema) {
+          Object.assign(schema, inlineSchema);
+        }
       }
     }
 
-    const coerced = coerceValue(value, q.schemaType);
+    const coerced = coerceParamValue(value, schema, { dateTime: false, date: false }, openapi.components.schemas);
 
     if (Object.keys(schema).length > 0 && coerced !== undefined) {
       const validate = validator.compile(schema);
@@ -432,21 +553,26 @@ function validateRequest(
 
   for (const p of route.args.path) {
     const value = req.params[p.name];
-    const schema: Record<string, unknown> = {};
+    const openapiSchema = getParamSchemaFromIndex(paramSchemaIndex, "path", p.name);
+    let schema: Record<string, unknown> = {};
 
-    if (p.schemaType) {
-      const type = Array.isArray(p.schemaType) ? p.schemaType[0] : p.schemaType;
-      schema.type = type;
-    }
+    if (openapiSchema) {
+      schema = resolveSchema(openapiSchema, openapi.components.schemas);
+    } else {
+      if (p.schemaType) {
+        const type = Array.isArray(p.schemaType) ? p.schemaType[0] : p.schemaType;
+        schema.type = type;
+      }
 
-    if (p.schemaRef && p.schemaRef.includes("Inline")) {
-      const inlineSchema = getSchemaByRef(p.schemaRef);
-      if (inlineSchema) {
-        Object.assign(schema, inlineSchema);
+      if (p.schemaRef && p.schemaRef.includes("Inline")) {
+        const inlineSchema = getSchemaByRef(p.schemaRef);
+        if (inlineSchema) {
+          Object.assign(schema, inlineSchema);
+        }
       }
     }
 
-    const coerced = coerceValue(value, p.schemaType);
+    const coerced = coerceParamValue(value, schema, { dateTime: false, date: false }, openapi.components.schemas);
 
     if (Object.keys(schema).length > 0 && coerced !== undefined) {
       const validate = validator.compile(schema);
@@ -467,26 +593,179 @@ function validateRequest(
   return errors.length > 0 ? errors : null;
 }
 
-function coerceValue(value: any, schemaType?: string | string[]): any {
+function resolveSchema(
+  schema: Record<string, unknown>,
+  components: Record<string, Record<string, unknown>>,
+  seen: Set<string> = new Set()
+): Record<string, unknown> {
+  const ref = schema.$ref;
+  if (typeof ref !== "string" || !ref.startsWith("#/components/schemas/")) {
+    return schema;
+  }
+
+  const name = ref.replace("#/components/schemas/", "");
+  if (seen.has(name)) return schema;
+
+  const next = components[name];
+  if (!next) return schema;
+
+  seen.add(name);
+  return resolveSchema(next, components, seen);
+}
+
+function coerceDatesWithSchema(
+  value: any,
+  schema: Record<string, unknown> | null,
+  dateCoercion: DateCoercionOptions,
+  components: Record<string, Record<string, unknown>>
+): any {
+  if (!schema || (!dateCoercion.date && !dateCoercion.dateTime)) return value;
+  return coerceWithSchema(value, schema, dateCoercion, components, { coercePrimitives: false });
+}
+
+function coerceParamValue(
+  value: any,
+  schema: Record<string, unknown> | null,
+  dateCoercion: DateCoercionOptions,
+  components: Record<string, Record<string, unknown>>
+): any {
+  if (!schema) return value;
+  return coerceWithSchema(value, schema, dateCoercion, components, { coercePrimitives: true });
+}
+
+function coerceWithSchema(
+  value: any,
+  schema: Record<string, unknown>,
+  dateCoercion: DateCoercionOptions,
+  components: Record<string, Record<string, unknown>>,
+  options: { coercePrimitives: boolean }
+): any {
+  if (value === undefined || value === null) return value;
+  if (value instanceof Date) return value;
+
+  const resolved = resolveSchema(schema, components);
+  const override = resolved["x-adorn-coerce"];
+  const allowDateTime = override === true ? true : override === false ? false : dateCoercion.dateTime;
+  const allowDate = override === true ? true : override === false ? false : dateCoercion.date;
+
+  const byFormat = coerceDateString(value, resolved, allowDateTime, allowDate);
+  if (byFormat !== value) return byFormat;
+
+  const allOf = resolved.allOf;
+  if (Array.isArray(allOf)) {
+    let out = value;
+    for (const entry of allOf) {
+      out = coerceWithSchema(out, entry as Record<string, unknown>, { dateTime: allowDateTime, date: allowDate }, components, options);
+    }
+    return out;
+  }
+
+  const variants = (resolved.oneOf ?? resolved.anyOf) as Array<Record<string, unknown>> | undefined;
+  if (Array.isArray(variants)) {
+    for (const entry of variants) {
+      const out = coerceWithSchema(value, entry, { dateTime: allowDateTime, date: allowDate }, components, options);
+      if (out !== value) return out;
+    }
+  }
+
+  const schemaType = resolved.type;
+  const types = Array.isArray(schemaType) ? schemaType : schemaType ? [schemaType] : [];
+
+  if ((types.includes("array") || resolved.items) && Array.isArray(value)) {
+    const itemSchema = (resolved.items as Record<string, unknown> | undefined) ?? {};
+    return value.map(item => coerceWithSchema(item, itemSchema, { dateTime: allowDateTime, date: allowDate }, components, options));
+  }
+
+  if ((types.includes("object") || resolved.properties || resolved.additionalProperties) && isPlainObject(value)) {
+    const props = resolved.properties as Record<string, Record<string, unknown>> | undefined;
+    const out: Record<string, unknown> = { ...value };
+
+    if (props) {
+      for (const [key, propSchema] of Object.entries(props)) {
+        if (Object.prototype.hasOwnProperty.call(value, key)) {
+          out[key] = coerceWithSchema((value as any)[key], propSchema, { dateTime: allowDateTime, date: allowDate }, components, options);
+        }
+      }
+    }
+
+    const additional = resolved.additionalProperties;
+    if (additional && typeof additional === "object") {
+      for (const [key, entry] of Object.entries(value)) {
+        if (props && Object.prototype.hasOwnProperty.call(props, key)) continue;
+        out[key] = coerceWithSchema(entry, additional as Record<string, unknown>, { dateTime: allowDateTime, date: allowDate }, components, options);
+      }
+    }
+
+    return out;
+  }
+
+  if (options.coercePrimitives) {
+    return coercePrimitiveValue(value, types);
+  }
+
+  return value;
+}
+
+function coerceDateString(
+  value: any,
+  schema: Record<string, unknown>,
+  allowDateTime: boolean,
+  allowDate: boolean
+): any {
+  if (typeof value !== "string") return value;
+
+  const format = schema.format;
+  const schemaType = schema.type;
+  const types = Array.isArray(schemaType) ? schemaType : schemaType ? [schemaType] : [];
+  const allowsString = types.length === 0 || types.includes("string");
+
+  if (format === "date-time" && allowDateTime && allowsString) {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new Error(`Invalid date-time: ${value}`);
+    }
+    return parsed;
+  }
+
+  if (format === "date" && allowDate && allowsString) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      throw new Error(`Invalid date: ${value}`);
+    }
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new Error(`Invalid date: ${value}`);
+    }
+    return parsed;
+  }
+
+  return value;
+}
+
+function coercePrimitiveValue(value: any, types: string[]): any {
   if (value === undefined || value === null) return value;
 
-  const type = Array.isArray(schemaType) ? schemaType[0] : schemaType;
-
-  if (type === "number" || type === "integer") {
+  if (types.includes("number") || types.includes("integer")) {
     const num = Number(value);
-    if (isNaN(num)) {
+    if (Number.isNaN(num)) {
       throw new Error(`Invalid number: ${value}`);
     }
     return num;
   }
 
-  if (type === "boolean") {
+  if (types.includes("boolean")) {
     if (value === "true") return true;
     if (value === "false") return false;
+    if (typeof value === "boolean") return value;
     throw new Error(`Invalid boolean: ${value}`);
   }
 
   return value;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
 }
 
 function parseQueryValue(value: any, param: { schemaType?: string | string[]; serialization?: { style?: string; explode?: boolean } }): any {
@@ -570,4 +849,3 @@ export function setupSwagger(options: SetupSwaggerOptions = {}): Router {
 
   return router;
 }
-

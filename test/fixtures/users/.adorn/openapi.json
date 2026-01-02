@@ -47,6 +47,10 @@
           },
           "age": {
             "type": "number"
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "required": [

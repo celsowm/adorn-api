@@ -70,6 +70,10 @@ describe("Compiler Build - Users Fixture", () => {
     expect(userDtoSchema.required).toContain("id");
     expect(userDtoSchema.required).toContain("name");
 
+    const createSchema = generatedOpenapi.components.schemas["CreateUserPayload"];
+    expect(createSchema.properties?.joinedAt.type).toBe("string");
+    expect(createSchema.properties?.joinedAt.format).toBe("date-time");
+
     expect(generatedOpenapi.paths["/users/"]["get"].operationId).toBe("UserController_getUsers");
     expect(generatedOpenapi.paths["/users/"]["post"].operationId).toBe("UserController_createUser");
 

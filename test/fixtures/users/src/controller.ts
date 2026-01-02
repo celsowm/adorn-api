@@ -11,6 +11,7 @@ class CreateUserPayload {
   name!: string;
   phone!: string;
   age?: number;
+  joinedAt?: Date;
 }
 
 interface GetUserQuery {

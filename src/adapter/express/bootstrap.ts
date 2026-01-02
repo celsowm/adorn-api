@@ -13,6 +13,7 @@ export interface BootstrapOptions {
   swaggerJsonPath?: string;
   middleware?: CreateRouterOptions["middleware"];
   auth?: CreateRouterOptions["auth"];
+  coerce?: CreateRouterOptions["coerce"];
 }
 
 export interface BootstrapResult {
@@ -37,6 +38,7 @@ export function bootstrap(options: BootstrapOptions): Promise<BootstrapResult> {
         swaggerJsonPath = "/docs/openapi.json",
         middleware,
         auth,
+        coerce,
       } = options;
 
       if (controllers.length === 0) {
@@ -65,6 +67,7 @@ export function bootstrap(options: BootstrapOptions): Promise<BootstrapResult> {
         artifactsDir: absoluteArtifactsDir,
         middleware,
         auth,
+        coerce,
       });
 
       app.use(router);

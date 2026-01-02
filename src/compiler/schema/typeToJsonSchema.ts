@@ -61,6 +61,9 @@ export function typeToJsonSchema(
   if (type.flags & ts.TypeFlags.Null) {
     return { type: "null" };
   }
+  if (isDateType(type, checker)) {
+    return { type: "string", format: "date-time" };
+  }
 
   if (type.flags & ts.TypeFlags.String) {
     return { type: "string" };
@@ -116,6 +119,22 @@ export function typeToJsonSchema(
   }
 
   return {};
+}
+
+function isDateType(type: ts.Type, checker: ts.TypeChecker): boolean {
+  const symbol = type.getSymbol();
+  const aliasSymbol = (type as any).aliasSymbol as ts.Symbol | undefined;
+  if (aliasSymbol && (aliasSymbol.flags & ts.SymbolFlags.Alias)) {
+    const aliased = checker.getAliasedSymbol(aliasSymbol);
+    return aliased?.getName() === "Date";
+  }
+
+  if (symbol && (symbol.flags & ts.SymbolFlags.Alias)) {
+    const aliased = checker.getAliasedSymbol(symbol);
+    return aliased?.getName() === "Date";
+  }
+
+  return symbol?.getName() === "Date";
 }
 
 function isSetType(type: ts.Type, checker: ts.TypeChecker): boolean {

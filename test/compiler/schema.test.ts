@@ -44,6 +44,10 @@ describe("Compiler Introspection", () => {
     expect(userDtoSchema.properties?.phone.type).toContain("null");
 
     expect(userDtoSchema.properties?.role.enum).toEqual(["admin", "user"]);
+
+    const createSchema = openapi.components.schemas["CreateUserPayload"];
+    expect(createSchema.properties?.joinedAt.type).toBe("string");
+    expect(createSchema.properties?.joinedAt.format).toBe("date-time");
   });
 
   it("should generate manifest with correct operationIds", () => {
