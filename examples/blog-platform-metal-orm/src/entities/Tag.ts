@@ -13,6 +13,11 @@ export class Tag {
   @Column({ type: "varchar", args: [20], notNull: true, default: "#6B7280" })
   color!: string;
 
-  @BelongsToMany({ target: () => BlogPost, pivotTable: () => PostTag })
+  @BelongsToMany({
+    target: () => BlogPost,
+    pivotTable: () => PostTag,
+    pivotForeignKeyToRoot: "tagId",
+    pivotForeignKeyToTarget: "postId",
+  })
   posts!: import("metal-orm").ManyToManyCollection<BlogPost, PostTag>;
 }

@@ -40,6 +40,11 @@ export class BlogPost {
   @HasMany({ target: () => Comment, foreignKey: "postId" })
   comments!: import("metal-orm").HasManyCollection<Comment>;
 
-  @BelongsToMany({ target: () => Tag, pivotTable: () => PostTag })
+  @BelongsToMany({
+    target: () => Tag,
+    pivotTable: () => PostTag,
+    pivotForeignKeyToRoot: "postId",
+    pivotForeignKeyToTarget: "tagId",
+  })
   tags!: import("metal-orm").ManyToManyCollection<Tag, PostTag>;
 }

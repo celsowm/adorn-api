@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Put, Delete, QueryStyle } from "adorn-api";
-import { BlogPost, Category, Comment, Tag, User } from "../entities/index.js";
+import { BlogPost, Category, Tag, User } from "../entities/index.js";
 import { getSession } from "../db.js";
 import { selectFromEntity, entityRef, eq, and, like } from "metal-orm";
 
@@ -22,39 +22,50 @@ export class BlogPostsController {
     const P = entityRef(BlogPost);
     const U = entityRef(User);
     const C = entityRef(Category);
-    const Cm = entityRef(Comment);
     const T = entityRef(Tag);
     let qb = selectFromEntity(BlogPost)
       .select("id", "authorId", "categoryId", "title", "content", "status", "publishedAt", "createdAt");
 
     const conditions = [];
 
-    if (where?.author?.email) {
-      qb = qb.include("author", {
-        filter: eq(U.email, where.author.email),
-      });
+    qb = qb
+      .include("author")
+      .include("category")
+      .include("tags")
+      .include("comments");
+
+    const authorEmail = where?.author?.email;
+    if (authorEmail) {
+      qb = qb.whereHas("author", authorQb =>
+        authorQb.where(eq(U.email, authorEmail))
+      );
     }
 
-    if (where?.category?.slug) {
-      qb = qb.include("category", {
-        filter: eq(C.slug, where.category.slug),
-      });
+    const categorySlug = where?.category?.slug;
+    if (categorySlug) {
+      qb = qb.whereHas("category", categoryQb =>
+        categoryQb.where(eq(C.slug, categorySlug))
+      );
     }
 
-    if (where?.tags?.name) {
-      qb = qb.include("tags", {
-        filter: eq(T.$.name, where.tags.name),
-      });
+    const tagName = where?.tags?.name;
+    if (tagName) {
+      qb = qb.whereHas("tags", tagQb =>
+        tagQb.where(eq(T.$.name, tagName))
+      );
     }
 
-    if (where?.comments?.author?.name) {
-      qb = qb.innerJoin(Cm, eq(Cm.postId, P.id));
-      qb = qb.innerJoin(U, eq(Cm.authorId, U.id));
-      const nameFilter = where.comments.author.name.trim();
+    const commentAuthorName = where?.comments?.author?.name;
+    if (commentAuthorName) {
+      const nameFilter = commentAuthorName.trim();
       const pattern = nameFilter.includes("%")
         ? nameFilter
         : `%${nameFilter}%`;
-      conditions.push(like(U.$.name, pattern));
+      qb = qb.whereHas("comments", commentQb =>
+        commentQb.whereHas("author", authorQb =>
+          authorQb.where(like(U.$.name, pattern))
+        )
+      );
     }
 
     if (where?.author?.id !== undefined) {
@@ -72,6 +83,23 @@ export class BlogPostsController {
     }
 
     const posts = await qb.execute(session);
+    const ensureEnumerableRelation = (entity: object, relationName: string) => {
+      if (Object.prototype.propertyIsEnumerable.call(entity, relationName)) return;
+      Object.defineProperty(entity, relationName, {
+        value: (entity as Record<string, unknown>)[relationName],
+        enumerable: true,
+        configurable: true,
+      });
+    };
+    await Promise.all(
+      posts.map(async post => {
+        const comments = await post.comments.load();
+        await Promise.all(comments.map(async comment => {
+          await comment.author.load();
+          ensureEnumerableRelation(comment as object, "author");
+        }));
+      })
+    );
     return posts;
 
   }
