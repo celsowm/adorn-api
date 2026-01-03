@@ -4,6 +4,7 @@
   "description": "Simple pagination example using metal-orm and SQLite in-memory",
   "type": "module",
   "scripts": {
+    "build": "tsc && node ../../dist/cli.cjs build -p tsconfig.json --output .adorn",
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts"
   },
