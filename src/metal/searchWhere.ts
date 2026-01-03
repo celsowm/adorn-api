@@ -117,15 +117,22 @@ export type SearchWherePath<TEntity extends object, Depth extends SearchWhereDep
           [K in RelationKeys<TEntity>]: `${K}.*` | `${K}.${SearchWherePath<RelationTarget<NonNullable<TEntity[K]>>, PrevDepth[Depth]>}`;
         }[RelationKeys<TEntity>]);
 
-export type SearchWhereOptions<TEntity extends object> = {
+type BaseSearchWhereOptions = {
   maxDepth?: SearchWhereDepth;
-  include?: readonly SearchWherePath<TEntity, 5>[];
-  exclude?: readonly SearchWherePath<TEntity, 5>[];
+  include?: readonly string[];
+  exclude?: readonly string[];
 };
 
-export type SearchWhere<TEntity extends object, Opts extends SearchWhereOptions<TEntity> = {}> = WhereShape<
-  TEntity,
-  ResolveDepth<Opts>,
-  ResolveInclude<Opts>,
-  ResolveExclude<Opts>
->;
+export type SearchWhereOptions<
+  TEntity extends object,
+  Depth extends SearchWhereDepth = 5,
+> = {
+  maxDepth?: Depth;
+  include?: readonly SearchWherePath<TEntity, Depth>[];
+  exclude?: readonly SearchWherePath<TEntity, Depth>[];
+};
+
+export type SearchWhere<TEntity extends object, Opts extends BaseSearchWhereOptions = {}> =
+  Opts extends SearchWhereOptions<TEntity, ResolveDepth<Opts>>
+    ? WhereShape<TEntity, ResolveDepth<Opts>, ResolveInclude<Opts>, ResolveExclude<Opts>>
+    : never;

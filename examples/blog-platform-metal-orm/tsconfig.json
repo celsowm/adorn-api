@@ -2,11 +2,11 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "../..",
     "baseUrl": ".",
     "paths": {
-      "adorn-api/*": ["../src/*"],
-      "adorn-api": ["../src/index.ts"]
+      "adorn-api/*": ["../../src/*"],
+      "adorn-api": ["../../src/index.ts"]
     },
     "module": "NodeNext",
     "moduleResolution": "NodeNext",

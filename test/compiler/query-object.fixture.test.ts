@@ -15,7 +15,7 @@ describe("Compiler Query Object Fixture", () => {
 
     expect(controllers).toHaveLength(1);
 
-    const op = manifest.controllers[0].operations.find(o => o.operationId === "PostController_list");
+    const op = manifest.controllers[0].operations.find(o => o.operationId === "PostController_listFlat");
     expect(op).toBeDefined();
 
     const queryArgs = op?.args.query ?? [];
