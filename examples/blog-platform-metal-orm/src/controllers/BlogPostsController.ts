@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Put, Delete, QueryStyle } from "adorn-api";
 import { BlogPost, Category, Tag, User } from "../entities/index.js";
 import { getSession } from "../db.js";
-import { selectFromEntity, entityRef, eq, and, like } from "metal-orm";
+import { selectFromEntity, entityRefs, eq, and, like } from "metal-orm";
 
 type PostSearchWhere = {
   author?: { id?: number; email?: string };
@@ -19,10 +19,7 @@ export class BlogPostsController {
   async getPosts(where?: PostSearchWhere): Promise<BlogPost[]> {
 
     const session = getSession();
-    const P = entityRef(BlogPost);
-    const U = entityRef(User);
-    const C = entityRef(Category);
-    const T = entityRef(Tag);
+    const [P, U, C, T] = entityRefs(BlogPost, User, Category, Tag);
     let qb = selectFromEntity(BlogPost)
       .select("id", "authorId", "categoryId", "title", "content", "status", "publishedAt", "createdAt");
 
@@ -92,7 +89,7 @@ export class BlogPostsController {
   async getPost(id: number): Promise<BlogPost | null> {
 
     const session = getSession();
-    const P = entityRef(BlogPost);
+    const [P] = entityRefs(BlogPost);
     const posts = await selectFromEntity(BlogPost)
       .select("id", "authorId", "categoryId", "title", "content", "status", "publishedAt", "createdAt")
       .where(eq(P.id, id))
