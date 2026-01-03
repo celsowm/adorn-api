@@ -18,6 +18,7 @@ export interface ScannedOperation {
   operationId: string;
   methodDeclaration: ts.MethodDeclaration;
   returnType: ts.Type;
+  returnTypeNode?: ts.TypeNode;
   parameters: ScannedParameter[];
   pathParamIndices: number[];
   bodyParamIndex: number | null;
@@ -166,6 +167,7 @@ function analyzeMethod(
 
   let returnType = checker.getReturnTypeOfSignature(signature);
   returnType = unwrapPromise(returnType, checker);
+  const returnTypeNode = unwrapPromiseTypeNode(node.type);
 
   const parameters: ScannedParameter[] = [];
   for (let i = 0; i < node.parameters.length; i++) {
@@ -196,6 +198,7 @@ function analyzeMethod(
     operationId: defaultOperationId(className, methodName),
     methodDeclaration: node,
     returnType,
+    returnTypeNode,
     parameters,
     pathParamIndices,
     bodyParamIndex,
@@ -361,4 +364,16 @@ function unwrapPromise(type: ts.Type, checker: ts.TypeChecker): ts.Type {
     }
   }
   return type;
+}
+
+function unwrapPromiseTypeNode(typeNode?: ts.TypeNode): ts.TypeNode | undefined {
+  if (!typeNode) return undefined;
+
+  if (ts.isTypeReferenceNode(typeNode)) {
+    if (ts.isIdentifier(typeNode.typeName) && typeNode.typeName.text === "Promise") {
+      return typeNode.typeArguments?.[0] ?? typeNode;
+    }
+  }
+
+  return typeNode;
 }

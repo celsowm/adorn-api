@@ -81,7 +81,7 @@ function buildOperation(operation: ScannedOperation, ctx: SchemaContext, control
     op.parameters = parameters;
   }
 
-  const responseSchema = typeToJsonSchema(operation.returnType, ctx);
+  const responseSchema = typeToJsonSchema(operation.returnType, ctx, operation.returnTypeNode);
 
   const status = operation.httpMethod === "POST" ? 201 : 200;
   op.responses[status] = {

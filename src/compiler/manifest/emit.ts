@@ -81,7 +81,7 @@ function buildOperationEntry(op: ScannedOperation, ctx: SchemaContext): Operatio
     }
   }
 
-  const responseSchema = typeToJsonSchema(op.returnType, ctx);
+  const responseSchema = typeToJsonSchema(op.returnType, ctx, op.returnTypeNode);
   const status = op.httpMethod === "POST" ? 201 : 200;
 
   let schemaRef = responseSchema.$ref;

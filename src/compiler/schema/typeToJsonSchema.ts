@@ -96,11 +96,11 @@ export function typeToJsonSchema(
   }
 
   if (type.isUnion()) {
-    return handleUnion(type.types, ctx, typeNode);
+    return handleUnion(type, ctx, typeNode);
   }
 
   if (type.isIntersection()) {
-    return handleIntersection(type.types, ctx, typeNode);
+    return handleIntersection(type, ctx, typeNode);
   }
 
   if (checker.isArrayType(type)) {
@@ -145,76 +145,130 @@ function isSetType(type: ts.Type, checker: ts.TypeChecker): boolean {
   return false;
 }
 
+function getSchemaName(type: ts.Type, typeNode?: ts.TypeNode): string | null {
+  const aliasSymbol = (type as ts.TypeReference).aliasSymbol ?? (type as any).aliasSymbol;
+  const aliasName = aliasSymbol?.getName();
+  if (aliasName && aliasName !== "__type") {
+    return aliasName;
+  }
+
+  const symbol = type.getSymbol();
+  const symbolName = symbol?.getName?.();
+  if (symbolName && symbolName !== "__type") {
+    return symbolName;
+  }
+
+  const nodeName = getExplicitTypeNameFromNode(typeNode);
+  if (nodeName && nodeName !== "__type") {
+    return nodeName;
+  }
+
+  return null;
+}
+
+function buildNamedSchema(
+  type: ts.Type,
+  ctx: SchemaContext,
+  typeNode: ts.TypeNode | undefined,
+  build: () => JsonSchema
+): JsonSchema {
+  const name = getSchemaName(type, typeNode);
+  if (!name) {
+    return build();
+  }
+
+  const { components, typeStack } = ctx;
+  if (components.has(name) || typeStack.has(type)) {
+    return { $ref: `#/components/schemas/${name}` };
+  }
+
+  typeStack.add(type);
+  const schema = build();
+  typeStack.delete(type);
+
+  if (!components.has(name)) {
+    components.set(name, schema);
+  }
+
+  return { $ref: `#/components/schemas/${name}` };
+}
+
 function handleUnion(
-  types: readonly ts.Type[],
+  type: ts.UnionType,
   ctx: SchemaContext,
   typeNode?: ts.TypeNode
 ): JsonSchema {
-  const nullType = types.find(t => t.flags & ts.TypeFlags.Null);
-  const otherTypes = types.filter(t => !(t.flags & ts.TypeFlags.Null) && !(t.flags & ts.TypeFlags.Undefined));
+  return buildNamedSchema(type, ctx, typeNode, () => {
+    const types = type.types;
+    const nullType = types.find(t => t.flags & ts.TypeFlags.Null);
+    const otherTypes = types.filter(t => !(t.flags & ts.TypeFlags.Null) && !(t.flags & ts.TypeFlags.Undefined));
 
-  const allStringLiterals = otherTypes.every(t => t.flags & ts.TypeFlags.StringLiteral);
-  if (allStringLiterals && otherTypes.length > 0) {
-    const enumValues = otherTypes.map(t => (t as ts.StringLiteralType).value);
-    const schema: JsonSchema = { type: "string", enum: enumValues };
-    if (nullType) {
-      schema.type = ["string", "null"];
-    }
-    return schema;
-  }
-
-  if (otherTypes.length === 1 && nullType) {
-    const innerSchema = typeToJsonSchema(otherTypes[0], ctx);
-    if (typeof innerSchema.type === "string") {
-      innerSchema.type = [innerSchema.type, "null"];
-    }
-    return innerSchema;
-  }
-
-  if (otherTypes.length > 1) {
-    const branches = otherTypes.map(t => typeToJsonSchema(t, ctx));
-    const hasNull = !!nullType;
-
-    const result: JsonSchema = {};
-
-    if (hasNull) {
-      result.anyOf = [...branches, { type: "null" }];
-    } else {
-      result.anyOf = branches;
+    const allStringLiterals = otherTypes.every(t => t.flags & ts.TypeFlags.StringLiteral);
+    if (allStringLiterals && otherTypes.length > 0) {
+      const enumValues = otherTypes.map(t => (t as ts.StringLiteralType).value);
+      const schema: JsonSchema = { type: "string", enum: enumValues };
+      if (nullType) {
+        schema.type = ["string", "null"];
+      }
+      return schema;
     }
 
-    const discriminatorResult = detectDiscriminatedUnion(otherTypes, ctx, branches);
-    if (discriminatorResult) {
-      result.oneOf = branches;
-      result.discriminator = discriminatorResult;
+    if (otherTypes.length === 1 && nullType) {
+      const innerSchema = typeToJsonSchema(otherTypes[0], ctx);
+      if (typeof innerSchema.type === "string") {
+        innerSchema.type = [innerSchema.type, "null"];
+      }
+      return innerSchema;
     }
 
-    return result;
-  }
+    if (otherTypes.length > 1) {
+      const branches = otherTypes.map(t => typeToJsonSchema(t, ctx));
+      const hasNull = !!nullType;
 
-  if (otherTypes.length === 1) {
-    return typeToJsonSchema(otherTypes[0], ctx);
-  }
+      const result: JsonSchema = {};
 
-  return {};
+      if (hasNull) {
+        result.anyOf = [...branches, { type: "null" }];
+      } else {
+        result.anyOf = branches;
+      }
+
+      const discriminatorResult = detectDiscriminatedUnion(otherTypes, ctx, branches);
+      if (discriminatorResult) {
+        result.oneOf = branches;
+        result.discriminator = discriminatorResult;
+      }
+
+      return result;
+    }
+
+    if (otherTypes.length === 1) {
+      return typeToJsonSchema(otherTypes[0], ctx);
+    }
+
+    return {};
+  });
 }
 
 function handleIntersection(
-  types: readonly ts.Type[],
+  type: ts.IntersectionType,
   ctx: SchemaContext,
   typeNode?: ts.TypeNode
 ): JsonSchema {
-  const brandCollapsed = tryCollapseBrandedIntersection(types, ctx, typeNode);
-  if (brandCollapsed) {
-    return brandCollapsed;
-  }
+  return buildNamedSchema(type, ctx, typeNode, () => {
+    const types = type.types;
+    const brandCollapsed = tryCollapseBrandedIntersection(types, ctx, typeNode);
+    if (brandCollapsed) {
+      return brandCollapsed;
+    }
 
-  const allOf: JsonSchema[] = [];
-  for (const t of types) {
-    allOf.push(typeToJsonSchema(t, ctx));
-  }
+    const allOf: JsonSchema[] = [];
+    for (const t of types) {
+      allOf.push(typeToJsonSchema(t, ctx));
+    }
 
-  return { allOf };
+    return { allOf };
+  });
 }
 
 function tryCollapseBrandedIntersection(
@@ -405,8 +459,8 @@ function getTypeId(type: ts.Type, typeName: string): string {
   return `${typeName}_${typeFlags}`;
 }
 
-function getTypeNameFromNode(typeNode: ts.TypeNode | undefined, ctx: SchemaContext): string {
-  if (!typeNode) return `Anonymous_${ctx.typeNameStack.length}`;
+function getExplicitTypeNameFromNode(typeNode?: ts.TypeNode): string | null {
+  if (!typeNode) return null;
 
   if (ts.isTypeReferenceNode(typeNode)) {
     if (ts.isIdentifier(typeNode.typeName)) {
@@ -419,6 +473,13 @@ function getTypeNameFromNode(typeNode: ts.TypeNode | undefined, ctx: SchemaConte
       return typeNode.parent.name.text;
     }
   }
+
+  return null;
+}
+
+function getTypeNameFromNode(typeNode: ts.TypeNode | undefined, ctx: SchemaContext): string {
+  const explicitName = getExplicitTypeNameFromNode(typeNode);
+  if (explicitName) return explicitName;
 
   return `Anonymous_${ctx.typeNameStack.length}`;
 }
