@@ -30,7 +30,23 @@ type RelationTarget<T> = T extends HasManyCollection<infer C extends object>
         ? C
         : never;
 
+type RelationTargetForKey<TEntity extends object, K extends keyof TEntity & string> =
+  NonNullable<TEntity[K]> extends RelationWrapper
+    ? RelationTarget<NonNullable<TEntity[K]>>
+    : NonNullable<TEntity[K]> extends object
+      ? NonNullable<TEntity[K]>
+      : never;
+
 type ScalarKeys<TEntity extends object> = SelectableKeys<TEntity> & keyof TEntity & string;
+
+type ObjectKeys<TEntity extends object> = {
+  [K in keyof TEntity & string]-?: NonNullable<TEntity[K]> extends object ? K : never;
+}[keyof TEntity & string];
+
+type RelationOverrideKeys<TEntity extends object, Overrides> = Extract<Overrides, ObjectKeys<TEntity>>;
+
+type RelationKeysWithOverrides<TEntity extends object, Overrides> =
+  RelationKeys<TEntity> | RelationOverrideKeys<TEntity, Overrides>;
 
 type AfterPrefix<Key extends string, Paths> = Paths extends `${Key}.${infer Rest}` ? Rest : never;
 
@@ -86,53 +102,64 @@ type ResolveDepth<Opts> = Opts extends { maxDepth: infer D }
 
 type ResolveInclude<Opts> = Opts extends { include: readonly (infer P)[] } ? (P & string) : never;
 type ResolveExclude<Opts> = Opts extends { exclude: readonly (infer P)[] } ? (P & string) : never;
+type ResolveRelations<Opts> = Opts extends { relations: readonly (infer P)[] } ? (P & string) : never;
 
 type WhereShape<
   TEntity extends object,
   Depth extends SearchWhereDepth,
   IncludePaths,
   ExcludePaths,
+  RelationOverrides,
 > = {
   [K in ScalarKeys<TEntity> as IsScalarAllowed<K, IncludePaths, ExcludePaths> extends true ? K : never]?: TEntity[K];
 } & (Depth extends 0
   ? {}
   : {
-      [K in RelationKeys<TEntity> as IsRelationAllowed<K, IncludePaths, ExcludePaths> extends true
+      [K in RelationKeysWithOverrides<TEntity, RelationOverrides> as IsRelationAllowed<K, IncludePaths, ExcludePaths> extends true
         ? K
         : never]?: WhereShape<
-        RelationTarget<NonNullable<TEntity[K]>>,
+        RelationTargetForKey<TEntity, K>,
         PrevDepth[Depth],
         ChildIncludePaths<K, IncludePaths>,
-        ChildExcludePaths<K, ExcludePaths>
+        ChildExcludePaths<K, ExcludePaths>,
+        never
       >;
     });
 
-export type SearchWherePath<TEntity extends object, Depth extends SearchWhereDepth = 2> =
+export type SearchWherePath<
+  TEntity extends object,
+  Depth extends SearchWhereDepth = 2,
+  Relations = never,
+> =
   | "*"
   | ScalarKeys<TEntity>
-  | RelationKeys<TEntity>
+  | RelationKeysWithOverrides<TEntity, Relations>
   | (Depth extends 0
       ? never
       : {
-          [K in RelationKeys<TEntity>]: `${K}.*` | `${K}.${SearchWherePath<RelationTarget<NonNullable<TEntity[K]>>, PrevDepth[Depth]>}`;
-        }[RelationKeys<TEntity>]);
+          [K in RelationKeysWithOverrides<TEntity, Relations>]:
+            `${K}.*` | `${K}.${SearchWherePath<RelationTargetForKey<TEntity, K>, PrevDepth[Depth]>}`;
+        }[RelationKeysWithOverrides<TEntity, Relations>]);
 
 type BaseSearchWhereOptions = {
   maxDepth?: SearchWhereDepth;
   include?: readonly string[];
   exclude?: readonly string[];
+  relations?: readonly string[];
 };
 
 export type SearchWhereOptions<
   TEntity extends object,
   Depth extends SearchWhereDepth = 5,
+  Relations = never,
 > = {
   maxDepth?: Depth;
-  include?: readonly SearchWherePath<TEntity, Depth>[];
-  exclude?: readonly SearchWherePath<TEntity, Depth>[];
+  include?: readonly SearchWherePath<TEntity, Depth, Relations>[];
+  exclude?: readonly SearchWherePath<TEntity, Depth, Relations>[];
+  relations?: readonly ObjectKeys<TEntity>[];
 };
 
 export type SearchWhere<TEntity extends object, Opts extends BaseSearchWhereOptions = {}> =
-  Opts extends SearchWhereOptions<TEntity, ResolveDepth<Opts>>
-    ? WhereShape<TEntity, ResolveDepth<Opts>, ResolveInclude<Opts>, ResolveExclude<Opts>>
+  Opts extends SearchWhereOptions<TEntity, ResolveDepth<Opts>, ResolveRelations<Opts>>
+    ? WhereShape<TEntity, ResolveDepth<Opts>, ResolveInclude<Opts>, ResolveExclude<Opts>, ResolveRelations<Opts>>
     : never;
