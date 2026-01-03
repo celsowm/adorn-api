@@ -6,7 +6,10 @@ import { selectFromEntity, entityRefs, eq, and, like } from "metal-orm";
 
 type PostSearchWhere = SearchWhere<BlogPost, {
   include: ["status", "author.id", "author.email", "category.id", "category.slug", "tags.name", "comments.author.name"];
-}>;
+}> & {
+  q?: string;
+  hasComments?: boolean;
+};
 
 @Controller("/blog-posts")
 export class BlogPostsController {
