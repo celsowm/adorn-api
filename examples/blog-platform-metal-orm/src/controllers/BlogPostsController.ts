@@ -1,15 +1,12 @@
 import { Controller, Get, Post, Put, Delete, QueryStyle } from "adorn-api";
+import type { SearchWhere } from "adorn-api/metal";
 import { BlogPost, Category, Tag, User } from "../entities/index.js";
 import { getSession } from "../db.js";
 import { selectFromEntity, entityRefs, eq, and, like } from "metal-orm";
 
-type PostSearchWhere = {
-  author?: { id?: number; email?: string };
-  category?: { id?: number; slug?: string };
-  tags?: { name?: string };
-  comments?: { author?: { name?: string } };
-  status?: { eq?: string };
-};
+type PostSearchWhere = SearchWhere<BlogPost, {
+  include: ["status", "author.id", "author.email", "category.id", "category.slug", "tags.name", "comments.author.name"];
+}>;
 
 @Controller("/blog-posts")
 export class BlogPostsController {
@@ -72,10 +69,6 @@ export class BlogPostsController {
     if (where?.category?.id !== undefined) {
       conditions.push(eq(P.categoryId, Number(where.category.id)));
     }
-    if (where?.status?.eq) {
-      conditions.push(eq(P.status, where.status.eq));
-    }
-
     if (conditions.length > 0) {
       qb = qb.where(and(...conditions));
     }
