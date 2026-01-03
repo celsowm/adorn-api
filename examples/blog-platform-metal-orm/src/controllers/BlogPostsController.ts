@@ -28,11 +28,12 @@ export class BlogPostsController {
 
     const conditions = [];
 
-    qb = qb
-      .include("author")
-      .include("category")
-      .include("tags")
-      .include("comments");
+    qb = qb.include({
+      author: true,
+      category: true,
+      tags: true,
+      comments: { include: { author: true } }
+    });
 
     const authorEmail = where?.author?.email;
     if (authorEmail) {
@@ -83,23 +84,6 @@ export class BlogPostsController {
     }
 
     const posts = await qb.execute(session);
-    const ensureEnumerableRelation = (entity: object, relationName: string) => {
-      if (Object.prototype.propertyIsEnumerable.call(entity, relationName)) return;
-      Object.defineProperty(entity, relationName, {
-        value: (entity as Record<string, unknown>)[relationName],
-        enumerable: true,
-        configurable: true,
-      });
-    };
-    await Promise.all(
-      posts.map(async post => {
-        const comments = await post.comments.load();
-        await Promise.all(comments.map(async comment => {
-          await comment.author.load();
-          ensureEnumerableRelation(comment as object, "author");
-        }));
-      })
-    );
     return posts;
 
   }
