@@ -1,4 +1,5 @@
 import { Entity, Column, PrimaryKey, BelongsTo, HasMany, BelongsToMany } from "metal-orm";
+import type { BelongsToReference, HasManyCollection, ManyToManyCollection } from "metal-orm";
 import { User } from "./User.js";
 import { Category } from "./Category.js";
 import { Comment } from "./Comment.js";
@@ -32,13 +33,13 @@ export class BlogPost {
   createdAt!: Date;
 
   @BelongsTo({ target: () => User, foreignKey: "authorId" })
-  author!: import("metal-orm").BelongsToReference<User>;
+  author!: BelongsToReference<User>;
 
   @BelongsTo({ target: () => Category, foreignKey: "categoryId" })
-  category!: import("metal-orm").BelongsToReference<Category>;
+  category!: BelongsToReference<Category>;
 
   @HasMany({ target: () => Comment, foreignKey: "postId" })
-  comments!: import("metal-orm").HasManyCollection<Comment>;
+  comments!: HasManyCollection<Comment>;
 
   @BelongsToMany({
     target: () => Tag,
@@ -46,5 +47,5 @@ export class BlogPost {
     pivotForeignKeyToRoot: "postId",
     pivotForeignKeyToTarget: "tagId",
   })
-  tags!: import("metal-orm").ManyToManyCollection<Tag, PostTag>;
+  tags!: ManyToManyCollection<Tag, PostTag>;
 }

@@ -155,6 +155,7 @@ The following data is automatically seeded on startup:
 
 ```typescript
 import { Entity, Column, PrimaryKey, HasMany, BelongsTo } from "metal-orm";
+import type { HasManyCollection } from "metal-orm";
 import { BlogPost } from "./BlogPost.js";
 
 @Entity()
@@ -172,7 +173,7 @@ export class User {
   bio?: string;
 
   @HasMany({ target: () => BlogPost, foreignKey: "authorId" })
-  posts!: import("metal-orm").HasManyCollection<BlogPost>;
+  posts!: HasManyCollection<BlogPost>;
 }
 ```
 

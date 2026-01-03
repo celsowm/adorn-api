@@ -1,4 +1,5 @@
 import { Entity, Column, PrimaryKey, HasMany } from "metal-orm";
+import type { HasManyCollection } from "metal-orm";
 import { BlogPost } from "./BlogPost.js";
 import { Comment } from "./Comment.js";
 
@@ -20,8 +21,8 @@ export class User {
   createdAt!: Date;
 
   @HasMany({ target: () => BlogPost, foreignKey: "authorId" })
-  posts!: import("metal-orm").HasManyCollection<BlogPost>;
+  posts!: HasManyCollection<BlogPost>;
 
   @HasMany({ target: () => Comment, foreignKey: "authorId" })
-  comments!: import("metal-orm").HasManyCollection<Comment>;
+  comments!: HasManyCollection<Comment>;
 }

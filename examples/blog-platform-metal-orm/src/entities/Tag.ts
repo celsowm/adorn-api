@@ -1,4 +1,5 @@
 import { Entity, Column, PrimaryKey, BelongsToMany } from "metal-orm";
+import type { ManyToManyCollection } from "metal-orm";
 import { BlogPost } from "./BlogPost.js";
 import { PostTag } from "./PostTag.js";
 
@@ -19,5 +20,5 @@ export class Tag {
     pivotForeignKeyToRoot: "tagId",
     pivotForeignKeyToTarget: "postId",
   })
-  posts!: import("metal-orm").ManyToManyCollection<BlogPost, PostTag>;
+  posts!: ManyToManyCollection<BlogPost, PostTag>;
 }

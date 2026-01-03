@@ -1,4 +1,5 @@
 import { Entity, Column, PrimaryKey, BelongsTo } from "metal-orm";
+import type { BelongsToReference } from "metal-orm";
 import { BlogPost } from "./BlogPost.js";
 import { User } from "./User.js";
 
@@ -20,8 +21,8 @@ export class Comment {
   createdAt!: Date;
 
   @BelongsTo({ target: () => BlogPost, foreignKey: "postId" })
-  post!: import("metal-orm").BelongsToReference<BlogPost>;
+  post!: BelongsToReference<BlogPost>;
 
   @BelongsTo({ target: () => User, foreignKey: "authorId" })
-  author!: import("metal-orm").BelongsToReference<User>;
+  author!: BelongsToReference<User>;
 }

@@ -1,4 +1,5 @@
 import { Entity, Column, PrimaryKey, BelongsTo } from "metal-orm";
+import type { BelongsToReference } from "metal-orm";
 import { BlogPost } from "./BlogPost.js";
 import { Tag } from "./Tag.js";
 
@@ -14,8 +15,8 @@ export class PostTag {
   tagId!: number;
 
   @BelongsTo({ target: () => BlogPost, foreignKey: "postId" })
-  post!: import("metal-orm").BelongsToReference<BlogPost>;
+  post!: BelongsToReference<BlogPost>;
 
   @BelongsTo({ target: () => Tag, foreignKey: "tagId" })
-  tag!: import("metal-orm").BelongsToReference<Tag>;
+  tag!: BelongsToReference<Tag>;
 }
