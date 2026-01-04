@@ -6,6 +6,7 @@ interface HttpMetadata {
   consumes?: string[];
   produces?: string[];
   queryStyles?: Record<string, QueryStyleOptions>;
+  queryJsons?: string[];
   fileParts?: Record<string, FilePartOptions>;
   cookies?: Record<string, boolean>;
 }
@@ -41,6 +42,20 @@ export function QueryStyle(options: QueryStyleOptions) {
     const metadata = getMetadata(context.metadata);
     metadata.queryStyles ??= {};
     metadata.queryStyles[String(context.name)] = options;
+  };
+}
+
+export function QueryJson(paramName: string) {
+  return function <T extends (...args: any[]) => any>(
+    _target: T,
+    context: ClassMethodDecoratorContext<any, T>
+  ): void {
+    if (context.private || context.static) return;
+    const metadata = getMetadata(context.metadata);
+    metadata.queryJsons ??= [];
+    if (!metadata.queryJsons.includes(paramName)) {
+      metadata.queryJsons.push(paramName);
+    }
   };
 }
 

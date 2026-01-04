@@ -27,12 +27,12 @@ export function generateManifest(
     operations: ctrl.operations.map(op => buildOperationEntry(op, ctx)),
   }));
 
-  const validationConfig: { mode: "none" | "ajv-runtime" | "precompiled"; precompiledModule: string | null } = 
+  const validationConfig: { mode: "none" | "ajv-runtime" | "precompiled"; precompiledModule: string | null } =
     validationMode === "precompiled"
-    ? { mode: "precompiled", precompiledModule: null }
-    : validationMode === "none"
-      ? { mode: "none", precompiledModule: null }
-      : { mode: "ajv-runtime", precompiledModule: null };
+      ? { mode: "precompiled", precompiledModule: null }
+      : validationMode === "none"
+        ? { mode: "none", precompiledModule: null }
+        : { mode: "ajv-runtime", precompiledModule: null };
 
   return {
     manifestVersion: 1,
@@ -138,8 +138,22 @@ function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec
     const queryParam = op.parameters[op.queryObjectParamIndex];
     if (queryParam) {
       const queryStyle = extractQueryStyleOptions(ctx.checker, op.methodDeclaration);
+      const queryJsonParamNames = op.queryJsonParamNames;
+      const isJson = queryJsonParamNames.includes(queryParam.name);
+
       const querySchema = typeToJsonSchema(queryParam.type, ctx);
-      if (queryStyle?.style === "deepObject") {
+
+      if (isJson) {
+        const schemaRef = querySchema.$ref ?? "#/components/schemas/InlineQueryParam";
+        args.query.push({
+          name: queryParam.name,
+          index: queryParam.index,
+          required: !queryParam.isOptional,
+          schemaRef,
+          schemaType: querySchema.type,
+          content: "application/json",
+        });
+      } else if (queryStyle?.style === "deepObject") {
         const schemaRef = querySchema.$ref ?? "#/components/schemas/InlineQueryParam";
         args.query.push({
           name: queryParam.name,
@@ -178,6 +192,7 @@ function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec
   for (const paramIndex of op.queryParamIndices) {
     const param = op.parameters[paramIndex];
     if (param) {
+      const isJson = op.queryJsonParamNames.includes(param.name);
       const paramSchema = typeToJsonSchema(param.type, ctx);
       const schemaRef = paramSchema.$ref ?? "#/components/schemas/InlineQueryParam";
 
@@ -187,6 +202,7 @@ function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec
         required: !param.isOptional,
         schemaRef,
         schemaType: paramSchema.type,
+        content: isJson ? "application/json" : undefined,
       });
     }
   }

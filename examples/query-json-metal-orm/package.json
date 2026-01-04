@@ -1,0 +1,24 @@
+{
+    "name": "example-query-json-metal-orm",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "tsc && node ../../dist/cli.cjs build -p tsconfig.json --output .adorn",
+        "dev": "tsx watch src/server.ts",
+        "clean": "node ../../dist/cli.cjs clean --output .adorn"
+    },
+    "dependencies": {
+        "adorn-api": "file:../..",
+        "express": "^4.21.2",
+        "metal-orm": "latest",
+        "sqlite": "^5.1.1",
+        "sqlite3": "^5.1.7"
+    },
+    "devDependencies": {
+        "@types/express": "^5.0.0",
+        "@types/node": "^22.10.2",
+        "tsx": "^4.19.2",
+        "typescript": "^5.7.2"
+    }
+}

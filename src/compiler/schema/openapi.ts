@@ -4,6 +4,7 @@ import { typeToJsonSchema, createSchemaContext } from "./typeToJsonSchema.js";
 import { extractPropertySchemaFragments, mergeFragments } from "./extractAnnotations.js";
 import type { SchemaContext, JsonSchema } from "./typeToJsonSchema.js";
 import { extractQueryStyleOptions } from "../analyze/extractQueryStyle.js";
+import { extractQueryJsonOptions } from "../analyze/extractQueryJson.js";
 
 export interface OpenAPI31 {
   openapi: "3.1.0";
@@ -98,9 +99,9 @@ function buildOperation(operation: ScannedOperation, ctx: SchemaContext, control
     if (bodyParam) {
       let bodySchema = typeToJsonSchema(bodyParam.type, ctx);
       bodySchema = mergeBodySchemaAnnotations(bodyParam, ctx, bodySchema);
-      
+
       const contentType = operation.bodyContentType ?? controllerConsumes?.[0] ?? "application/json";
-      
+
       const requestBody: any = {
         required: !bodyParam.isOptional,
         content: {},
@@ -188,8 +189,23 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
     if (!queryParam) return;
 
     const queryStyle = extractQueryStyleOptions(ctx.checker, operation.methodDeclaration);
+    const queryJsonParamNames = extractQueryJsonOptions(ctx.checker, operation.methodDeclaration);
+    const isJson = queryJsonParamNames.includes(queryParam.name);
+
     const querySchema = typeToJsonSchema(queryParam.type, ctx);
-    if (queryStyle?.style === "deepObject") {
+
+    if (isJson) {
+      parameters.push({
+        name: queryParam.name,
+        in: "query",
+        required: !queryParam.isOptional,
+        content: {
+          "application/json": {
+            schema: querySchema.$ref ? { $ref: querySchema.$ref } : querySchema,
+          },
+        },
+      });
+    } else if (queryStyle?.style === "deepObject") {
       const explode = queryStyle.explode ?? true;
       const deepParam: Record<string, unknown> = {
         name: queryParam.name,
@@ -224,6 +240,7 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
   for (const paramIndex of operation.queryParamIndices) {
     const param = operation.parameters[paramIndex];
     if (param) {
+      const isJson = operation.queryJsonParamNames.includes(param.name);
       let paramSchema = typeToJsonSchema(param.type, ctx);
       if (param.paramNode) {
         const frags = extractPropertySchemaFragments(ctx.checker, param.paramNode);
@@ -231,16 +248,30 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
           paramSchema = mergeFragments(paramSchema as Record<string, unknown>, ...frags) as JsonSchema;
         }
       }
-      const serialization = determineQuerySerialization(paramSchema.type);
-      parameters.push({
-        name: param.name,
-        in: "query",
-        required: !param.isOptional,
-        schema: paramSchema.$ref
-          ? { type: "string", $ref: paramSchema.$ref }
-          : paramSchema,
-        ...(Object.keys(serialization).length > 0 ? serialization : {}),
-      });
+
+      if (isJson) {
+        parameters.push({
+          name: param.name,
+          in: "query",
+          required: !param.isOptional,
+          content: {
+            "application/json": {
+              schema: paramSchema.$ref ? { type: "string", $ref: paramSchema.$ref } : paramSchema,
+            },
+          },
+        });
+      } else {
+        const serialization = determineQuerySerialization(paramSchema.type);
+        parameters.push({
+          name: param.name,
+          in: "query",
+          required: !param.isOptional,
+          schema: paramSchema.$ref
+            ? { type: "string", $ref: paramSchema.$ref }
+            : paramSchema,
+          ...(Object.keys(serialization).length > 0 ? serialization : {}),
+        });
+      }
     }
   }
 }
@@ -248,11 +279,11 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
 function determineQuerySerialization(schemaType: string | string[] | undefined): { style?: string; explode?: boolean } {
   const typeArray = Array.isArray(schemaType) ? schemaType : schemaType ? [schemaType] : [];
   const isArray = typeArray.includes("array");
-  
+
   if (isArray) {
     return { style: "form", explode: true };
   }
-  
+
   return {};
 }
 

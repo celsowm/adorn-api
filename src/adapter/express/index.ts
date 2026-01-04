@@ -216,7 +216,7 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
       middlewareChain.push(authMw);
     }
 
-    router[method](route.fullPath, ...middlewareChain, async (req: Request, res: Response, next: NextFunction) => {
+    (router as any)[method](route.fullPath, ...middlewareChain, async (req: Request, res: Response, next: NextFunction) => {
       try {
         const validationErrors = precompiledValidators
           ? validateRequestWithPrecompiled(route, req, precompiledValidators)
@@ -252,7 +252,28 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
 
         if (route.args.query.length > 0) {
           const deepObjectArgs = route.args.query.filter(q => q.serialization?.style === "deepObject");
-          const standardArgs = route.args.query.filter(q => q.serialization?.style !== "deepObject");
+          const jsonArgs = route.args.query.filter(q => q.content === "application/json");
+          const standardArgs = route.args.query.filter(q => q.serialization?.style !== "deepObject" && q.content !== "application/json");
+
+          if (jsonArgs.length > 0) {
+            for (const q of jsonArgs) {
+              const rawValue = req.query[q.name];
+              let parsed: any = rawValue;
+              if (typeof rawValue === "string" && rawValue.length > 0) {
+                try {
+                  parsed = JSON.parse(rawValue);
+                } catch (e) {
+                  // If JSON parse fails, we let validator handle it later
+                }
+              }
+              const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "query", q.name)
+                ?? (q.schemaRef ? getSchemaByRef(q.schemaRef) : null)
+                ?? schemaFromType(q.schemaType);
+              const coerced = coerceParamValue(parsed, paramSchema, coerceQueryDates, openapi.components.schemas);
+
+              args[q.index] = coerced;
+            }
+          }
 
           if (deepObjectArgs.length > 0) {
             const rawQuery = getRawQueryString(req);
@@ -477,7 +498,20 @@ function validateRequestWithPrecompiled(
   }
 
   for (const q of route.args.query) {
-    const value = q.serialization?.style === "deepObject" ? deepValues[q.name] : req.query[q.name];
+    let value = q.serialization?.style === "deepObject" ? deepValues[q.name] : req.query[q.name];
+    if (q.content === "application/json" && typeof value === "string") {
+      try {
+        value = JSON.parse(value);
+      } catch (e) {
+        errors.push({
+          path: `#/query/${q.name}`,
+          message: `Invalid JSON string`,
+          keyword: "json",
+          params: {},
+        });
+        continue;
+      }
+    }
     if (value === undefined) continue;
 
     const schema = schemaFromType(q.schemaType) ?? {};
@@ -551,7 +585,20 @@ function validateRequest(
   }
 
   for (const q of route.args.query) {
-    const value = q.serialization?.style === "deepObject" ? deepValues[q.name] : req.query[q.name];
+    let value = q.serialization?.style === "deepObject" ? deepValues[q.name] : req.query[q.name];
+    if (q.content === "application/json" && typeof value === "string") {
+      try {
+        value = JSON.parse(value);
+      } catch (e) {
+        errors.push({
+          path: `#/query/${q.name}`,
+          message: `Invalid JSON string`,
+          keyword: "json",
+          params: {},
+        });
+        continue;
+      }
+    }
     const openapiSchema = getParamSchemaFromIndex(paramSchemaIndex, "query", q.name);
     let schema: Record<string, unknown> = {};
 
@@ -953,7 +1000,7 @@ export function setupSwagger(options: SetupSwaggerOptions = {}): Router {
     const openApiPath = isAbsolute(artifactsDir)
       ? resolve(artifactsDir, "openapi.json")
       : resolve(process.cwd(), artifactsDir, "openapi.json");
-    
+
     const content = readFileSync(openApiPath, "utf-8");
     res.setHeader("Content-Type", "application/json");
     res.send(content);

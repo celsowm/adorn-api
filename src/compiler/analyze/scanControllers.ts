@@ -1,5 +1,6 @@
 import ts from "typescript";
 import { defaultOperationId } from "../../utils/operationId.js";
+import { extractQueryJsonOptions } from "./extractQueryJson.js";
 
 export interface ScannedController {
   className: string;
@@ -28,6 +29,7 @@ export interface ScannedOperation {
   cookieObjectParamIndex: number | null;
   paginationParamIndex: number | null;
   bodyContentType?: string;
+  queryJsonParamNames: string[];
 }
 
 export interface ScannedParameter {
@@ -188,9 +190,11 @@ function analyzeMethod(
 
   const pathParamNames = extractPathParams(path);
   const pathParamIndices = matchPathParamsToIndices(pathParamNames, parameters);
-  
-  const { bodyParamIndex, queryParamIndices, queryObjectParamIndex, headerObjectParamIndex, cookieObjectParamIndex, paginationParamIndex, bodyContentType } = 
+
+  const { bodyParamIndex, queryParamIndices, queryObjectParamIndex, headerObjectParamIndex, cookieObjectParamIndex, paginationParamIndex, bodyContentType } =
     classifyParameters(parameters, httpMethod, pathParamIndices, checker);
+
+  const queryJsonParamNames = extractQueryJsonOptions(checker, node);
 
   return {
     methodName,
@@ -209,6 +213,7 @@ function analyzeMethod(
     cookieObjectParamIndex,
     paginationParamIndex,
     bodyContentType,
+    queryJsonParamNames,
   };
 }
 

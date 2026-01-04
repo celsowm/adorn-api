@@ -8,6 +8,7 @@ export * from "./schema/index.js";
 export { createValidator, formatValidationErrors, ValidationErrorResponse } from "./runtime/validation/index.js";
 export {
   QueryStyle,
+  QueryJson,
   File,
   PartType,
   Consumes,

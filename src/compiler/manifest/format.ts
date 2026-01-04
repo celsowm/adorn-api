@@ -80,6 +80,7 @@ export interface NamedArgSpec {
   schemaRef: string;
   schemaType?: string | string[];
   serialization?: SerializationSpec;
+  content?: "application/json";
 }
 
 export interface SerializationSpec {
