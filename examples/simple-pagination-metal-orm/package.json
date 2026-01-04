@@ -11,7 +11,7 @@
   "dependencies": {
     "adorn-api": "file:../..",
     "express": "^5.0.0",
-    "metal-orm": "^1.0.74",
+    "metal-orm": "^1.0.78",
     "sqlite": "^5.1.0",
     "sqlite3": "^5.1.0"
   },
