@@ -297,6 +297,15 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
           }
         }
 
+        if (route.args.paginationParamIndex !== null) {
+          const pageStr = req.query.page as string | undefined;
+          const pageSizeStr = req.query.pageSize as string | undefined;
+          const defaultPageSize = route.paginationConfig?.defaultPageSize ?? 10;
+          const page = pageStr ? parseInt(pageStr, 10) : 1;
+          const pageSize = pageSizeStr ? parseInt(pageSizeStr, 10) : defaultPageSize;
+          args[route.args.paginationParamIndex] = { page, pageSize };
+        }
+
         if (route.args.headers.length > 0) {
           const firstHeaderIndex = route.args.headers[0].index;
           const allSameIndex = route.args.headers.every(h => h.index === firstHeaderIndex);

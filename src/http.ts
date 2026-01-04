@@ -84,5 +84,17 @@ export type Body<T = any> = T;
 export type Headers<T = any> = T;
 export type Cookies<T = any> = T;
 
+export interface PaginationParams {
+  page: number;
+  pageSize: number;
+}
+
+export type PaginatedResponse<T> = {
+  items: T[];
+  totalItems: number;
+  page: number;
+  pageSize: number;
+};
+
 export { ADORN_META };
 export type { HttpMetadata, QueryStyleOptions, FilePartOptions };

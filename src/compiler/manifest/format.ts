@@ -57,6 +57,7 @@ export interface ArgsSpec {
   query: NamedArgSpec[];
   headers: NamedArgSpec[];
   cookies: NamedArgSpec[];
+  paginationParamIndex: number | null;
 }
 
 export interface BodyArgSpec {

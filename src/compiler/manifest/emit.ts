@@ -59,6 +59,7 @@ function buildOperationEntry(op: ScannedOperation, ctx: SchemaContext): Operatio
     query: [],
     headers: [],
     cookies: [],
+    paginationParamIndex: op.paginationParamIndex,
   };
 
   buildPathArgs(op, ctx, args);

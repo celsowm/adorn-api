@@ -1,4 +1,5 @@
-import { Controller, Get, Post } from "adorn-api";
+import { Controller, Get, Post, Paginated } from "adorn-api";
+import type { PaginationParams, PaginatedResponse } from "adorn-api";
 import { getSession } from "./db.js";
 import { Task } from "./entity.js";
 import { selectFromEntity, entityRef, eq } from "metal-orm";
@@ -7,30 +8,29 @@ import { selectFromEntity, entityRef, eq } from "metal-orm";
 export class TasksController {
 
   @Get("/")
+  @Paginated({ defaultPageSize: 5 })
   async list(
-    page?: string,
-    pageSize?: string
-  ): Promise<{ items: Task[]; totalItems: number; page: number; pageSize: number }> {
+    pagination: PaginationParams
+  ): Promise<PaginatedResponse<Task>> {
     const session = getSession();
     const T = entityRef(Task);
 
-    const pageNum = page ? parseInt(page, 10) : 1;
-    const size = pageSize ? parseInt(pageSize, 10) : 5;
+    const { page, pageSize } = pagination;
 
     const qb = selectFromEntity(Task)
       .select("id", "title", "completed", "createdAt")
       .orderBy(T.createdAt, "DESC");
 
     const { items, totalItems } = await qb.executePaged(session, {
-      page: pageNum,
-      pageSize: size,
+      page,
+      pageSize,
     });
 
     return {
       items,
       totalItems,
-      page: pageNum,
-      pageSize: size,
+      page,
+      pageSize,
     };
   }
 

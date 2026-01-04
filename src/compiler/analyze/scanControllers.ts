@@ -26,6 +26,7 @@ export interface ScannedOperation {
   queryObjectParamIndex: number | null;
   headerObjectParamIndex: number | null;
   cookieObjectParamIndex: number | null;
+  paginationParamIndex: number | null;
   bodyContentType?: string;
 }
 
@@ -188,7 +189,7 @@ function analyzeMethod(
   const pathParamNames = extractPathParams(path);
   const pathParamIndices = matchPathParamsToIndices(pathParamNames, parameters);
   
-  const { bodyParamIndex, queryParamIndices, queryObjectParamIndex, headerObjectParamIndex, cookieObjectParamIndex, bodyContentType } = 
+  const { bodyParamIndex, queryParamIndices, queryObjectParamIndex, headerObjectParamIndex, cookieObjectParamIndex, paginationParamIndex, bodyContentType } = 
     classifyParameters(parameters, httpMethod, pathParamIndices, checker);
 
   return {
@@ -206,6 +207,7 @@ function analyzeMethod(
     queryObjectParamIndex,
     headerObjectParamIndex,
     cookieObjectParamIndex,
+    paginationParamIndex,
     bodyContentType,
   };
 }
@@ -238,6 +240,7 @@ function classifyParameters(
   queryObjectParamIndex: number | null;
   headerObjectParamIndex: number | null;
   cookieObjectParamIndex: number | null;
+  paginationParamIndex: number | null;
   bodyContentType: string | undefined;
 } {
   const usedIndices = new Set(pathParamIndices);
@@ -246,6 +249,7 @@ function classifyParameters(
   let queryObjectParamIndex: number | null = null;
   let headerObjectParamIndex: number | null = null;
   let cookieObjectParamIndex: number | null = null;
+  let paginationParamIndex: number | null = null;
 
   const isBodyMethod = ["POST", "PUT", "PATCH"].includes(httpMethod);
 
@@ -280,6 +284,12 @@ function classifyParameters(
       continue;
     }
 
+    if (typeStr === "PaginationParams") {
+      paginationParamIndex = i;
+      usedIndices.add(i);
+      continue;
+    }
+
     if (isBodyMethod && bodyParamIndex === null) {
       bodyParamIndex = i;
       usedIndices.add(i);
@@ -303,6 +313,7 @@ function classifyParameters(
     queryObjectParamIndex,
     headerObjectParamIndex,
     cookieObjectParamIndex,
+    paginationParamIndex,
     bodyContentType: undefined,
   };
 }
