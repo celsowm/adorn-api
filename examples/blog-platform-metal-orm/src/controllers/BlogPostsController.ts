@@ -99,41 +99,9 @@ export class BlogPostsController {
       qb = qb.where(and(...conditions));
     }
 
-    const allowedSorts = [
-      "id",
-      "title",
-      "status",
-      "createdAt",
-      "publishedAt",
-      "author.name",
-      "author.email",
-      "category.slug",
-      "tags.name"
-    ];
-
-    const sorts = parseSort(query?.sort, { whitelist: allowedSorts });
-
-    for (const { path, direction, isRelationField } of sorts) {
-      if (isRelationField) {
-        const [relation, field] = path;
-
-        if (relation === "author") {
-          const col = (U.$ as Record<string, any>)[field];
-          qb = qb.orderBy(columnOperand(col), direction);
-        } else if (relation === "category") {
-          const col = (C.$ as Record<string, any>)[field];
-          qb = qb.orderBy(columnOperand(col), direction);
-        } else if (relation === "tags") {
-          const col = (T.$ as Record<string, any>)[field];
-          qb = qb.orderBy(columnOperand(col), direction);
-        }
-      } else {
-        const col = (P.$ as Record<string, any>)[path[0]];
-        if (col) {
-          qb = qb.orderBy(col, direction);
-        }
-      }
-    }
+    const isTitle = query?.sort === 'title';
+    const col = (P.$ as Record<string, any>)[isTitle ? 'title' : 'createdAt'];
+    qb = qb.orderBy(col, isTitle ? 'ASC' : 'DESC');
 
     return qb.executePaged(session, pagedOptions(query));
   }
