@@ -22,13 +22,14 @@ import {
     getRawQueryString,
     parseDeepObjectParams,
     parseQueryValue,
-    parseCookies
+    parseCookies,
+    normalizeSort
 } from "./coercion.js";
 import { createAuthMiddleware } from "./auth.js";
 import { validateRequest, validateRequestWithPrecompiled } from "./validation.js";
 
 export async function createExpressRouter(options: CreateRouterOptions): Promise<Router> {
-    const { controllers, artifactsDir = ".adorn", middleware = {} } = options;
+    const { controllers, artifactsDir = ".adorn", middleware = {}, defaultPageSize = 10 } = options;
 
     let manifest: ManifestV1;
     let openapi: OpenAPI31;
@@ -148,19 +149,25 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
                 }
 
                 if (route.args.query.length > 0) {
-                    const deepObjectArgs = route.args.query.filter(q => q.serialization?.style === "deepObject");
                     const jsonArgs = route.args.query.filter(q => q.content === "application/json");
-                    const standardArgs = route.args.query.filter(q => q.serialization?.style !== "deepObject" && q.content !== "application/json");
+                    const standardArgs = route.args.query.filter(q => q.content !== "application/json");
+
+                    const queryArgIndex = standardArgs[0]?.index;
+                    if (queryArgIndex !== undefined) {
+                        args[queryArgIndex] = {};
+                    }
 
                     if (jsonArgs.length > 0) {
                         for (const q of jsonArgs) {
                             const rawValue = req.query[q.name];
+                            if (rawValue === undefined || rawValue === null) continue;
+
                             let parsed: any = rawValue;
                             if (typeof rawValue === "string" && rawValue.length > 0) {
                                 try {
                                     parsed = JSON.parse(rawValue);
                                 } catch (e) {
-                                    // If JSON parse fails, we let validator handle it later
+                                    parsed = rawValue;
                                 }
                             }
                             const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "query", q.name)
@@ -172,58 +179,40 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
                         }
                     }
 
-                    if (deepObjectArgs.length > 0) {
-                        const rawQuery = getRawQueryString(req);
-                        const names = new Set(deepObjectArgs.map(q => q.name));
-                        const parsedDeep = parseDeepObjectParams(rawQuery, names);
+                    if (standardArgs.length > 0) {
+                        for (const q of standardArgs) {
+                            const rawValue = req.query[q.name];
+                            if (rawValue === undefined) continue;
 
-                        for (const q of deepObjectArgs) {
-                            const rawValue = parsedDeep[q.name];
+                            const parsed = parseQueryValue(rawValue, q);
                             const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "query", q.name)
                                 ?? (q.schemaRef ? getSchemaByRef(openapi, q.schemaRef) : null)
                                 ?? schemaFromType(q.schemaType);
-                            const baseValue = rawValue === undefined ? {} : rawValue;
-                            const coerced = coerceParamValue(baseValue, paramSchema, coerceQueryDates, openapi.components.schemas);
-                            args[q.index] = coerced;
+                            const coerced = coerceParamValue(parsed, paramSchema, coerceQueryDates, openapi.components.schemas);
+
+                            if (!args[q.index] || typeof args[q.index] !== "object") {
+                                args[q.index] = {};
+                            }
+                            (args[q.index] as Record<string, unknown>)[q.name] = coerced;
                         }
                     }
 
-                    if (standardArgs.length > 0) {
-                        const firstQueryIndex = standardArgs[0].index;
-                        const allSameIndex = standardArgs.every(q => q.index === firstQueryIndex);
+                    if (queryArgIndex !== undefined && args[queryArgIndex]) {
+                        const queryObj = args[queryArgIndex] as Record<string, unknown>;
+                        
+                        if (queryObj.page === undefined) {
+                            queryObj.page = 1;
+                        }
+                        if (queryObj.pageSize === undefined) {
+                            queryObj.pageSize = defaultPageSize;
+                        }
 
-                        if (allSameIndex) {
-                            args[firstQueryIndex] = {};
-                            for (const q of standardArgs) {
-                                const parsed = parseQueryValue(req.query[q.name], q);
-                                const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "query", q.name)
-                                    ?? (q.schemaRef ? getSchemaByRef(openapi, q.schemaRef) : null)
-                                    ?? schemaFromType(q.schemaType);
-                                const coerced = coerceParamValue(parsed, paramSchema, coerceQueryDates, openapi.components.schemas);
-                                args[firstQueryIndex][q.name] = coerced;
-                            }
-                        } else {
-                            for (const q of standardArgs) {
-                                const parsed = parseQueryValue(req.query[q.name], q);
-                                const paramSchema = getParamSchemaFromIndex(paramSchemaIndex, "query", q.name)
-                                    ?? (q.schemaRef ? getSchemaByRef(openapi, q.schemaRef) : null)
-                                    ?? schemaFromType(q.schemaType);
-                                const coerced = coerceParamValue(parsed, paramSchema, coerceQueryDates, openapi.components.schemas);
-                                args[q.index] = coerced;
-                            }
+                        if (queryObj.sort) {
+                            queryObj.sort = normalizeSort(queryObj.sort);
                         }
                     }
                 }
-
-                if (route.args.paginationParamIndex !== null) {
-                    const pageStr = req.query.page as string | undefined;
-                    const pageSizeStr = req.query.pageSize as string | undefined;
-                    const defaultPageSize = route.paginationConfig?.defaultPageSize ?? 10;
-                    const page = pageStr ? parseInt(pageStr, 10) : 1;
-                    const pageSize = pageSizeStr ? parseInt(pageSizeStr, 10) : defaultPageSize;
-                    args[route.args.paginationParamIndex] = { page, pageSize };
-                }
-
+ 
                 if (route.args.headers.length > 0) {
                     const firstHeaderIndex = route.args.headers[0].index;
                     const allSameIndex = route.args.headers.every(h => h.index === firstHeaderIndex);

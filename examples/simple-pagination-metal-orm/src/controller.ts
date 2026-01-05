@@ -1,27 +1,22 @@
-import { Controller, Get, Post, Paginated } from "adorn-api";
-import type { PaginationParams } from "adorn-api";
+import { Controller, Get, Post } from "../../dist/index.js";
+import type { ListQuery } from "../../dist/metal/index.js";
+import { applyListQuery } from "../../dist/metal/index.js";
+import type { PaginatedResult } from "metal-orm";
 import { getSession } from "./db.js";
 import { Task } from "./entity.js";
-import { selectFromEntity, entityRef, eq, type PaginatedResult } from "metal-orm";
+import { selectFromEntity, entityRef, eq } from "metal-orm";
 
 @Controller("/tasks")
 export class TasksController {
-
   @Get("/")
-  @Paginated({ defaultPageSize: 5 })
-  async list(
-    pagination: PaginationParams
-  ): Promise<PaginatedResult<Task>> {
+  async list(query: ListQuery<Task>): Promise<PaginatedResult<Task>> {
     const session = getSession();
     const T = entityRef(Task);
 
-    const { page, pageSize } = pagination;
-
     const qb = selectFromEntity(Task)
-      .select("id", "title", "completed", "createdAt")
-      .orderBy(T.createdAt, "DESC");
+      .select("id", "title", "completed", "createdAt");
 
-    return qb.executePaged(session, { page, pageSize });
+    return applyListQuery(qb, session, query);
   }
 
   @Get("/:id")
@@ -31,7 +26,6 @@ export class TasksController {
       .select("id", "title", "completed", "createdAt")
       .where(eq(entityRef(Task).id, id))
       .execute(session);
-
     return task ?? null;
   }
 

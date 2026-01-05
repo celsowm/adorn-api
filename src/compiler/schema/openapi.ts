@@ -3,8 +3,6 @@ import type { ScannedController, ScannedOperation, ScannedParameter } from "../a
 import { typeToJsonSchema, createSchemaContext } from "./typeToJsonSchema.js";
 import { extractPropertySchemaFragments, mergeFragments } from "./extractAnnotations.js";
 import type { SchemaContext, JsonSchema } from "./typeToJsonSchema.js";
-import { extractQueryStyleOptions } from "../analyze/extractQueryStyle.js";
-import { extractQueryJsonOptions } from "../analyze/extractQueryJson.js";
 
 export interface OpenAPI31 {
   openapi: "3.1.0";
@@ -183,56 +181,80 @@ function buildPathParameters(operation: ScannedOperation, ctx: SchemaContext, pa
   }
 }
 
+function isObjectLikeSchema(schema: JsonSchema, ctx: SchemaContext): boolean {
+  const resolved = resolveSchemaRef(schema, ctx.components);
+  
+  if (resolved.type === "object" || resolved.properties || resolved.additionalProperties) {
+    return true;
+  }
+  
+  if (resolved.type === "array" && resolved.items) {
+    const itemsSchema = resolveSchemaRef(resolved.items, ctx.components);
+    return isObjectLikeSchema(itemsSchema, ctx);
+  }
+  
+  return false;
+}
+
+function resolveSchemaRef(schema: JsonSchema, components: Map<string, JsonSchema>): JsonSchema {
+  const ref = schema.$ref;
+  if (typeof ref !== "string" || !ref.startsWith("#/components/schemas/")) {
+    return schema;
+  }
+
+  const name = ref.replace("#/components/schemas/", "");
+  const next = components.get(name);
+  if (!next) return schema;
+
+  return resolveSchemaRef(next, components);
+}
+
 function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, parameters: any[]): void {
   if (operation.queryObjectParamIndex !== null) {
     const queryParam = operation.parameters[operation.queryObjectParamIndex];
     if (!queryParam) return;
 
-    const queryStyle = extractQueryStyleOptions(ctx.checker, operation.methodDeclaration);
-    const queryJsonParamNames = extractQueryJsonOptions(ctx.checker, operation.methodDeclaration);
-    const isJson = queryJsonParamNames.includes(queryParam.name);
-
     const querySchema = typeToJsonSchema(queryParam.type, ctx);
+    if (!querySchema.properties) return;
 
-    if (isJson) {
-      parameters.push({
-        name: queryParam.name,
-        in: "query",
-        required: !queryParam.isOptional,
-        content: {
-          "application/json": {
-            schema: querySchema.$ref ? { $ref: querySchema.$ref } : querySchema,
-          },
-        },
-      });
-    } else if (queryStyle?.style === "deepObject") {
-      const explode = queryStyle.explode ?? true;
-      const deepParam: Record<string, unknown> = {
-        name: queryParam.name,
-        in: "query",
-        required: !queryParam.isOptional,
-        schema: querySchema.$ref ? { $ref: querySchema.$ref } : querySchema,
-        style: "deepObject",
-        explode,
-      };
-      if (queryStyle.allowReserved !== undefined) {
-        deepParam.allowReserved = queryStyle.allowReserved;
-      }
-      parameters.push(deepParam);
-    } else {
-      if (!querySchema.properties) return;
-
-      const queryObjProps = querySchema.properties;
-      for (const [propName, propSchema] of Object.entries(queryObjProps as Record<string, any>)) {
-        const isRequired = querySchema.required?.includes(propName) ?? false;
-        const serialization = determineQuerySerialization(propSchema.type);
+    const queryObjProps = querySchema.properties;
+    for (const [propName, propSchema] of Object.entries(queryObjProps as Record<string, any>)) {
+      const isRequired = querySchema.required?.includes(propName) ?? false;
+      
+      const isObjectLike = isObjectLikeSchema(propSchema, ctx);
+      const serialization = determineQuerySerialization(propSchema.type);
+      
+      if (isObjectLike) {
         parameters.push({
           name: propName,
           in: "query",
           required: isRequired,
-          schema: propSchema,
-          ...(Object.keys(serialization).length > 0 ? serialization : {}),
+          content: {
+            "application/json": {
+              schema: propSchema.$ref ? propSchema : propSchema,
+            },
+          },
+          description: `URL-encoded JSON string. Example: ${propName}=${encodeURIComponent(JSON.stringify({}))}`,
         });
+      } else {
+        const paramDef: any = {
+          name: propName,
+          in: "query",
+          required: isRequired,
+          schema: propSchema,
+        };
+        
+        if (propName === "page") {
+          paramDef.schema = { type: "number", default: 1 };
+        } else if (propName === "pageSize") {
+          paramDef.schema = { type: "number", default: 10 };
+        }
+        
+        if (Object.keys(serialization).length > 0) {
+          Object.assign(paramDef, serialization);
+        }
+        
+        parameters.push(paramDef);
       }
     }
   }
@@ -240,7 +262,6 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
   for (const paramIndex of operation.queryParamIndices) {
     const param = operation.parameters[paramIndex];
     if (param) {
-      const isJson = operation.queryJsonParamNames.includes(param.name);
       let paramSchema = typeToJsonSchema(param.type, ctx);
       if (param.paramNode) {
         const frags = extractPropertySchemaFragments(ctx.checker, param.paramNode);
@@ -249,14 +270,16 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
         }
       }
 
-      if (isJson) {
+      const isObjectLike = isObjectLikeSchema(paramSchema, ctx);
+      
+      if (isObjectLike) {
         parameters.push({
           name: param.name,
           in: "query",
           required: !param.isOptional,
           content: {
             "application/json": {
-              schema: paramSchema.$ref ? { type: "string", $ref: paramSchema.$ref } : paramSchema,
+              schema: paramSchema.$ref ? paramSchema : paramSchema,
             },
           },
         });

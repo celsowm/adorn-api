@@ -310,3 +310,14 @@ export function parseCookies(cookieHeader: string | undefined): Record<string, s
 
     return cookies;
 }
+
+export function normalizeSort(sort: unknown): string[] {
+    if (Array.isArray(sort)) {
+        return sort.map(s => String(s));
+    }
+    if (typeof sort === "string") {
+        return sort.split(",").map(s => s.trim()).filter(Boolean);
+    }
+    return [];
+}
+

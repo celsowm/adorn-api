@@ -15,7 +15,6 @@ export interface BoundRoute {
   use?: Array<string | ((req: any, res: any, next: (err?: any) => void) => any)>;
   auth?: { scheme: string; scopes?: string[]; optional?: boolean } | "public";
   controllerUse?: Array<string | ((req: any, res: any, next: (err?: any) => void) => any)>;
-  paginationConfig?: { defaultPageSize: number };
 }
 
 interface RouteCacheEntry {
@@ -137,7 +136,6 @@ function computeBoundRoutes(
         use: routeOp.use,
         auth: routeOp.auth,
         controllerUse: bucket.controllerUse,
-        paginationConfig: routeOp.pagination,
       });
     }
   }

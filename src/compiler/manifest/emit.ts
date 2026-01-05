@@ -1,8 +1,7 @@
 import type { ScannedController, ScannedOperation } from "../analyze/scanControllers.js";
 import type { ManifestV1, ControllerEntry, OperationEntry, ArgsSpec, HttpMethod } from "./format.js";
 import { typeToJsonSchema } from "../schema/typeToJsonSchema.js";
-import type { SchemaContext } from "../schema/typeToJsonSchema.js";
-import { extractQueryStyleOptions } from "../analyze/extractQueryStyle.js";
+import type { SchemaContext, JsonSchema } from "../schema/typeToJsonSchema.js";
 import ts from "typescript";
 
 type ValidationMode = "none" | "ajv-runtime" | "precompiled";
@@ -52,6 +51,34 @@ export function generateManifest(
   };
 }
 
+function resolveSchemaRef(schema: JsonSchema, components: Map<string, JsonSchema>): JsonSchema {
+  const ref = schema.$ref;
+  if (typeof ref !== "string" || !ref.startsWith("#/components/schemas/")) {
+    return schema;
+  }
+
+  const name = ref.replace("#/components/schemas/", "");
+  const next = components.get(name);
+  if (!next) return schema;
+
+  return resolveSchemaRef(next, components);
+}
+
+function isObjectLikeSchema(schema: JsonSchema, components: Map<string, JsonSchema>): boolean {
+  const resolved = resolveSchemaRef(schema, components);
+  
+  if (resolved.type === "object" || resolved.properties || resolved.additionalProperties) {
+    return true;
+  }
+  
+  if (resolved.type === "array" && resolved.items) {
+    const itemsSchema = resolveSchemaRef(resolved.items, components);
+    return isObjectLikeSchema(itemsSchema, components);
+  }
+  
+  return false;
+}
+
 function buildOperationEntry(op: ScannedOperation, ctx: SchemaContext): OperationEntry {
   const args: ArgsSpec = {
     body: null,
@@ -59,7 +86,6 @@ function buildOperationEntry(op: ScannedOperation, ctx: SchemaContext): Operatio
     query: [],
     headers: [],
     cookies: [],
-    paginationParamIndex: op.paginationParamIndex,
   };
 
   buildPathArgs(op, ctx, args);
@@ -137,54 +163,26 @@ function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec
   if (op.queryObjectParamIndex !== null) {
     const queryParam = op.parameters[op.queryObjectParamIndex];
     if (queryParam) {
-      const queryStyle = extractQueryStyleOptions(ctx.checker, op.methodDeclaration);
-      const queryJsonParamNames = op.queryJsonParamNames;
-      const isJson = queryJsonParamNames.includes(queryParam.name);
-
       const querySchema = typeToJsonSchema(queryParam.type, ctx);
+      if (!querySchema.properties) return;
 
-      if (isJson) {
-        const schemaRef = querySchema.$ref ?? "#/components/schemas/InlineQueryParam";
-        args.query.push({
-          name: queryParam.name,
-          index: queryParam.index,
-          required: !queryParam.isOptional,
-          schemaRef,
-          schemaType: querySchema.type,
-          content: "application/json",
-        });
-      } else if (queryStyle?.style === "deepObject") {
-        const schemaRef = querySchema.$ref ?? "#/components/schemas/InlineQueryParam";
-        args.query.push({
-          name: queryParam.name,
-          index: queryParam.index,
-          required: !queryParam.isOptional,
-          schemaRef,
-          schemaType: querySchema.type,
-          serialization: {
-            style: "deepObject",
-            explode: queryStyle.explode ?? true,
-            allowReserved: queryStyle.allowReserved,
-          },
-        });
-      } else {
-        if (!querySchema.properties) return;
-
-        for (const [propName, propSchema] of Object.entries(querySchema.properties as Record<string, any>)) {
-          const isRequired = querySchema.required?.includes(propName) ?? false;
-          let schemaRef = propSchema.$ref;
-          if (!schemaRef) {
-            schemaRef = "#/components/schemas/InlineQueryParam";
-          }
-
-          args.query.push({
-            name: propName,
-            index: queryParam.index,
-            required: !isRequired,
-            schemaRef,
-            schemaType: propSchema.type,
-          });
+      for (const [propName, propSchema] of Object.entries(querySchema.properties as Record<string, any>)) {
+        const isRequired = querySchema.required?.includes(propName) ?? false;
+        const isObjectLike = isObjectLikeSchema(propSchema, ctx.components);
+        
+        let schemaRef = propSchema.$ref;
+        if (!schemaRef) {
+          schemaRef = "#/components/schemas/InlineQueryParam";
         }
+
+        args.query.push({
+          name: propName,
+          index: queryParam.index,
+          required: !isRequired,
+          schemaRef,
+          schemaType: propSchema.type,
+          content: isObjectLike ? "application/json" : undefined,
+        });
       }
     }
   }
@@ -192,8 +190,8 @@ function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec
   for (const paramIndex of op.queryParamIndices) {
     const param = op.parameters[paramIndex];
     if (param) {
-      const isJson = op.queryJsonParamNames.includes(param.name);
       const paramSchema = typeToJsonSchema(param.type, ctx);
+      const isObjectLike = isObjectLikeSchema(paramSchema, ctx.components);
       const schemaRef = paramSchema.$ref ?? "#/components/schemas/InlineQueryParam";
 
       args.query.push({
@@ -202,7 +200,7 @@ function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec
         required: !param.isOptional,
         schemaRef,
         schemaType: paramSchema.type,
-        content: isJson ? "application/json" : undefined,
+        content: isObjectLike ? "application/json" : undefined,
       });
     }
   }

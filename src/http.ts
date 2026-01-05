@@ -5,16 +5,8 @@ const ADORN_META = Symbol.for("adorn-api.metadata");
 interface HttpMetadata {
   consumes?: string[];
   produces?: string[];
-  queryStyles?: Record<string, QueryStyleOptions>;
-  queryJsons?: string[];
   fileParts?: Record<string, FilePartOptions>;
   cookies?: Record<string, boolean>;
-}
-
-interface QueryStyleOptions {
-  style?: "form" | "spaceDelimited" | "pipeDelimited" | "deepObject";
-  explode?: boolean;
-  allowReserved?: boolean;
 }
 
 interface FilePartOptions {
@@ -29,34 +21,6 @@ function getMetadata(target: Object | DecoratorMetadata): HttpMetadata {
   const metadata = host[ADORN_META] ?? {};
   host[ADORN_META] = metadata;
   return metadata;
-}
-
-export type QueryStyle = QueryStyleOptions;
-
-export function QueryStyle(options: QueryStyleOptions) {
-  return function <T extends (...args: any[]) => any>(
-    _target: T,
-    context: ClassMethodDecoratorContext<any, T>
-  ): void {
-    if (context.private || context.static) return;
-    const metadata = getMetadata(context.metadata);
-    metadata.queryStyles ??= {};
-    metadata.queryStyles[String(context.name)] = options;
-  };
-}
-
-export function QueryJson(paramName: string) {
-  return function <T extends (...args: any[]) => any>(
-    _target: T,
-    context: ClassMethodDecoratorContext<any, T>
-  ): void {
-    if (context.private || context.static) return;
-    const metadata = getMetadata(context.metadata);
-    metadata.queryJsons ??= [];
-    if (!metadata.queryJsons.includes(paramName)) {
-      metadata.queryJsons.push(paramName);
-    }
-  };
 }
 
 export type PartType = FilePartOptions;
@@ -112,4 +76,4 @@ export type PaginatedResponse<T> = {
 };
 
 export { ADORN_META };
-export type { HttpMetadata, QueryStyleOptions, FilePartOptions };
+export type { HttpMetadata, FilePartOptions };

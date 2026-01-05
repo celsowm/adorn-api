@@ -14,7 +14,6 @@ export interface RouteOperation {
   operationId?: string;
   use?: Array<string | ExpressMw>;
   auth?: AuthMeta | "public";
-  pagination?: { defaultPageSize: number };
 }
 
 export interface AuthMeta {

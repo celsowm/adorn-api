@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "generatedAt": "2026-01-04T21:35:06.109Z",
+  "generatedAt": "2026-01-05T11:01:12.290Z",
   "generator": {
     "name": "adorn-api",
     "version": "0.1.0",
@@ -34,8 +34,7 @@
             "path": [],
             "query": [],
             "headers": [],
-            "cookies": [],
-            "paginationParamIndex": null
+            "cookies": []
           },
           "responses": [
             {
@@ -75,8 +74,7 @@
               }
             ],
             "headers": [],
-            "cookies": [],
-            "paginationParamIndex": null
+            "cookies": []
           },
           "responses": [
             {
@@ -106,8 +104,7 @@
             "path": [],
             "query": [],
             "headers": [],
-            "cookies": [],
-            "paginationParamIndex": null
+            "cookies": []
           },
           "responses": [
             {

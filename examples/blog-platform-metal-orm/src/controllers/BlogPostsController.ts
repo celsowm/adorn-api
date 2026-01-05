@@ -1,5 +1,7 @@
-import { Controller, Get, Post, Put, Delete, QueryStyle } from "adorn-api";
-import type { SearchWhere } from "adorn-api/metal";
+import { Controller, Get, Post, Put, Delete } from "../../../dist/index.js";
+import type { SearchWhere, ListQuery } from "../../../dist/metal/index.js";
+import { applyListQuery } from "../../../dist/metal/index.js";
+import type { PaginatedResult } from "metal-orm";
 import { BlogPost, Category, Tag, User } from "../entities/index.js";
 import { getSession } from "../db.js";
 import { selectFromEntity, entityRefs, eq, and, like } from "metal-orm";
@@ -15,15 +17,11 @@ type PostSearchWhere = SearchWhere<BlogPost, {
 export class BlogPostsController {
 
   @Get("/")
-  @QueryStyle({ style: "deepObject" })
-  async getPosts(where?: PostSearchWhere): Promise<BlogPost[]> {
-
+  async getPosts(query: ListQuery<BlogPost> & PostSearchWhere): Promise<PaginatedResult<BlogPost>> {
     const session = getSession();
     const [P, U, C, T] = entityRefs(BlogPost, User, Category, Tag);
     let qb = selectFromEntity(BlogPost)
       .select("id", "authorId", "categoryId", "title", "content", "status", "publishedAt", "createdAt");
-
-    const conditions = [];
 
     qb = qb.include({
       author: true,
@@ -32,53 +30,19 @@ export class BlogPostsController {
       comments: { include: { author: true } }
     });
 
-    const authorEmail = where?.author?.email;
-    if (authorEmail) {
-      qb = qb.whereHas("author", authorQb =>
-        authorQb.where(eq(U.email, authorEmail))
-      );
-    }
+    const conditions = [];
 
-    const categorySlug = where?.category?.slug;
-    if (categorySlug) {
-      qb = qb.whereHas("category", categoryQb =>
-        categoryQb.where(eq(C.slug, categorySlug))
-      );
+    if (query?.where?.author?.id !== undefined) {
+      conditions.push(eq(P.authorId, Number(query.where.author.id)));
     }
-
-    const tagName = where?.tags?.name;
-    if (tagName) {
-      qb = qb.whereHas("tags", tagQb =>
-        tagQb.where(eq(T.$.name, tagName))
-      );
-    }
-
-    const commentAuthorName = where?.comments?.author?.name;
-    if (commentAuthorName) {
-      const nameFilter = commentAuthorName.trim();
-      const pattern = nameFilter.includes("%")
-        ? nameFilter
-        : `%${nameFilter}%`;
-      qb = qb.whereHas("comments", commentQb =>
-        commentQb.whereHas("author", authorQb =>
-          authorQb.where(like(U.$.name, pattern))
-        )
-      );
-    }
-
-    if (where?.author?.id !== undefined) {
-      conditions.push(eq(P.authorId, Number(where.author.id)));
-    }
-    if (where?.category?.id !== undefined) {
-      conditions.push(eq(P.categoryId, Number(where.category.id)));
+    if (query?.where?.category?.id !== undefined) {
+      conditions.push(eq(P.categoryId, Number(query.where.category.id)));
     }
     if (conditions.length > 0) {
       qb = qb.where(and(...conditions));
     }
 
-    const posts = await qb.execute(session);
-    return posts;
-
+    return applyListQuery(qb, session, query);
   }
 
   @Get("/:id")
@@ -137,6 +101,6 @@ export class BlogPostsController {
       await session.flush();
     }
     return { success: true };
-    
+
   }
 }

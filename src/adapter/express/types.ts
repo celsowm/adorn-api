@@ -35,6 +35,7 @@ export interface CreateRouterOptions {
         schemes: Record<string, AuthSchemeRuntime>;
     };
     coerce?: CoerceOptions;
+    defaultPageSize?: number;
     middleware?: {
         global?: Array<string | ((req: any, res: any, next: (err?: any) => void) => any)>;
         named?: Record<string, (req: any, res: any, next: (err?: any) => void) => any>;
