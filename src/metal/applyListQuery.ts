@@ -8,10 +8,17 @@ export async function applyListQuery<TEntity extends object>(
   session: OrmSession,
   query?: ListQuery<TEntity>
 ): Promise<PaginatedResult<TEntity>> {
-  const page = query?.page ?? 1;
-  const pageSize = query?.pageSize ?? 10;
-  
-  return qb.executePaged(session, { page, pageSize });
+  return qb.executePaged(session, pagedOptions(query));
+}
+
+export function pagedOptions(query?: { page?: number; pageSize?: number }): {
+  page: number;
+  pageSize: number;
+} {
+  return {
+    page: query?.page ?? 1,
+    pageSize: query?.pageSize ?? 10,
+  };
 }
 
 export function normalizeSort(sort: unknown): string[] {

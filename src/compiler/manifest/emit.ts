@@ -65,11 +65,57 @@ function resolveSchemaRef(schema: JsonSchema, components: Map<string, JsonSchema
   return resolveSchemaRef(next, components);
 }
 
+function resolveAndCollectObjectProps(
+  schema: JsonSchema,
+  components: Map<string, JsonSchema>
+): { properties: Record<string, JsonSchema>; required: string[] } {
+  const resolved = resolveSchemaRef(schema, components);
+  const properties: Record<string, JsonSchema> = {};
+  const required: string[] = [];
+  
+  const processSchema = (s: JsonSchema): void => {
+    const current = resolveSchemaRef(s, components);
+    
+    if (current.properties) {
+      for (const [key, val] of Object.entries(current.properties)) {
+        if (!properties[key]) {
+          properties[key] = val;
+        }
+      }
+    }
+    
+    if (current.required) {
+      for (const req of current.required) {
+        if (!required.includes(req)) {
+          required.push(req);
+        }
+      }
+    }
+    
+    if (current.allOf) {
+      for (const branch of current.allOf) {
+        processSchema(branch);
+      }
+    }
+  };
+  
+  processSchema(resolved);
+  return { properties, required };
+}
+
 function isObjectLikeSchema(schema: JsonSchema, components: Map<string, JsonSchema>): boolean {
   const resolved = resolveSchemaRef(schema, components);
   
   if (resolved.type === "object" || resolved.properties || resolved.additionalProperties) {
     return true;
+  }
+  
+  if (resolved.allOf) {
+    for (const branch of resolved.allOf) {
+      if (isObjectLikeSchema(branch, components)) {
+        return true;
+      }
+    }
   }
   
   if (resolved.type === "array" && resolved.items) {
@@ -163,28 +209,29 @@ function buildPathArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec)
 function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec): void {
   if (op.queryObjectParamIndex !== null) {
     const queryParam = op.parameters[op.queryObjectParamIndex];
-    if (queryParam) {
-      const querySchema = typeToJsonSchema(queryParam.type, ctx);
-      if (!querySchema.properties) return;
+    if (!queryParam) return;
 
-      for (const [propName, propSchema] of Object.entries(querySchema.properties as Record<string, any>)) {
-        const isRequired = querySchema.required?.includes(propName) ?? false;
-        const isObjectLike = isObjectLikeSchema(propSchema, ctx.components);
-        
-        let schemaRef = propSchema.$ref;
-        if (!schemaRef) {
-          schemaRef = "#/components/schemas/InlineQueryParam";
-        }
-
-        args.query.push({
-          name: propName,
-          index: queryParam.index,
-          required: !isRequired,
-          schemaRef,
-          schemaType: propSchema.type,
-          content: isObjectLike ? "application/json" : undefined,
-        });
+    const querySchema = typeToJsonSchema(queryParam.type, ctx);
+    const { properties: queryObjProps, required: queryRequired } = 
+      resolveAndCollectObjectProps(querySchema, ctx.components);
+    
+    for (const [propName, propSchema] of Object.entries(queryObjProps)) {
+      const isRequired = queryRequired.includes(propName) ?? false;
+      const isObjectLike = isObjectLikeSchema(propSchema, ctx.components);
+      
+      let schemaRef = (propSchema as any).$ref;
+      if (!schemaRef) {
+        schemaRef = "#/components/schemas/InlineQueryParam";
       }
+
+      args.query.push({
+        name: propName,
+        index: queryParam.index,
+        required: !isRequired,
+        schemaRef,
+        schemaType: (propSchema as any).type,
+        content: isObjectLike ? "application/json" : undefined,
+      });
     }
   }
 
@@ -193,14 +240,14 @@ function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec
     if (param) {
       const paramSchema = typeToJsonSchema(param.type, ctx);
       const isObjectLike = isObjectLikeSchema(paramSchema, ctx.components);
-      const schemaRef = paramSchema.$ref ?? "#/components/schemas/InlineQueryParam";
+      const schemaRef = (paramSchema as any).$ref ?? "#/components/schemas/InlineQueryParam";
 
       args.query.push({
         name: param.name,
         index: param.index,
         required: !param.isOptional,
         schemaRef,
-        schemaType: paramSchema.type,
+        schemaType: (paramSchema as any).type,
         content: isObjectLike ? "application/json" : undefined,
       });
     }

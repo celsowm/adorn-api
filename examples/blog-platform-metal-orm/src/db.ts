@@ -110,6 +110,7 @@ async function seedData(db: any): Promise<void> {
     `INSERT INTO tags (name, color) VALUES ('javascript', '#F7DF1E')`,
     `INSERT INTO blog_posts (authorId, categoryId, title, content, status, publishedAt, createdAt) VALUES (1, 1, 'Getting Started with Metal-ORM', 'Metal-orm is a powerful ORM for TypeScript...', 'published', datetime('now'), datetime('now'))`,
     `INSERT INTO blog_posts (authorId, title, content, status, createdAt) VALUES (1, 'Building APIs', 'Learn how to build APIs...', 'draft', datetime('now'))`,
+    `INSERT INTO blog_posts (authorId, categoryId, title, content, status, publishedAt, createdAt) VALUES (2, 2, 'My First Post', 'This is a post by Bob!', 'published', datetime('now'), datetime('now'))`,
     `INSERT INTO post_tags (postId, tagId) VALUES (1, 1)`,
     `INSERT INTO post_tags (postId, tagId) VALUES (1, 2)`,
     `INSERT INTO comments (postId, authorId, content, createdAt) VALUES (1, 2, 'Great article!', datetime('now'))`,

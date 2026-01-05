@@ -3,7 +3,7 @@ export { readMetalDecoratorBagFromConstructor, METAL_METADATA_KEY } from "./read
 export { schemaFromEntity } from "./schemaFromEntity.js";
 export { registerMetalEntities } from "./registerMetalEntities.js";
 export type { ListQuery } from "./listQuery.js";
-export { applyListQuery, normalizeSort } from "./applyListQuery.js";
+export { applyListQuery, normalizeSort, pagedOptions } from "./applyListQuery.js";
 
 export type { SchemaFromEntityOptions, EntitySchemaMode, JsonSchema } from "./schemaFromEntity.js";
 export type { SearchWhere, SearchWhereDepth, SearchWhereOptions, SearchWherePath } from "./searchWhere.js";

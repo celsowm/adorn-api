@@ -175,7 +175,11 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
                                 ?? schemaFromType(q.schemaType);
                             const coerced = coerceParamValue(parsed, paramSchema, coerceQueryDates, openapi.components.schemas);
 
-                            args[q.index] = coerced;
+                            // Merge into existing query object instead of overwriting
+                            if (!args[q.index] || typeof args[q.index] !== "object") {
+                                args[q.index] = {};
+                            }
+                            Object.assign(args[q.index], coerced);
                         }
                     }
 

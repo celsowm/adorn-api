@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Put, Delete } from "adorn-api";
 import type { SearchWhere, ListQuery } from "adorn-api/metal";
-import { applyListQuery } from "adorn-api/metal";
+import { pagedOptions } from "adorn-api/metal";
 import type { PaginatedResult } from "metal-orm";
 import { BlogPost, Category, Tag, User } from "../entities/index.js";
 import { getSession } from "../db.js";
@@ -9,8 +9,10 @@ import { selectFromEntity, entityRefs, eq, and, like } from "metal-orm";
 type PostWhere = SearchWhere<BlogPost, {
   include: [
     "status",
+    "title",
     "author.id",
     "author.email",
+    "author.name",
     "category.id",
     "category.slug",
     "tags.name",
@@ -21,8 +23,6 @@ type PostWhere = SearchWhere<BlogPost, {
 type PostListQuery =
   Omit<ListQuery<BlogPost>, "where"> & {
     where?: PostWhere;
-    q?: string;
-    hasComments?: boolean;
   };
 
 @Controller("/blog-posts")
@@ -33,6 +33,7 @@ export class BlogPostsController {
    * @example GET /blog-posts?page=1&pageSize=10
    * @example GET /blog-posts?where[author][id]=1
    * @example GET /blog-posts?where[category][id]=2&page=2
+   * @example GET /blog-posts?where[author][name]=Bob
    */
   @Get("/")
   async getPosts(query: PostListQuery): Promise<PaginatedResult<BlogPost>> {
@@ -50,19 +51,52 @@ export class BlogPostsController {
 
     const conditions = [];
 
-    if (query?.where?.author?.id !== undefined) {
-      conditions.push(eq(P.authorId, Number(query.where.author.id)));
+    const where = query?.where ?? (query as any);
+
+    if (where?.author?.id !== undefined) {
+      conditions.push(eq(P.authorId, Number(where.author.id)));
     }
-    if (query?.where?.category?.id !== undefined) {
-      conditions.push(eq(P.categoryId, Number(query.where.category.id)));
+    if (where?.author?.name !== undefined) {
+      qb = qb.whereHas("author", (authorQb) =>
+        authorQb.where(eq(U.$.name, where.author.name))
+      );
+    }
+    if (where?.author?.email !== undefined) {
+      qb = qb.whereHas("author", (authorQb) =>
+        authorQb.where(eq(U.$.email, where.author.email))
+      );
+    }
+    if (where?.category?.id !== undefined) {
+      conditions.push(eq(P.categoryId, Number(where.category.id)));
+    }
+    if (where?.category?.slug !== undefined) {
+      qb = qb.whereHas("category", (categoryQb) =>
+        categoryQb.where(eq(C.$.slug, where.category.slug))
+      );
+    }
+    if (where?.status !== undefined) {
+      conditions.push(eq(P.status, where.status));
+    }
+    if (where?.title !== undefined) {
+      conditions.push(eq(P.title, where.title));
+    }
+    if (where?.tags?.name !== undefined) {
+      qb = qb.whereHas("tags", (tagsQb) =>
+        tagsQb.where(eq(T.$.name, where.tags.name))
+      );
+    }
+    if (where?.comments?.author?.name !== undefined) {
+      qb = qb.whereHas("comments", (commentsQb) =>
+        commentsQb.whereHas("author", (commentAuthorQb) =>
+          commentAuthorQb.where(eq(U.$.name, where.comments.author.name))
+        )
+      );
     }
     if (conditions.length > 0) {
       qb = qb.where(and(...conditions));
     }
 
-    const page = query?.page ?? 1;
-    const pageSize = query?.pageSize ?? 10;
-    return qb.executePaged(session, { page, pageSize });
+    return qb.executePaged(session, pagedOptions(query));
   }
 
   /**
