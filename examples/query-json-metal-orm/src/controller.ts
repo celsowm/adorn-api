@@ -1,25 +1,26 @@
-import { Controller, Get, QueryJson } from "adorn-api";
+import { Controller, Get, QueryJson, Paginated } from "adorn-api";
+import type { PaginationParams, PaginatedResponse } from "adorn-api";
+import type { QueryOptions } from "adorn-api/metal";
 import { Post, User } from "./entities/index.js";
 import { getSession } from "./db.js";
 import { selectFromEntity, entityRefs, eq, and } from "metal-orm";
 
-interface PostFilter {
-    title?: string;
-    status?: string;
-    author?: {
-        name?: string;
-    };
-}
+type PostQueryOptions = QueryOptions<Post>;
 
 @Controller("/posts")
 export class PostsController {
     @Get("/")
-    @QueryJson("filter")
-    async getPosts(filter?: PostFilter): Promise<Post[]> {
+    @QueryJson("query")
+    @Paginated({ defaultPageSize: 10 })
+    async getPosts(
+        query?: PostQueryOptions,
+        pagination: PaginationParams = { page: 1, pageSize: 10 }
+    ): Promise<PaginatedResponse<Post>> {
         const session = getSession();
         const [P, U] = entityRefs(Post, User);
         let qb = selectFromEntity(Post).include({ author: true });
 
+        const filter = query?.where;
         const conditions = [];
 
         if (filter?.status) {
@@ -39,6 +40,19 @@ export class PostsController {
             qb = qb.where(and(...conditions));
         }
 
-        return qb.execute(session) as unknown as Promise<Post[]>;
+        if (query?.sort) {
+            const sorts = Array.isArray(query.sort) ? query.sort : [query.sort];
+            for (const s of sorts) {
+                const direction = (s.startsWith("-") ? "DESC" : "ASC") as "ASC" | "DESC";
+                const fieldName = s.startsWith("-") ? s.slice(1) : s;
+                // Safely access column references from P.$
+                const col = (P.$ as Record<string, any>)[fieldName];
+                if (col) {
+                    qb = qb.orderBy(col, direction);
+                }
+            }
+        }
+
+        return qb.executePaged(session, pagination) as unknown as Promise<PaginatedResponse<Post>>;
     }
 }
