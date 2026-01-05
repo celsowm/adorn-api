@@ -1,23 +1,35 @@
-import { Controller, Get, Post, Put, Delete } from "../../../dist/index.js";
-import type { SearchWhere, ListQuery } from "../../../dist/metal/index.js";
-import { applyListQuery } from "../../../dist/metal/index.js";
+import { Controller, Get, Post, Put, Delete } from "adorn-api";
+import type { SearchWhere, ListQuery } from "adorn-api/metal";
+import { applyListQuery } from "adorn-api/metal";
 import type { PaginatedResult } from "metal-orm";
 import { BlogPost, Category, Tag, User } from "../entities/index.js";
 import { getSession } from "../db.js";
 import { selectFromEntity, entityRefs, eq, and, like } from "metal-orm";
 
-type PostSearchWhere = SearchWhere<BlogPost, {
-  include: ["status", "author.id", "author.email", "category.id", "category.slug", "tags.name", "comments.author.name"];
-}> & {
-  q?: string;
-  hasComments?: boolean;
-};
+type PostWhere = SearchWhere<BlogPost, {
+  include: [
+    "status",
+    "author.id",
+    "author.email",
+    "category.id",
+    "category.slug",
+    "tags.name",
+    "comments.author.name"
+  ];
+}>;
+
+type PostListQuery =
+  Omit<ListQuery<BlogPost>, "where"> & {
+    where?: PostWhere;
+    q?: string;
+    hasComments?: boolean;
+  };
 
 @Controller("/blog-posts")
 export class BlogPostsController {
 
   @Get("/")
-  async getPosts(query: ListQuery<BlogPost> & PostSearchWhere): Promise<PaginatedResult<BlogPost>> {
+  async getPosts(query: PostListQuery): Promise<PaginatedResult<BlogPost>> {
     const session = getSession();
     const [P, U, C, T] = entityRefs(BlogPost, User, Category, Tag);
     let qb = selectFromEntity(BlogPost)
@@ -42,7 +54,9 @@ export class BlogPostsController {
       qb = qb.where(and(...conditions));
     }
 
-    return applyListQuery(qb, session, query);
+    const page = query?.page ?? 1;
+    const pageSize = query?.pageSize ?? 10;
+    return qb.executePaged(session, { page, pageSize });
   }
 
   @Get("/:id")
