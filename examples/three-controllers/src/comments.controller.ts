@@ -16,10 +16,7 @@ const comments: Comment[] = [
 @Controller("/comments")
 export class CommentsController {
   @Get("/")
-  async getComments(query?: { postId?: number }): Promise<Comment[]> {
-    if (query?.postId) {
-      return comments.filter((c) => c.postId === Number(query.postId));
-    }
+  async getComments(): Promise<Comment[]> {
     return comments;
   }
 

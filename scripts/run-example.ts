@@ -1,4 +1,4 @@
-import { spawnSync } from "child_process";
+import { spawn, ChildProcess } from "child_process";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { existsSync, readdirSync, statSync } from "fs";
@@ -54,7 +54,7 @@ function getExamples(): string[] {
   });
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const args = process.argv.slice(2);
   
   if (args.includes("-l") || args.includes("--list")) {
@@ -107,13 +107,30 @@ Options:
   console.log(`\n🚀 Running "${example}" example...\n`);
 
   const cmd = isWindows() ? "npx.cmd" : "npx";
-  const result = spawnSync(cmd, scriptArgs, {
-  cwd: repoRoot,
-  stdio: "inherit",
-  shell: isWindows(),
+  const child = spawn(cmd, scriptArgs, {
+    cwd: repoRoot,
+    stdio: "inherit",
+    shell: isWindows(),
   });
 
-  process.exit(result.status || 0);
+  process.on("SIGINT", () => {
+    child.kill("SIGINT");
+  });
+
+  process.on("SIGTERM", () => {
+    child.kill("SIGTERM");
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    child.on("exit", (code) => {
+      if (code === 0 || code === null) {
+        resolve();
+      } else {
+        reject(new Error(`Process exited with code ${code}`));
+      }
+    });
+    child.on("error", reject);
+  });
 }
 
 main();
