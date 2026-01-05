@@ -207,6 +207,7 @@ function handleUnion(
   return buildNamedSchema(type, ctx, typeNode, () => {
     const types = type.types;
     const nullType = types.find(t => t.flags & ts.TypeFlags.Null);
+    const undefinedType = types.find(t => t.flags & ts.TypeFlags.Undefined);
     const otherTypes = types.filter(t => !(t.flags & ts.TypeFlags.Null) && !(t.flags & ts.TypeFlags.Undefined));
 
     const allStringLiterals = otherTypes.every(t => t.flags & ts.TypeFlags.StringLiteral);
@@ -215,6 +216,18 @@ function handleUnion(
       const schema: JsonSchema = { type: "string", enum: enumValues };
       if (nullType) {
         schema.type = ["string", "null"];
+      }
+      return schema;
+    }
+
+    const allBooleanLiterals = otherTypes.length > 0 && otherTypes.every(t => t.flags & ts.TypeFlags.BooleanLiteral);
+    if (allBooleanLiterals) {
+      const hasTrue = otherTypes.some(t => (t as any).intrinsicName === "true");
+      const hasFalse = otherTypes.some(t => (t as any).intrinsicName === "false");
+      
+      const schema: JsonSchema = { type: "boolean" };
+      if (nullType || undefinedType) {
+        schema.type = ["boolean", "null"];
       }
       return schema;
     }
@@ -230,11 +243,14 @@ function handleUnion(
     if (otherTypes.length > 1) {
       const branches = otherTypes.map(t => typeToJsonSchema(t, ctx));
       const hasNull = !!nullType;
+      const hasUndefined = !!undefinedType;
 
       const result: JsonSchema = {};
 
-      if (hasNull) {
-        result.anyOf = [...branches, { type: "null" }];
+      if (hasNull || hasUndefined) {
+        const nullableTypes = hasNull ? [{ type: "null" }] : [];
+        const undefinedTypes = hasUndefined ? [{}] : [];
+        result.anyOf = [...branches, ...nullableTypes, ...undefinedTypes];
       } else {
         result.anyOf = branches;
       }
@@ -608,10 +624,65 @@ export function createSchemaContext(checker: ts.TypeChecker, mode: "request" | "
 
 const METAL_ORM_WRAPPER_NAMES = ["HasManyCollection", "ManyToManyCollection", "BelongsToReference", "HasOneReference"];
 
+interface MetalOrmWrapperInfo {
+  wrapperName: string;
+  targetTypeArgs: ReadonlyArray<ts.Type>;
+  isReadonlyArray: boolean;
+}
+
+function findMetalOrmWrapper(
+  type: ts.Type,
+  checker: ts.TypeChecker
+): MetalOrmWrapperInfo | null {
+  if (type.isIntersection()) {
+    let wrapperInfo: MetalOrmWrapperInfo | null = null;
+    let hasReadonlyArray = false;
+
+    for (const constituent of (type as ts.IntersectionType).types) {
+      const result = findWrapperInType(constituent, checker);
+      if (result) {
+        wrapperInfo = result;
+      }
+      if (!(constituent.flags & ts.TypeFlags.Object)) continue;
+      const symbol = constituent.getSymbol();
+      if (symbol?.getName() === "ReadonlyArray") {
+        hasReadonlyArray = true;
+      }
+    }
+
+    if (wrapperInfo) {
+      return { ...wrapperInfo, isReadonlyArray: hasReadonlyArray };
+    }
+    return null;
+  }
+
+  return findWrapperInType(type, checker);
+}
+
+function findWrapperInType(type: ts.Type, checker: ts.TypeChecker): MetalOrmWrapperInfo | null {
+  const aliasSymbol = (type as ts.TypeReference).aliasSymbol ?? (type as any).aliasSymbol;
+  const symbol = type.getSymbol();
+  const effectiveSymbol = (aliasSymbol && (aliasSymbol.flags & ts.SymbolFlags.Alias))
+    ? checker.getAliasedSymbol(aliasSymbol)
+    : symbol;
+
+  if (!effectiveSymbol) return null;
+
+  const name = effectiveSymbol.getName();
+  if (!METAL_ORM_WRAPPER_NAMES.includes(name)) return null;
+
+  const typeRef = type as ts.TypeReference;
+  const typeArgs = typeRef.typeArguments || [];
+
+  return {
+    wrapperName: name,
+    targetTypeArgs: typeArgs,
+    isReadonlyArray: false,
+  };
+}
+
 function isMetalOrmWrapperType(type: ts.Type, checker: ts.TypeChecker): boolean {
-  const aliasSymbol = type.aliasSymbol || type.symbol;
-  if (!aliasSymbol) return false;
-  return METAL_ORM_WRAPPER_NAMES.includes(aliasSymbol.getName());
+  return !!findMetalOrmWrapper(type, checker);
 }
 
 function getWrapperTypeName(type: ts.Type, checker: ts.TypeChecker): string | null {

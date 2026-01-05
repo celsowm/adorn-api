@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
+import { resolve } from "node:path";
 
 const MockController = class MockController {};
+const artifactsDir = resolve(__dirname, "../fixtures/users/.adorn");
 
 describe("bootstrap validation", () => {
   it("should throw error for invalid port", async () => {
@@ -10,6 +12,7 @@ describe("bootstrap validation", () => {
       bootstrap({
         controllers: [MockController],
         port: -1,
+        artifactsDir,
       })
     ).rejects.toThrow("Invalid port: -1");
   });
@@ -21,6 +24,7 @@ describe("bootstrap validation", () => {
       bootstrap({
         controllers: [MockController],
         port: Number("invalid"),
+        artifactsDir,
       })
     ).rejects.toThrow("Invalid port: NaN");
   });
@@ -32,6 +36,7 @@ describe("bootstrap validation", () => {
       bootstrap({
         controllers: [MockController],
         port: 70000,
+        artifactsDir,
       })
     ).rejects.toThrow("Invalid port: 70000");
   });
@@ -42,6 +47,7 @@ describe("bootstrap validation", () => {
     await expect(
       bootstrap({
         controllers: [],
+        artifactsDir,
       })
     ).rejects.toThrow("At least one controller must be provided");
   });
@@ -53,6 +59,7 @@ describe("bootstrap validation", () => {
       bootstrap({
         controllers: [MockController],
         port: 4000,
+        artifactsDir,
       })
     ).resolves.toBeDefined();
   });
@@ -63,6 +70,7 @@ describe("bootstrap validation", () => {
     await expect(
       bootstrap({
         controllers: [MockController],
+        artifactsDir,
       })
     ).resolves.toBeDefined();
   });
@@ -74,6 +82,7 @@ describe("bootstrap validation", () => {
     const result = await expect(
       bootstrap({
         controllers: [MockController],
+        artifactsDir,
       })
     ).resolves.toBeDefined();
     

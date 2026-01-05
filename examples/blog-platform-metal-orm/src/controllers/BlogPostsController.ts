@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Put, Delete } from "adorn-api";
 import type { SearchWhere, ListQuery } from "adorn-api/metal";
-import { pagedOptions, parseSort } from "adorn-api/metal";
+import { pagedOptions } from "adorn-api/metal";
 import type { PaginatedResult } from "metal-orm";
 import { BlogPost, Category, Tag, User } from "../entities/index.js";
 import { getSession } from "../db.js";

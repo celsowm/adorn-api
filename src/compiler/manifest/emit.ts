@@ -227,7 +227,7 @@ function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec
       args.query.push({
         name: propName,
         index: queryParam.index,
-        required: !isRequired,
+        required: isRequired,
         schemaRef,
         schemaType: (propSchema as any).type,
         content: isObjectLike ? "application/json" : undefined,
@@ -273,7 +273,7 @@ function buildHeaderArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpe
     args.headers.push({
       name: propName,
       index: headerParam.index,
-      required: !isRequired,
+      required: isRequired,
       schemaRef,
       schemaType: propSchema.type,
     });
@@ -299,7 +299,7 @@ function buildCookieArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpe
     args.cookies.push({
       name: propName,
       index: cookieParam.index,
-      required: !isRequired,
+      required: isRequired,
       schemaRef,
       schemaType: propSchema.type,
       serialization: { style: "form", explode: true },

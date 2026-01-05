@@ -277,22 +277,22 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
       resolveAndCollectObjectProps(querySchema, ctx.components);
     
     for (const [propName, propSchema] of Object.entries(queryObjProps)) {
-      const isRequired = queryRequired.includes(propName) ?? false;
+      const isRequired = queryRequired.includes(propName);
       
       const isObjectLike = isObjectLikeSchema(propSchema, ctx);
       const serialization = determineQuerySerialization(propSchema.type);
+      const exampleValue = generateExampleValue(propSchema, propName);
       
       if (isObjectLike) {
+        const schemaRef = propSchema.$ref || "#/components/schemas/InlineQueryParam";
         parameters.push({
           name: propName,
           in: "query",
           required: isRequired,
-          content: {
-            "application/json": {
-              schema: propSchema.$ref ? { $ref: propSchema.$ref } : propSchema,
-            },
-          },
-          description: `URL-encoded JSON. Example: ${propName}=${encodeURIComponent(JSON.stringify({ example: "value" }))}`,
+          schema: { type: "string" },
+          description: `JSON-encoded object. ${exampleValue}`,
+          example: parseExampleValue(exampleValue),
+          "x-adorn-jsonSchemaRef": schemaRef,
         });
       } else {
         const paramDef: any = {
@@ -344,15 +344,16 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
       const isObjectLike = isObjectLikeSchema(paramSchema, ctx);
       
       if (isObjectLike) {
+        const schemaRef = paramSchema.$ref || "#/components/schemas/InlineQueryParam";
+        const exampleValue = generateExampleValue(paramSchema, param.name);
         parameters.push({
           name: param.name,
           in: "query",
           required: !param.isOptional,
-          content: {
-            "application/json": {
-              schema: paramSchema.$ref ? { $ref: paramSchema.$ref } : paramSchema,
-            },
-          },
+          schema: { type: "string" },
+          description: `JSON-encoded object. ${exampleValue}`,
+          example: parseExampleValue(exampleValue),
+          "x-adorn-jsonSchemaRef": schemaRef,
         });
       } else {
         const serialization = determineQuerySerialization(paramSchema.type);
@@ -377,6 +378,41 @@ function determineQuerySerialization(schemaType: string | string[] | undefined):
   }
 
   return {};
+}
+
+function generateExampleValue(schema: JsonSchema, propName: string): string {
+  const resolved = resolveSchemaRef(schema, new Map());
+  
+  if (resolved.type === "object" && resolved.properties) {
+    const example: Record<string, unknown> = {};
+    for (const [key, prop] of Object.entries(resolved.properties)) {
+      const propResolved = resolveSchemaRef(prop, new Map());
+      if (propResolved.type === "string") {
+        example[key] = "value";
+      } else if (propResolved.type === "number" || propResolved.type === "integer") {
+        example[key] = 1;
+      } else if (propResolved.type === "boolean") {
+        example[key] = true;
+      } else if (Array.isArray(propResolved.type) && propResolved.type.includes("null")) {
+        example[key] = null;
+      } else if (propResolved.enum) {
+        example[key] = propResolved.enum[0];
+      } else {
+        example[key] = "value";
+      }
+    }
+    return `Example: ${propName}=${JSON.stringify(example)}`;
+  }
+  
+  return `Example: ${propName}=${JSON.stringify({ key: "value" })}`;
+}
+
+function parseExampleValue(description: string): string {
+  const match = description.match(/Example:\s*\w+=(\{[^}]+\})/);
+  if (match) {
+    return match[1];
+  }
+  return JSON.stringify({ key: "value" });
 }
 
 function buildHeaderParameters(operation: ScannedOperation, ctx: SchemaContext, parameters: any[]): void {

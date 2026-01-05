@@ -54,9 +54,9 @@ describe("Compiler Build - Users Fixture", () => {
     expect(generatedOpenapi.info.title).toBe("API");
     expect(generatedOpenapi.info.version).toBe("1.0.0");
 
-    expect(generatedOpenapi.paths["/users/"]).toBeDefined();
-    expect(generatedOpenapi.paths["/users/"]["get"]).toBeDefined();
-    expect(generatedOpenapi.paths["/users/"]["post"]).toBeDefined();
+    expect(generatedOpenapi.paths["/users"]).toBeDefined();
+    expect(generatedOpenapi.paths["/users"]["get"]).toBeDefined();
+    expect(generatedOpenapi.paths["/users"]["post"]).toBeDefined();
 
     expect(generatedOpenapi.components.schemas["UserDto"]).toBeDefined();
     expect(generatedOpenapi.components.schemas["CreateUserPayload"]).toBeDefined();
@@ -73,12 +73,12 @@ describe("Compiler Build - Users Fixture", () => {
     expect(createSchema.properties?.joinedAt.type).toBe("string");
     expect(createSchema.properties?.joinedAt.format).toBe("date-time");
 
-    expect(generatedOpenapi.paths["/users/"]["get"].operationId).toBe("UserController_getUsers");
-    expect(generatedOpenapi.paths["/users/"]["post"].operationId).toBe("UserController_createUser");
+    expect(generatedOpenapi.paths["/users"]["get"].operationId).toBe("UserController_getUsers");
+    expect(generatedOpenapi.paths["/users"]["post"].operationId).toBe("UserController_createUser");
 
-    expect(generatedOpenapi.paths["/users/"]["get"].responses["200"]).toBeDefined();
-    expect(generatedOpenapi.paths["/users/"]["post"].responses["201"]).toBeDefined();
-    expect(generatedOpenapi.paths["/users/"]["post"].requestBody).toBeDefined();
+    expect(generatedOpenapi.paths["/users"]["get"].responses["200"]).toBeDefined();
+    expect(generatedOpenapi.paths["/users"]["post"].responses["201"]).toBeDefined();
+    expect(generatedOpenapi.paths["/users"]["post"].requestBody).toBeDefined();
   });
 
   it("should generate manifest.json matching golden snapshot", () => {

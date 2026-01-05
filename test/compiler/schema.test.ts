@@ -26,9 +26,9 @@ describe("Compiler Introspection", () => {
     const openapi = generateOpenAPI(controllers, checker);
 
     expect(openapi.openapi).toBe("3.1.0");
-    expect(openapi.paths["/users/"]).toBeDefined();
-    expect(openapi.paths["/users/"]["get"]).toBeDefined();
-    expect(openapi.paths["/users/"]["post"]).toBeDefined();
+    expect(openapi.paths["/users"]).toBeDefined();
+    expect(openapi.paths["/users"]["get"]).toBeDefined();
+    expect(openapi.paths["/users"]["post"]).toBeDefined();
     expect(openapi.paths["/users/{id}"]).toBeDefined();
     expect(openapi.paths["/users/{id}"]["get"]).toBeDefined();
 

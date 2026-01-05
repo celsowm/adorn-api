@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "generatedAt": "2026-01-05T11:12:09.410Z",
+  "generatedAt": "2026-01-05T21:48:34.291Z",
   "generator": {
     "name": "adorn-api",
     "version": "0.1.0",
@@ -70,7 +70,11 @@
                 "name": "verbose",
                 "index": 1,
                 "required": false,
-                "schemaRef": "#/components/schemas/InlineQueryParam"
+                "schemaRef": "#/components/schemas/InlineQueryParam",
+                "schemaType": [
+                  "boolean",
+                  "null"
+                ]
               }
             ],
             "headers": [],
