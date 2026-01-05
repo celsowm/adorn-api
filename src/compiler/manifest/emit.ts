@@ -18,6 +18,7 @@ export function generateManifest(
     components,
     typeStack: new Set(),
     typeNameStack: [],
+    mode: "request",
   };
 
   const controllerEntries: ControllerEntry[] = controllers.map(ctrl => ({

@@ -309,7 +309,9 @@ function classifyParameters(
 
 function isObjectType(type: ts.Type, checker: ts.TypeChecker): boolean {
   const objectFlags = (type.flags & ts.TypeFlags.Object) !== 0;
-  if (!objectFlags) return false;
+  const intersectionFlags = (type.flags & ts.TypeFlags.Intersection) !== 0;
+  
+  if (!objectFlags && !intersectionFlags) return false;
 
   const symbol = type.getSymbol();
   if (symbol?.getName() === "__object") return true;
@@ -317,8 +319,8 @@ function isObjectType(type: ts.Type, checker: ts.TypeChecker): boolean {
   const properties = checker.getPropertiesOfType(type);
   if (properties.length > 0) return true;
 
-  const callSignatures = type.getCallSignatures();
-  if (callSignatures && callSignatures.length > 0) return false;
+  const callSigs = type.getCallSignatures?.();
+  if (callSigs && callSigs.length > 0) return false;
 
   return true;
 }

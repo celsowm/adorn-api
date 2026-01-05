@@ -34,6 +34,11 @@ export interface JsonSchema {
   const?: unknown;
   uniqueItems?: boolean;
   title?: string;
+  readOnly?: boolean;
+  "x-metal-orm-entity"?: string;
+  "x-metal-orm-mode"?: string;
+  "x-metal-orm-rel"?: Record<string, unknown>;
+  "x-ts-type"?: string;
 }
 
 export interface DiscriminatorObject {
@@ -46,6 +51,7 @@ export interface SchemaContext {
   components: Map<string, JsonSchema>;
   typeStack: Set<ts.Type>;
   typeNameStack: string[];
+  mode?: "request" | "response";
 }
 
 export function typeToJsonSchema(
@@ -69,7 +75,7 @@ export function typeToJsonSchema(
     return { type: "string" };
   }
   if (type.flags & ts.TypeFlags.Number) {
-    return { type: "number" };
+    return normalizeNumericType(type, checker, typeNode);
   }
   if (type.flags & ts.TypeFlags.Boolean) {
     return { type: "boolean" };
@@ -424,9 +430,13 @@ function handleObjectType(
   ctx: SchemaContext,
   typeNode?: ts.TypeNode
 ): JsonSchema {
-  const { checker, components, typeStack } = ctx;
+  const { checker, components, typeStack, mode } = ctx;
   const symbol = type.getSymbol();
   const typeName = symbol?.getName?.() ?? getTypeNameFromNode(typeNode, ctx);
+
+  if (isMetalOrmWrapperType(type, checker)) {
+    return handleMetalOrmWrapper(type, ctx);
+  }
 
   if (typeName && typeName !== "__type") {
     if (components.has(typeName)) {
@@ -444,7 +454,9 @@ function handleObjectType(
 
   if (typeName && typeName !== "__type") {
     typeStack.delete(type);
-    if (!components.has(typeName)) {
+    
+    const existing = components.get(typeName);
+    if (!existing) {
       components.set(typeName, schema);
     }
     return { $ref: `#/components/schemas/${typeName}` };
@@ -477,6 +489,24 @@ function getExplicitTypeNameFromNode(typeNode?: ts.TypeNode): string | null {
   return null;
 }
 
+function shouldBeIntegerType(typeName: string | null): boolean {
+  if (!typeName) return false;
+  const lower = typeName.toLowerCase();
+  return lower === "id" || lower.endsWith("id") || lower === "primarykey" || lower === "pk";
+}
+
+function normalizeNumericType(type: ts.Type, checker: ts.TypeChecker, typeNode?: ts.TypeNode): JsonSchema {
+  const typeName = getExplicitTypeNameFromNode(typeNode) ?? null;
+  const symbol = getEffectiveSymbol(type, checker);
+  const symbolName = symbol?.getName() ?? null;
+  
+  if (shouldBeIntegerType(typeName) || shouldBeIntegerType(symbolName)) {
+    return { type: "integer" };
+  }
+  
+  return { type: "number" };
+}
+
 function getTypeNameFromNode(typeNode: ts.TypeNode | undefined, ctx: SchemaContext): string {
   const explicitName = getExplicitTypeNameFromNode(typeNode);
   if (explicitName) return explicitName;
@@ -489,7 +519,7 @@ function buildObjectSchema(
   ctx: SchemaContext,
   typeNode?: ts.TypeNode
 ): JsonSchema {
-  const { checker } = ctx;
+  const { checker, mode } = ctx;
 
   const properties: Record<string, JsonSchema> = {};
   const required: string[] = [];
@@ -497,12 +527,26 @@ function buildObjectSchema(
   const props = checker.getPropertiesOfType(type);
   for (const prop of props) {
     const propName = prop.getName();
+    
+    if (isIteratorOrSymbolProperty(propName)) {
+      continue;
+    }
+    
     const propType = checker.getTypeOfSymbol(prop);
-    const isOptional = !!(prop.flags & ts.SymbolFlags.Optional);
+    if (isMethodLike(propType)) {
+      continue;
+    }
 
+    const isOptional = !!(prop.flags & ts.SymbolFlags.Optional);
+    const isRelation = isMetalOrmWrapperType(propType, checker);
+    
     properties[propName] = typeToJsonSchema(propType, ctx);
 
-    if (!isOptional) {
+    const shouldRequire = mode === "response"
+      ? !isRelation && !isOptional
+      : !isOptional;
+    
+    if (shouldRequire) {
       required.push(propName);
     }
   }
@@ -552,11 +596,74 @@ function getRecordValueType(type: ts.ObjectType, checker: ts.TypeChecker): ts.Ty
   return null;
 }
 
-export function createSchemaContext(checker: ts.TypeChecker): SchemaContext {
+export function createSchemaContext(checker: ts.TypeChecker, mode: "request" | "response" = "response"): SchemaContext {
   return {
     checker,
     components: new Map(),
     typeStack: new Set(),
     typeNameStack: [],
+    mode,
+  };
+}
+
+const METAL_ORM_WRAPPER_NAMES = ["HasManyCollection", "ManyToManyCollection", "BelongsToReference", "HasOneReference"];
+
+function isMetalOrmWrapperType(type: ts.Type, checker: ts.TypeChecker): boolean {
+  const aliasSymbol = type.aliasSymbol || type.symbol;
+  if (!aliasSymbol) return false;
+  return METAL_ORM_WRAPPER_NAMES.includes(aliasSymbol.getName());
+}
+
+function getWrapperTypeName(type: ts.Type, checker: ts.TypeChecker): string | null {
+  const symbol = getEffectiveSymbol(type, checker);
+  if (!symbol) return null;
+  const name = symbol.getName();
+  return METAL_ORM_WRAPPER_NAMES.includes(name) ? name : null;
+}
+
+function getEffectiveSymbol(type: ts.Type, checker: ts.TypeChecker): ts.Symbol | null {
+  const aliasSymbol = (type as ts.TypeReference).aliasSymbol ?? (type as any).aliasSymbol;
+  if (aliasSymbol && (aliasSymbol.flags & ts.SymbolFlags.Alias)) {
+    return checker.getAliasedSymbol(aliasSymbol);
+  }
+  return type.getSymbol() ?? null;
+}
+
+function isMethodLike(type: ts.Type): boolean {
+  const callSigs = type.getCallSignatures?.();
+  return !!(callSigs && callSigs.length > 0);
+}
+
+function isIteratorOrSymbolProperty(propName: string): boolean {
+  return propName.startsWith("__@") || propName.startsWith("[") || propName === Symbol.iterator.toString();
+}
+
+function handleMetalOrmWrapper(type: ts.ObjectType, ctx: SchemaContext): JsonSchema {
+  const typeRef = type as ts.TypeReference;
+  const typeArgs = typeRef.typeArguments;
+  const targetType = typeArgs?.[0] ?? null;
+  
+  const wrapperName = getWrapperTypeName(type, ctx.checker);
+  if (!wrapperName) return {};
+  
+  const wrapperRel: Record<string, unknown> = { wrapper: wrapperName };
+  
+  if (wrapperName === "HasManyCollection" || wrapperName === "ManyToManyCollection") {
+    const items = targetType ? typeToJsonSchema(targetType, ctx) : {};
+    if (wrapperName === "ManyToManyCollection" && typeArgs?.[1]) {
+      wrapperRel.pivot = typeArgs[1];
+    }
+    
+    return {
+      type: "array",
+      items,
+      "x-metal-orm-rel": wrapperRel,
+    };
+  }
+  
+  const targetSchema = targetType ? typeToJsonSchema(targetType, ctx) : {};
+  return {
+    ...targetSchema,
+    "x-metal-orm-rel": wrapperRel,
   };
 }

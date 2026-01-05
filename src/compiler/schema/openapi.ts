@@ -27,6 +27,7 @@ export function generateOpenAPI(
     components,
     typeStack: new Set(),
     typeNameStack: [],
+    mode: "response",
   };
 
   const paths: Record<string, Record<string, any>> = {};
@@ -60,7 +61,13 @@ export function generateOpenAPI(
 function convertToOpenApiPath(basePath: string, path: string): string {
   const base = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
   const converted = path.replace(/:([^/]+)/g, "{$1}");
-  return base + converted || "/";
+  let fullPath = base + converted || "/";
+  
+  if (fullPath.endsWith("/") && fullPath !== "/") {
+    fullPath = fullPath.slice(0, -1);
+  }
+  
+  return fullPath;
 }
 
 function buildOperation(operation: ScannedOperation, ctx: SchemaContext, controllerConsumes?: string[]): any {
@@ -80,7 +87,8 @@ function buildOperation(operation: ScannedOperation, ctx: SchemaContext, control
     op.parameters = parameters;
   }
 
-  const responseSchema = typeToJsonSchema(operation.returnType, ctx, operation.returnTypeNode);
+  const responseCtx = { ...ctx, mode: "response" as const };
+  const responseSchema = typeToJsonSchema(operation.returnType, responseCtx, operation.returnTypeNode);
 
   const status = operation.httpMethod === "POST" ? 201 : 200;
   op.responses[status] = {
@@ -95,8 +103,9 @@ function buildOperation(operation: ScannedOperation, ctx: SchemaContext, control
   if (["POST", "PUT", "PATCH"].includes(operation.httpMethod) && operation.bodyParamIndex !== null) {
     const bodyParam = operation.parameters[operation.bodyParamIndex];
     if (bodyParam) {
-      let bodySchema = typeToJsonSchema(bodyParam.type, ctx);
-      bodySchema = mergeBodySchemaAnnotations(bodyParam, ctx, bodySchema);
+      const requestCtx = { ...ctx, mode: "request" as const };
+      let bodySchema = typeToJsonSchema(bodyParam.type, requestCtx);
+      bodySchema = mergeBodySchemaAnnotations(bodyParam, requestCtx, bodySchema);
 
       const contentType = operation.bodyContentType ?? controllerConsumes?.[0] ?? "application/json";
 
@@ -169,13 +178,16 @@ function buildPathParameters(operation: ScannedOperation, ctx: SchemaContext, pa
           paramSchema = mergeFragments(paramSchema as Record<string, unknown>, ...frags) as JsonSchema;
         }
       }
+      
+      const schema = paramSchema.$ref
+        ? { $ref: paramSchema.$ref }
+        : paramSchema;
+      
       parameters.push({
         name: param.name,
         in: "path",
         required: !param.isOptional,
-        schema: paramSchema.$ref
-          ? { type: "string", $ref: paramSchema.$ref }
-          : paramSchema,
+        schema,
       });
     }
   }
@@ -186,6 +198,14 @@ function isObjectLikeSchema(schema: JsonSchema, ctx: SchemaContext): boolean {
   
   if (resolved.type === "object" || resolved.properties || resolved.additionalProperties) {
     return true;
+  }
+  
+  if (resolved.allOf) {
+    for (const branch of resolved.allOf) {
+      if (isObjectLikeSchema(branch, ctx)) {
+        return true;
+      }
+    }
   }
   
   if (resolved.type === "array" && resolved.items) {
@@ -209,17 +229,55 @@ function resolveSchemaRef(schema: JsonSchema, components: Map<string, JsonSchema
   return resolveSchemaRef(next, components);
 }
 
+function resolveAndCollectObjectProps(
+  schema: JsonSchema,
+  components: Map<string, JsonSchema>
+): { properties: Record<string, JsonSchema>; required: string[] } {
+  const resolved = resolveSchemaRef(schema, components);
+  const properties: Record<string, JsonSchema> = {};
+  const required: string[] = [];
+  
+  const processSchema = (s: JsonSchema): void => {
+    const current = resolveSchemaRef(s, components);
+    
+    if (current.properties) {
+      for (const [key, val] of Object.entries(current.properties)) {
+        if (!properties[key]) {
+          properties[key] = val;
+        }
+      }
+    }
+    
+    if (current.required) {
+      for (const req of current.required) {
+        if (!required.includes(req)) {
+          required.push(req);
+        }
+      }
+    }
+    
+    if (current.allOf) {
+      for (const branch of current.allOf) {
+        processSchema(branch);
+      }
+    }
+  };
+  
+  processSchema(resolved);
+  return { properties, required };
+}
+
 function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, parameters: any[]): void {
   if (operation.queryObjectParamIndex !== null) {
     const queryParam = operation.parameters[operation.queryObjectParamIndex];
     if (!queryParam) return;
-
+    
     const querySchema = typeToJsonSchema(queryParam.type, ctx);
-    if (!querySchema.properties) return;
-
-    const queryObjProps = querySchema.properties;
-    for (const [propName, propSchema] of Object.entries(queryObjProps as Record<string, any>)) {
-      const isRequired = querySchema.required?.includes(propName) ?? false;
+    const { properties: queryObjProps, required: queryRequired } = 
+      resolveAndCollectObjectProps(querySchema, ctx.components);
+    
+    for (const [propName, propSchema] of Object.entries(queryObjProps)) {
+      const isRequired = queryRequired.includes(propName) ?? false;
       
       const isObjectLike = isObjectLikeSchema(propSchema, ctx);
       const serialization = determineQuerySerialization(propSchema.type);
@@ -231,23 +289,36 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
           required: isRequired,
           content: {
             "application/json": {
-              schema: propSchema.$ref ? propSchema : propSchema,
+              schema: propSchema.$ref ? { $ref: propSchema.$ref } : propSchema,
             },
           },
-          description: `URL-encoded JSON string. Example: ${propName}=${encodeURIComponent(JSON.stringify({}))}`,
+          description: `URL-encoded JSON. Example: ${propName}=${encodeURIComponent(JSON.stringify({ example: "value" }))}`,
         });
       } else {
         const paramDef: any = {
           name: propName,
           in: "query",
           required: isRequired,
-          schema: propSchema,
+          schema: propSchema.$ref ? { $ref: propSchema.$ref } : propSchema,
         };
         
         if (propName === "page") {
-          paramDef.schema = { type: "number", default: 1 };
+          paramDef.schema = { type: "integer", default: 1, minimum: 1 };
         } else if (propName === "pageSize") {
-          paramDef.schema = { type: "number", default: 10 };
+          paramDef.schema = { type: "integer", default: 10, minimum: 1 };
+        } else if (propName === "totalItems") {
+          paramDef.schema = { type: "integer", minimum: 0 };
+        } else if (propName === "sort") {
+          paramDef.schema = {
+            oneOf: [
+              { type: "string" },
+              { type: "array", items: { type: "string" } }
+            ]
+          };
+        } else if (propName === "q") {
+          paramDef.schema = { type: "string" };
+        } else if (propName === "hasComments") {
+          paramDef.schema = { type: "boolean" };
         }
         
         if (Object.keys(serialization).length > 0) {
@@ -279,7 +350,7 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
           required: !param.isOptional,
           content: {
             "application/json": {
-              schema: paramSchema.$ref ? paramSchema : paramSchema,
+              schema: paramSchema.$ref ? { $ref: paramSchema.$ref } : paramSchema,
             },
           },
         });
@@ -289,9 +360,7 @@ function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, p
           name: param.name,
           in: "query",
           required: !param.isOptional,
-          schema: paramSchema.$ref
-            ? { type: "string", $ref: paramSchema.$ref }
-            : paramSchema,
+          schema: paramSchema.$ref ? { $ref: paramSchema.$ref } : paramSchema,
           ...(Object.keys(serialization).length > 0 ? serialization : {}),
         });
       }

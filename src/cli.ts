@@ -25,6 +25,28 @@ function debug(...args: unknown[]) {
   }
 }
 
+function sanitizeForJson(obj: unknown): unknown {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeForJson(item));
+  }
+  
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+    if (key.startsWith("__@") || key.startsWith("[")) continue;
+    if (typeof value === "function") continue;
+    if (value !== null && typeof value === "object") {
+      const typeName = (value as any).constructor?.name;
+      if (typeName && !["Object", "Array", "String", "Number", "Boolean", "Date", "RegExp"].includes(typeName)) {
+        continue;
+      }
+    }
+    result[key] = sanitizeForJson(value);
+  }
+  return result;
+}
+
 async function buildCommand(args: string[]) {
   const projectIndex = args.indexOf("-p");
   const projectPath = projectIndex !== -1 ? args[projectIndex + 1] : "./tsconfig.json";
@@ -79,7 +101,7 @@ async function buildCommand(args: string[]) {
 
   mkdirSync(outputPath, { recursive: true });
 
-  writeFileSync(resolve(outputPath, "openapi.json"), JSON.stringify(openapi, null, 2));
+  writeFileSync(resolve(outputPath, "openapi.json"), JSON.stringify(sanitizeForJson(openapi), null, 2));
   writeFileSync(resolve(outputPath, "manifest.json"), JSON.stringify(manifest, null, 2));
 
   if (validationMode === "precompiled") {
