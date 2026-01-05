@@ -1,10 +1,10 @@
 import { Controller, Get, Post, Put, Delete } from "adorn-api";
 import type { SearchWhere, ListQuery } from "adorn-api/metal";
-import { pagedOptions } from "adorn-api/metal";
+import { pagedOptions, parseSort } from "adorn-api/metal";
 import type { PaginatedResult } from "metal-orm";
 import { BlogPost, Category, Tag, User } from "../entities/index.js";
 import { getSession } from "../db.js";
-import { selectFromEntity, entityRefs, eq, and, like } from "metal-orm";
+import { selectFromEntity, entityRefs, eq, and, like, columnOperand, aliasRef } from "metal-orm";
 
 type PostWhere = SearchWhere<BlogPost, {
   include: [
@@ -29,8 +29,11 @@ type PostListQuery =
 export class BlogPostsController {
 
   /**
-   * List blog posts with pagination and filtering
+   * List blog posts with pagination, filtering and sorting
    * @example GET /blog-posts?page=1&pageSize=10
+   * @example GET /blog-posts?sort=-createdAt
+   * @example GET /blog-posts?sort=author.name
+   * @example GET /blog-posts?sort=-publishedAt,title
    * @example GET /blog-posts?where[author][id]=1
    * @example GET /blog-posts?where[category][id]=2&page=2
    * @example GET /blog-posts?where[author][name]=Bob
@@ -94,6 +97,42 @@ export class BlogPostsController {
     }
     if (conditions.length > 0) {
       qb = qb.where(and(...conditions));
+    }
+
+    const allowedSorts = [
+      "id",
+      "title",
+      "status",
+      "createdAt",
+      "publishedAt",
+      "author.name",
+      "author.email",
+      "category.slug",
+      "tags.name"
+    ];
+
+    const sorts = parseSort(query?.sort, { whitelist: allowedSorts });
+
+    for (const { path, direction, isRelationField } of sorts) {
+      if (isRelationField) {
+        const [relation, field] = path;
+
+        if (relation === "author") {
+          const col = (U.$ as Record<string, any>)[field];
+          qb = qb.orderBy(columnOperand(col), direction);
+        } else if (relation === "category") {
+          const col = (C.$ as Record<string, any>)[field];
+          qb = qb.orderBy(columnOperand(col), direction);
+        } else if (relation === "tags") {
+          const col = (T.$ as Record<string, any>)[field];
+          qb = qb.orderBy(columnOperand(col), direction);
+        }
+      } else {
+        const col = (P.$ as Record<string, any>)[path[0]];
+        if (col) {
+          qb = qb.orderBy(col, direction);
+        }
+      }
     }
 
     return qb.executePaged(session, pagedOptions(query));
