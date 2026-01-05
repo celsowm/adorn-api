@@ -28,6 +28,12 @@ type PostListQuery =
 @Controller("/blog-posts")
 export class BlogPostsController {
 
+  /**
+   * List blog posts with pagination and filtering
+   * @example GET /blog-posts?page=1&pageSize=10
+   * @example GET /blog-posts?where[author][id]=1
+   * @example GET /blog-posts?where[category][id]=2&page=2
+   */
   @Get("/")
   async getPosts(query: PostListQuery): Promise<PaginatedResult<BlogPost>> {
     const session = getSession();
@@ -59,6 +65,11 @@ export class BlogPostsController {
     return qb.executePaged(session, { page, pageSize });
   }
 
+  /**
+   * Get a single blog post by ID
+   * @example GET /blog-posts/1
+   * @example GET /blog-posts/42
+   */
   @Get("/:id")
   async getPost(id: number): Promise<BlogPost | null> {
 
@@ -72,6 +83,10 @@ export class BlogPostsController {
 
   }
 
+  /**
+   * Create a new blog post
+   * @example POST /blog-posts with body: { "title": "My First Post", "content": "Hello world", "authorId": 1, "categoryId": 1 }
+   */
   @Post("/")
   async createPost(
     body: Pick<BlogPost, "title" | "content" | "authorId" | "categoryId">
@@ -90,6 +105,11 @@ export class BlogPostsController {
 
   }
 
+  /**
+   * Update an existing blog post
+   * @example PUT /blog-posts/1 with body: { "title": "Updated Title", "status": "published" }
+   * @example PUT /blog-posts/42 with body: { "publishedAt": "2025-01-05T00:00:00Z" }
+   */
   @Put("/:id")
   async updatePost(
     id: number,
@@ -105,6 +125,11 @@ export class BlogPostsController {
 
   }
 
+  /**
+   * Delete a blog post
+   * @example DELETE /blog-posts/1
+   * @example DELETE /blog-posts/42
+   */
   @Delete("/:id")
   async deletePost(id: number): Promise<{ success: boolean }> {
 
