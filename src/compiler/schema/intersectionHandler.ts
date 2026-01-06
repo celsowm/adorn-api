@@ -18,6 +18,9 @@ export function handleIntersection(
     for (const t of types) {
       const schema = typeToJsonSchema(t, ctx);
       if (Object.keys(schema).length > 0) {
+        if (isEmptyObjectSchema(schema)) {
+          continue;
+        }
         allOf.push(schema);
       }
     }
@@ -77,6 +80,20 @@ export function isBrandObject(checker: ts.TypeChecker, t: ts.Type, ctx: SchemaCo
   if (constructSigs && constructSigs.length > 0) return false;
 
   return true;
+}
+
+function isEmptyObjectSchema(schema: JsonSchema): boolean {
+  if (schema.type !== "object") {
+    return false;
+  }
+  
+  if (!schema.properties || Object.keys(schema.properties).length === 0) {
+    if (!schema.additionalProperties) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 function buildNamedSchema(

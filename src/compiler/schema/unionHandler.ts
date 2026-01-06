@@ -46,14 +46,11 @@ export function handleUnion(
     if (otherTypes.length > 1) {
       const branches = otherTypes.map(t => typeToJsonSchema(t, ctx));
       const hasNull = !!nullType;
-      const hasUndefined = !!undefinedType;
 
       const result: JsonSchema = {};
 
-      if (hasNull || hasUndefined) {
-        const nullableTypes = hasNull ? [{ type: "null" }] : [];
-        const undefinedTypes = hasUndefined ? [{}] : [];
-        result.anyOf = [...branches, ...nullableTypes, ...undefinedTypes];
+      if (hasNull) {
+        result.anyOf = [...branches, { type: "null" }];
       } else {
         result.anyOf = branches;
       }

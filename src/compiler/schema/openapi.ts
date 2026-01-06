@@ -107,6 +107,9 @@ function cleanupSchemaRefs(schema: any, schemasToDelete: Set<string>): void {
         const refName = propSchema.$ref.replace('#/components/schemas/', '');
         if (schemasToDelete.has(refName)) {
           delete schema.properties[propName];
+          if (schema.required && Array.isArray(schema.required)) {
+            schema.required = schema.required.filter((r: string) => r !== propName);
+          }
         }
       } else {
         cleanupSchemaRefs(propSchema, schemasToDelete);
@@ -162,6 +165,23 @@ function cleanupRequestBodyRefs(requestBody: any, schemasToDelete: Set<string>):
     for (const contentType of contentTypes) {
       if (contentType.schema) {
         cleanupSchemaRefs(contentType.schema, schemasToDelete);
+      }
+    }
+  }
+  
+  if (requestBody.properties) {
+    for (const propName of Object.keys(requestBody.properties)) {
+      const propSchema = requestBody.properties[propName];
+      if (propSchema.$ref && typeof propSchema.$ref === 'string') {
+        const refName = propSchema.$ref.replace('#/components/schemas/', '');
+        if (schemasToDelete.has(refName)) {
+          delete requestBody.properties[propName];
+          if (requestBody.required && Array.isArray(requestBody.required)) {
+            requestBody.required = requestBody.required.filter((r: string) => r !== propName);
+          }
+        }
+      } else {
+        cleanupSchemaRefs(propSchema, schemasToDelete);
       }
     }
   }

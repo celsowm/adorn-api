@@ -15,9 +15,19 @@ export function buildPathParameters(operation: ScannedOperation, ctx: SchemaCont
         }
       }
       
-      const schema = paramSchema.$ref
+      let schema = paramSchema.$ref
         ? { $ref: paramSchema.$ref }
         : paramSchema;
+      
+      const paramName = param.name.toLowerCase();
+      const isIdParam = paramName === 'id' || paramName.endsWith('id');
+      
+      if (!schema.$ref && schema.type === 'number' && isIdParam) {
+        schema.type = 'integer';
+        if (!schema.minimum) {
+          schema.minimum = 1;
+        }
+      }
       
       parameters.push({
         name: param.name,
