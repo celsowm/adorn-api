@@ -17,11 +17,11 @@ export function handleObjectType(
 
   if (typeName && typeName !== "__type") {
     if (components.has(typeName)) {
-      return { $ref: "#/components/schemas/${typeName}" };
+      return { $ref: `#/components/schemas/${typeName}` };
     }
 
     if (typeStack.has(type)) {
-      return { $ref: "#/components/schemas/${typeName}" };
+      return { $ref: `#/components/schemas/${typeName}` };
     }
 
     typeStack.add(type);
@@ -36,7 +36,7 @@ export function handleObjectType(
     if (!existing) {
       components.set(typeName, schema);
     }
-    return { $ref: "#/components/schemas/${typeName}" };
+    return { $ref: `#/components/schemas/${typeName}` };
   }
 
   typeStack.delete(type);
