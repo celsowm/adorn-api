@@ -52,4 +52,5 @@ export interface SchemaContext {
   typeStack: Set<ts.Type>;
   typeNameStack: string[];
   mode?: "request" | "response";
+  propertyName?: string;
 }

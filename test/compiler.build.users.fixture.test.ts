@@ -62,7 +62,7 @@ describe("Compiler Build - Users Fixture", () => {
     expect(generatedOpenapi.components.schemas["CreateUserPayload"]).toBeDefined();
 
     const userDtoSchema = generatedOpenapi.components.schemas["UserDto"];
-    expect(userDtoSchema.properties?.id.type).toBe("number");
+    expect(userDtoSchema.properties?.id.type).toBe("integer");
     expect(userDtoSchema.properties?.name.type).toBe("string");
     expect(userDtoSchema.properties?.phone.type).toContain("null");
     expect(userDtoSchema.properties?.role.enum).toEqual(["admin", "user"]);

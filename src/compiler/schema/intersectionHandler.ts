@@ -16,7 +16,18 @@ export function handleIntersection(
 
     const allOf: JsonSchema[] = [];
     for (const t of types) {
-      allOf.push(typeToJsonSchema(t, ctx));
+      const schema = typeToJsonSchema(t, ctx);
+      if (Object.keys(schema).length > 0) {
+        allOf.push(schema);
+      }
+    }
+
+    if (allOf.length === 0) {
+      return {};
+    }
+
+    if (allOf.length === 1) {
+      return allOf[0];
     }
 
     return { allOf };

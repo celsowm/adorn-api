@@ -160,7 +160,7 @@ describe("OpenAPI Schema Quality", () => {
     }
   });
 
-  it("should have description with example on string-encoded object params", () => {
+  it("should have description with examples on string-encoded object params", () => {
     const tsconfigPath = resolve(fixtureRoot, "tsconfig.json");
     const { checker, sourceFiles } = createProgramFromConfig(tsconfigPath);
     const controllers = scanControllers(sourceFiles, checker);
@@ -173,8 +173,73 @@ describe("OpenAPI Schema Quality", () => {
       if (param.schema?.type === "string") {
         expect(param).toHaveProperty("description");
         expect(param.description).toContain("JSON-encoded");
-        expect(param).toHaveProperty("example");
+        expect(param).toHaveProperty("examples");
+        expect(param.examples).toBeDefined();
       }
     }
+  });
+
+  it("should use integer type for page, pageSize, totalItems, and ID fields", () => {
+    const tsconfigPath = resolve(fixtureRoot, "tsconfig.json");
+    const { checker, sourceFiles } = createProgramFromConfig(tsconfigPath);
+    const controllers = scanControllers(sourceFiles, checker);
+    const openapi = generateOpenAPI(controllers, checker);
+
+    for (const schema of Object.values(openapi.components.schemas)) {
+      const s = schema as any;
+      if (s.properties) {
+        const integerFields = ['page', 'pageSize', 'totalItems'];
+        for (const field of integerFields) {
+          if (s.properties[field]) {
+            const fieldType = s.properties[field].type;
+            expect(fieldType).toBe("integer");
+          }
+        }
+        if (s.properties.id) {
+          expect(s.properties.id.type).toBe("integer");
+        }
+      }
+    }
+
+    for (const pathItem of Object.values(openapi.paths)) {
+      for (const operation of Object.values(pathItem as Record<string, any>)) {
+        if (operation.parameters) {
+          for (const param of operation.parameters) {
+            if (param.name === 'page' || param.name === 'pageSize' || param.name === 'totalItems') {
+              expect(param.schema.type).toBe("integer");
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it("should not have empty objects in allOf", () => {
+    const tsconfigPath = resolve(fixtureRoot, "tsconfig.json");
+    const { checker, sourceFiles } = createProgramFromConfig(tsconfigPath);
+    const controllers = scanControllers(sourceFiles, checker);
+    const openapi = generateOpenAPI(controllers, checker);
+
+    const hasEmptyAllOf = (obj: any): boolean => {
+      if (!obj) return false;
+      if (Array.isArray(obj.allOf)) {
+        const hasEmpty = obj.allOf.some((item: any) => {
+          return item.type === "object" && 
+                 item.properties && 
+                 Object.keys(item.properties).length === 0 &&
+                 !item.required;
+        });
+        if (hasEmpty) return true;
+      }
+      for (const value of Object.values(obj)) {
+        if (typeof value === "object" && hasEmptyAllOf(value)) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const emptyAllOfFound = hasEmptyAllOf(openapi);
+    expect(emptyAllOfFound).toBe(false);
   });
 });

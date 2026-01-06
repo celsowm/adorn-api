@@ -53,7 +53,9 @@ export function buildQueryParameters(operation: ScannedOperation, ctx: SchemaCon
           required: isRequired,
           schema: { type: "string" },
           description: `JSON-encoded object. ${exampleValue}`,
-          example: parseExampleValue(exampleValue),
+          examples: {
+            default: { value: parseExampleValue(exampleValue) }
+          },
           "x-adorn-jsonSchemaRef": schemaRef,
         });
       } else {
@@ -114,7 +116,9 @@ export function buildQueryParameters(operation: ScannedOperation, ctx: SchemaCon
           required: !param.isOptional,
           schema: { type: "string" },
           description: `JSON-encoded object. ${exampleValue}`,
-          example: parseExampleValue(exampleValue),
+          examples: {
+            default: { value: parseExampleValue(exampleValue) }
+          },
           "x-adorn-jsonSchemaRef": schemaRef,
         });
       } else {

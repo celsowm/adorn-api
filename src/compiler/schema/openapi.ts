@@ -11,6 +11,8 @@ import {
   resolveSchemaRef,
 } from "./parameters.js";
 
+const METAL_ORM_WRAPPER_NAMES = ["BelongsToReference", "HasOneReference", "HasManyCollection", "ManyToManyCollection"];
+
 export interface OpenAPI31 {
   openapi: "3.1.0";
   info: {
@@ -52,6 +54,9 @@ export function generateOpenAPI(
     }
   }
 
+  const schemas = Object.fromEntries(components);
+  cleanupMetalOrmWrappers(schemas, paths);
+
   return {
     openapi: "3.1.0",
     info: {
@@ -59,10 +64,107 @@ export function generateOpenAPI(
       version: options.version ?? "1.0.0",
     },
     components: {
-      schemas: Object.fromEntries(components),
+      schemas,
     },
     paths,
   };
+}
+
+function cleanupMetalOrmWrappers(schemas: Record<string, JsonSchema>, paths: Record<string, any>): void {
+  const schemasToDelete = new Set<string>();
+  
+  for (const wrapperName of METAL_ORM_WRAPPER_NAMES) {
+    if (schemas[wrapperName]) {
+      schemasToDelete.add(wrapperName);
+    }
+    if (schemas[`${wrapperName}Api`]) {
+      schemasToDelete.add(`${wrapperName}Api`);
+    }
+  }
+  
+  for (const schema of Object.values(schemas)) {
+    cleanupSchemaRefs(schema, schemasToDelete);
+  }
+  
+  for (const pathItem of Object.values(paths)) {
+    cleanupPathItemRefs(pathItem, schemasToDelete);
+  }
+  
+  for (const schemaName of schemasToDelete) {
+    delete schemas[schemaName];
+  }
+}
+
+function cleanupSchemaRefs(schema: any, schemasToDelete: Set<string>): void {
+  if (typeof schema !== 'object' || schema === null) {
+    return;
+  }
+  
+  if (schema.properties) {
+    for (const propName of Object.keys(schema.properties)) {
+      const propSchema = schema.properties[propName];
+      if (propSchema.$ref && typeof propSchema.$ref === 'string') {
+        const refName = propSchema.$ref.replace('#/components/schemas/', '');
+        if (schemasToDelete.has(refName)) {
+          delete schema.properties[propName];
+        }
+      } else {
+        cleanupSchemaRefs(propSchema, schemasToDelete);
+      }
+    }
+  }
+  
+  if (schema.items) {
+    cleanupSchemaRefs(schema.items, schemasToDelete);
+  }
+  
+  if (schema.allOf) {
+    for (const item of schema.allOf) {
+      cleanupSchemaRefs(item, schemasToDelete);
+    }
+  }
+}
+
+function cleanupPathItemRefs(pathItem: any, schemasToDelete: Set<string>): void {
+  if (typeof pathItem !== 'object' || pathItem === null) {
+    return;
+  }
+  
+  for (const method of Object.keys(pathItem)) {
+    const operation: any = pathItem[method];
+    if (typeof operation !== 'object' || operation === null) continue;
+    
+    if (operation.requestBody) {
+      cleanupRequestBodyRefs(operation.requestBody, schemasToDelete);
+    }
+    
+    if (operation.responses) {
+      const responses: any[] = Object.values(operation.responses);
+      for (const response of responses) {
+        if (response.content) {
+          const contentTypes: any[] = Object.values(response.content);
+          for (const contentType of contentTypes) {
+            if (contentType.schema) {
+              cleanupSchemaRefs(contentType.schema, schemasToDelete);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+function cleanupRequestBodyRefs(requestBody: any, schemasToDelete: Set<string>): void {
+  if (typeof requestBody !== 'object' || requestBody === null) return;
+  
+  if (requestBody.content) {
+    const contentTypes: any[] = Object.values(requestBody.content);
+    for (const contentType of contentTypes) {
+      if (contentType.schema) {
+        cleanupSchemaRefs(contentType.schema, schemasToDelete);
+      }
+    }
+  }
 }
 
 function convertToOpenApiPath(basePath: string, path: string): string {

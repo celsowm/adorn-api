@@ -1,9 +1,9 @@
 import ts from "typescript";
-import type { JsonSchema, SchemaContext } from "./types.js";
+import type { JsonSchema, DiscriminatorObject, SchemaContext } from "./types.js";
 import { handlePrimitiveType } from "./primitives.js";
 import { handleUnion } from "./unionHandler.js";
 import { handleIntersection } from "./intersectionHandler.js";
-import { handleObjectType } from "./objectHandler.js";
+import { handleObjectType, isMetalOrmWrapperType, handleMetalOrmWrapper } from "./objectHandler.js";
 
 export type { JsonSchema, DiscriminatorObject, SchemaContext } from "./types.js";
 
@@ -37,7 +37,11 @@ export function typeToJsonSchema(
   }
 
   if (type.flags & ts.TypeFlags.Object) {
-    return handleObjectType(type as ts.ObjectType, ctx, typeNode);
+    const objectType = type as ts.ObjectType;
+    if (isMetalOrmWrapperType(type, ctx.checker)) {
+      return handleMetalOrmWrapper(objectType, ctx);
+    }
+    return handleObjectType(objectType, ctx, typeNode);
   }
 
   return {};

@@ -16,6 +16,14 @@ export function handleObjectType(
   }
 
   if (typeName && typeName !== "__type") {
+    const isMetalOrmGeneric = METAL_ORM_WRAPPER_NAMES.some(name => 
+      typeName === name || typeName.endsWith("Api")
+    );
+    
+    if (isMetalOrmGeneric) {
+      return {};
+    }
+    
     if (components.has(typeName)) {
       return { $ref: `#/components/schemas/${typeName}` };
     }
@@ -69,7 +77,8 @@ export function buildObjectSchema(
     const isOptional = !!(prop.flags & ts.SymbolFlags.Optional);
     const isRelation = isMetalOrmWrapperType(propType, checker);
     
-    properties[propName] = typeToJsonSchema(propType, ctx);
+    const propCtx = { ...ctx, propertyName: propName };
+    properties[propName] = typeToJsonSchema(propType, propCtx);
 
     const shouldRequire = mode === "response"
       ? !isRelation && !isOptional
@@ -252,9 +261,100 @@ export function handleMetalOrmWrapper(type: ts.ObjectType, ctx: SchemaContext): 
     };
   }
   
-  const targetSchema = targetType ? typeToJsonSchema(targetType, ctx) : {};
+  if (!targetType) {
+    return { "x-metal-orm-rel": wrapperRel };
+  }
+  
+  if (wrapperName === "BelongsToReference" || wrapperName === "HasOneReference") {
+    return handleBelongsToReference(targetType, ctx, wrapperRel);
+  }
+  
+  const targetSchema = typeToJsonSchema(targetType, ctx);
   return {
     ...targetSchema,
     "x-metal-orm-rel": wrapperRel,
   };
+}
+
+function handleBelongsToReference(targetType: ts.Type, ctx: SchemaContext, wrapperRel: Record<string, unknown>): JsonSchema {
+  const { checker, components } = ctx;
+  
+  const targetSymbol = targetType.getSymbol();
+  const typeName = targetSymbol?.getName();
+  
+  if (!typeName) {
+    return {
+      type: "object",
+      properties: {},
+      "x-metal-orm-rel": wrapperRel,
+    };
+  }
+  
+  const refSchemaName = `${typeName}Ref`;
+  
+  if (components.has(refSchemaName)) {
+    return { 
+      $ref: `#/components/schemas/${refSchemaName}`,
+      "x-metal-orm-rel": wrapperRel,
+    };
+  }
+  
+  const refSchema = buildRefSchema(targetType, ctx);
+  components.set(refSchemaName, refSchema);
+  
+  return {
+    $ref: `#/components/schemas/${refSchemaName}`,
+    "x-metal-orm-rel": wrapperRel,
+  };
+}
+
+function buildRefSchema(type: ts.Type, ctx: SchemaContext): JsonSchema {
+  const { checker } = ctx;
+  
+  if (!(type.flags & ts.TypeFlags.Object)) {
+    return { type: "object", properties: {} };
+  }
+  
+  const objectType = type as ts.ObjectType;
+  const properties: Record<string, JsonSchema> = {};
+  const required: string[] = [];
+  
+  const props = checker.getPropertiesOfType(objectType);
+  for (const prop of props) {
+    const propName = prop.getName();
+    
+    if (isIteratorOrSymbolProperty(propName)) {
+      continue;
+    }
+    
+    const propType = checker.getTypeOfSymbol(prop);
+    if (isMethodLike(propType)) {
+      continue;
+    }
+    
+    const isOptional = !!(prop.flags & ts.SymbolFlags.Optional);
+    const isRelation = isMetalOrmWrapperType(propType, checker);
+    
+    if (isRelation) {
+      continue;
+    }
+    
+    const propCtx = { ...ctx, propertyName: propName };
+    properties[propName] = typeToJsonSchema(propType, propCtx);
+    
+    if (!isOptional) {
+      required.push(propName);
+    }
+  }
+  
+  const schema: JsonSchema = {
+    type: "object",
+    properties,
+  };
+  
+  if (required.length > 0) {
+    schema.required = required;
+  }
+  
+  return schema;
 }

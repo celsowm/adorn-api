@@ -6,7 +6,7 @@ export function handlePrimitiveType(
   ctx: SchemaContext,
   typeNode?: ts.TypeNode
 ): JsonSchema | null {
-  const { checker } = ctx;
+  const { checker, propertyName } = ctx;
 
   if (type.flags & ts.TypeFlags.Undefined) {
     return {};
@@ -22,7 +22,7 @@ export function handlePrimitiveType(
     return { type: "string" };
   }
   if (type.flags & ts.TypeFlags.Number) {
-    return normalizeNumericType(type, checker, typeNode);
+    return normalizeNumericType(type, checker, typeNode, propertyName);
   }
   if (type.flags & ts.TypeFlags.Boolean) {
     return { type: "boolean" };
@@ -75,12 +75,12 @@ export function isSetType(type: ts.Type, checker: ts.TypeChecker): boolean {
   return false;
 }
 
-export function normalizeNumericType(type: ts.Type, checker: ts.TypeChecker, typeNode?: ts.TypeNode): JsonSchema {
+export function normalizeNumericType(type: ts.Type, checker: ts.TypeChecker, typeNode?: ts.TypeNode, propertyName?: string): JsonSchema {
   const typeName = getExplicitTypeNameFromNode(typeNode) ?? null;
   const symbol = getEffectiveSymbol(type, checker);
   const symbolName = symbol?.getName() ?? null;
   
-  if (shouldBeIntegerType(typeName) || shouldBeIntegerType(symbolName)) {
+  if (shouldBeIntegerType(typeName) || shouldBeIntegerType(symbolName) || shouldBeIntegerType(propertyName ?? null)) {
     return { type: "integer" };
   }
   
@@ -90,7 +90,15 @@ export function normalizeNumericType(type: ts.Type, checker: ts.TypeChecker, typ
 export function shouldBeIntegerType(typeName: string | null): boolean {
   if (!typeName) return false;
   const lower = typeName.toLowerCase();
-  return lower === "id" || lower.endsWith("id") || lower === "primarykey" || lower === "pk";
+  return lower === "id" || 
+         lower.endsWith("id") || 
+         lower === "primarykey" || 
+         lower === "pk" ||
+         lower === "page" ||
+         lower === "pagesize" ||
+         lower === "totalitems" ||
+         lower === "limit" ||
+         lower === "offset";
 }
 
 export function getExplicitTypeNameFromNode(typeNode?: ts.TypeNode): string | null {
