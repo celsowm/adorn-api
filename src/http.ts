@@ -23,8 +23,6 @@ function getMetadata(target: Object | DecoratorMetadata): HttpMetadata {
   return metadata;
 }
 
-export type PartType = FilePartOptions;
-
 export function PartType(contentTypeOrOptions: string | FilePartOptions): PropertyDecorator {
   return function (target: Object, propertyKey: string | symbol): void {
     const metadata = getMetadata(target);
@@ -76,4 +74,4 @@ export type PaginatedResponse<T> = {
 };
 
 export { ADORN_META };
-export type { HttpMetadata, FilePartOptions };
+export type { HttpMetadata, FilePartOptions, PartType as PartType2 };

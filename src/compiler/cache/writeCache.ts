@@ -40,6 +40,7 @@ export function writeCache(params: {
     try {
       inputs[f] = statMtimeMs(f);
     } catch {
+      // Ignore files that don't exist
     }
   }
 

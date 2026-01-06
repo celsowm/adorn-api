@@ -7,7 +7,7 @@ export function handleObjectType(
   ctx: SchemaContext,
   typeNode?: ts.TypeNode
 ): JsonSchema {
-  const { checker, components, typeStack, mode } = ctx;
+  const { checker, components, typeStack } = ctx;
   const symbol = type.getSymbol();
   const typeName = symbol?.getName?.() ?? getTypeNameFromNode(typeNode, ctx);
 
@@ -54,7 +54,7 @@ export function handleObjectType(
 export function buildObjectSchema(
   type: ts.ObjectType,
   ctx: SchemaContext,
-  typeNode?: ts.TypeNode
+  _typeNode?: ts.TypeNode
 ): JsonSchema {
   const { checker, mode } = ctx;
 
@@ -108,7 +108,7 @@ export function buildObjectSchema(
   return schema;
 }
 
-export function isRecordType(type: ts.ObjectType, checker: ts.TypeChecker): boolean {
+export function isRecordType(type: ts.ObjectType, _checker: ts.TypeChecker): boolean {
   const symbol = type.getSymbol();
   if (!symbol) return false;
 
@@ -118,7 +118,7 @@ export function isRecordType(type: ts.ObjectType, checker: ts.TypeChecker): bool
   return false;
 }
 
-export function getRecordValueType(type: ts.ObjectType, checker: ts.TypeChecker): ts.Type | null {
+export function getRecordValueType(type: ts.ObjectType, _checker: ts.TypeChecker): ts.Type | null {
   const symbol = type.getSymbol();
   if (!symbol) return null;
 
@@ -147,7 +147,7 @@ export function isIteratorOrSymbolProperty(propName: string): boolean {
   return propName.startsWith("__@") || propName.startsWith("[") || propName === Symbol.iterator.toString();
 }
 
-export function getTypeNameFromNode(typeNode: ts.TypeNode | undefined, ctx: SchemaContext): string {
+export function getTypeNameFromNode(typeNode: ts.TypeNode | undefined, _ctx: SchemaContext): string {
   const explicitName = getExplicitTypeNameFromNode(typeNode);
   if (explicitName) return explicitName;
 
@@ -231,7 +231,7 @@ function findWrapperInType(type: ts.Type, checker: ts.TypeChecker): MetalOrmWrap
   };
 }
 
-export function getWrapperTypeName(type: ts.Type, checker: ts.TypeChecker): string | null {
+export function getWrapperTypeName(type: ts.Type, _checker: ts.TypeChecker): string | null {
   const symbol = type.getSymbol();
   if (!symbol) return null;
   const name = symbol.getName();
@@ -277,7 +277,7 @@ export function handleMetalOrmWrapper(type: ts.ObjectType, ctx: SchemaContext): 
 }
 
 function handleBelongsToReference(targetType: ts.Type, ctx: SchemaContext, wrapperRel: Record<string, unknown>): JsonSchema {
-  const { checker, components } = ctx;
+  const { components } = ctx;
   
   const targetSymbol = targetType.getSymbol();
   const typeName = targetSymbol?.getName();

@@ -97,7 +97,7 @@ function analyzeClass(
   };
 }
 
-function extractClassConsumes(node: ts.ClassDeclaration, checker: ts.TypeChecker): string[] | undefined {
+function extractClassConsumes(node: ts.ClassDeclaration, _checker: ts.TypeChecker): string[] | undefined {
   const decorator = findDecorator(node, "Consumes");
   if (!decorator) return undefined;
 
@@ -118,7 +118,7 @@ function extractClassConsumes(node: ts.ClassDeclaration, checker: ts.TypeChecker
   return undefined;
 }
 
-function extractClassProduces(node: ts.ClassDeclaration, checker: ts.TypeChecker): string[] | undefined {
+function extractClassProduces(node: ts.ClassDeclaration, _checker: ts.TypeChecker): string[] | undefined {
   const decorator = findDecorator(node, "Produces");
   if (!decorator) return undefined;
 
@@ -357,7 +357,7 @@ function extractDecoratorStringArg(decorator: ts.Decorator): string | null {
   return null;
 }
 
-function unwrapPromise(type: ts.Type, checker: ts.TypeChecker): ts.Type {
+function unwrapPromise(type: ts.Type, _checker: ts.TypeChecker): ts.Type {
   const symbol = type.getSymbol();
   if (symbol?.getName() === "Promise") {
     const typeArgs = (type as ts.TypeReference).typeArguments;

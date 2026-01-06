@@ -1,4 +1,4 @@
-import type { ScannedOperation, ScannedParameter } from "../analyze/scanControllers.js";
+import type { ScannedOperation } from "../analyze/scanControllers.js";
 import type { SchemaContext, JsonSchema } from "./types.js";
 import { typeToJsonSchema } from "./typeToJsonSchema.js";
 import { extractPropertySchemaFragments, mergeFragments } from "./extractAnnotations.js";
@@ -15,15 +15,15 @@ export function buildPathParameters(operation: ScannedOperation, ctx: SchemaCont
         }
       }
       
-      let schema = paramSchema.$ref
+      const schema = paramSchema.$ref
         ? { $ref: paramSchema.$ref }
         : paramSchema;
       
       const paramName = param.name.toLowerCase();
-      const isIdParam = paramName === 'id' || paramName.endsWith('id');
+      const isIdParam = paramName === "id" || paramName.endsWith("id");
       
-      if (!schema.$ref && schema.type === 'number' && isIdParam) {
-        schema.type = 'integer';
+      if (!schema.$ref && schema.type === "number" && isIdParam) {
+        schema.type = "integer";
         if (!schema.minimum) {
           schema.minimum = 1;
         }

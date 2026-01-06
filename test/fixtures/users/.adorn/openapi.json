@@ -127,7 +127,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "number"
+              "type": "integer",
+              "minimum": 1
             }
           },
           {

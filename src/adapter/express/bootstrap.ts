@@ -1,6 +1,6 @@
 import express from "express";
 import { type Server } from "http";
-import { createExpressRouter, type CreateRouterOptions, setupSwagger, type SetupSwaggerOptions } from "./index.js";
+import { createExpressRouter, type CreateRouterOptions, setupSwagger } from "./index.js";
 import path from "node:path";
 
 export interface BootstrapOptions {
@@ -26,50 +26,48 @@ export interface BootstrapResult {
 }
 
 export function bootstrap(options: BootstrapOptions): Promise<BootstrapResult> {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const {
-        controllers,
-        port: userPort,
-        host: userHost,
-        artifactsDir: userArtifactsDir = ".adorn",
-        enableSwagger = true,
-        swaggerPath = "/docs",
-        swaggerJsonPath = "/docs/openapi.json",
-        middleware,
-        auth,
-        coerce,
-      } = options;
+  return new Promise((resolve, reject) => {
+    const {
+      controllers,
+      port: userPort,
+      host: userHost,
+      artifactsDir: userArtifactsDir = ".adorn",
+      enableSwagger = true,
+      swaggerPath = "/docs",
+      swaggerJsonPath = "/docs/openapi.json",
+      middleware,
+      auth,
+      coerce,
+    } = options;
 
-      if (controllers.length === 0) {
-        reject(new Error("At least one controller must be provided to bootstrap()."));
-        return;
-      }
+    if (controllers.length === 0) {
+      reject(new Error("At least one controller must be provided to bootstrap()."));
+      return;
+    }
 
-      const envPort = process.env.PORT;
-      const port = userPort ?? (envPort !== undefined ? Number(envPort) : 3000);
-      const host = userHost ?? process.env.HOST ?? "0.0.0.0";
+    const envPort = process.env.PORT;
+    const port = userPort ?? (envPort !== undefined ? Number(envPort) : 3000);
+    const host = userHost ?? process.env.HOST ?? "0.0.0.0";
 
-      if (isNaN(port) || port < 0 || port > 65535) {
-        reject(new Error(`Invalid port: ${port}. Port must be between 0 and 65535.`));
-        return;
-      }
+    if (isNaN(port) || port < 0 || port > 65535) {
+      reject(new Error(`Invalid port: ${port}. Port must be between 0 and 65535.`));
+      return;
+    }
 
-      const absoluteArtifactsDir = path.isAbsolute(userArtifactsDir)
-        ? userArtifactsDir
-        : path.resolve(process.cwd(), userArtifactsDir);
+    const absoluteArtifactsDir = path.isAbsolute(userArtifactsDir)
+      ? userArtifactsDir
+      : path.resolve(process.cwd(), userArtifactsDir);
 
-      const app = express();
-      app.use(express.json());
+    const app = express();
+    app.use(express.json());
 
-      const router = await createExpressRouter({
-        controllers,
-        artifactsDir: absoluteArtifactsDir,
-        middleware,
-        auth,
-        coerce,
-      });
-
+    createExpressRouter({
+      controllers,
+      artifactsDir: absoluteArtifactsDir,
+      middleware,
+      auth,
+      coerce,
+    }).then((router) => {
       app.use(router);
 
       if (enableSwagger) {
@@ -105,7 +103,7 @@ export function bootstrap(options: BootstrapOptions): Promise<BootstrapResult> {
           host,
           close: () => new Promise<void>((closeResolve) => {
             server.close(() => {
-              console.log('Server closed gracefully');
+              console.log("Server closed gracefully");
               closeResolve();
             });
           })
@@ -114,18 +112,15 @@ export function bootstrap(options: BootstrapOptions): Promise<BootstrapResult> {
         resolve(result);
       });
 
-      server.on('error', (error: any) => {
-        if (error.code === 'EADDRINUSE') {
+      server.on("error", (error: any) => {
+        if (error.code === "EADDRINUSE") {
           reject(new Error(`Port ${port} already in use. Please choose a different port.`));
-        } else if (error.code === 'EACCES') {
+        } else if (error.code === "EACCES") {
           reject(new Error(`Permission denied for port ${port}. Ports below 1024 require root privileges.`));
         } else {
           reject(new Error(`Failed to start server: ${error.message}`));
         }
       });
-
-    } catch (error) {
-      reject(error);
-    }
+    }).catch(reject);
   });
 }

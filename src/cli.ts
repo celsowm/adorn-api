@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { resolve } from "node:path";
 import { createProgramFromConfig } from "./compiler/runner/createProgram.js";
 import { scanControllers } from "./compiler/analyze/scanControllers.js";
 import { generateOpenAPI } from "./compiler/schema/openapi.js";

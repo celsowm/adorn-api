@@ -1,4 +1,4 @@
-import type { SearchWhere, SearchWhereOptions, SearchWhereDepth } from "./searchWhere.js";
+import type { SearchWhere, SearchWhereDepth } from "./searchWhere.js";
 
 export type QueryOptions<
     TEntity extends object,

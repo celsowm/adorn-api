@@ -40,7 +40,7 @@ export function handleIntersection(
 export function tryCollapseBrandedIntersection(
   types: readonly ts.Type[],
   ctx: SchemaContext,
-  typeNode?: ts.TypeNode
+  _typeNode?: ts.TypeNode
 ): JsonSchema | null {
   const { checker } = ctx;
   const parts = [...types];
@@ -62,7 +62,7 @@ export function isPrimitiveLike(t: ts.Type): boolean {
     || (t.flags & ts.TypeFlags.NumberLiteral) !== 0;
 }
 
-export function isBrandObject(checker: ts.TypeChecker, t: ts.Type, ctx: SchemaContext): boolean {
+export function isBrandObject(checker: ts.TypeChecker, t: ts.Type, _ctx: SchemaContext): boolean {
   if (!(t.flags & ts.TypeFlags.Object)) return false;
 
   const props = t.getProperties();

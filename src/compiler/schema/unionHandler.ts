@@ -25,9 +25,6 @@ export function handleUnion(
 
     const allBooleanLiterals = otherTypes.length > 0 && otherTypes.every(t => t.flags & ts.TypeFlags.BooleanLiteral);
     if (allBooleanLiterals) {
-      const hasTrue = otherTypes.some(t => (t as any).intrinsicName === "true");
-      const hasFalse = otherTypes.some(t => (t as any).intrinsicName === "false");
-      
       const schema: JsonSchema = { type: "boolean" };
       if (nullType || undefinedType) {
         schema.type = ["boolean", "null"];
@@ -75,7 +72,7 @@ export function handleUnion(
 export function detectDiscriminatedUnion(
   types: readonly ts.Type[],
   ctx: SchemaContext,
-  branches: JsonSchema[]
+  _branches: JsonSchema[]
 ): DiscriminatorObject | null {
   if (types.length < 2) return null;
 

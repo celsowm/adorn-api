@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import ts from "typescript";
 import type { AdornCacheV1 } from "./schema.js";
 
 export type StaleResult =
@@ -74,7 +73,7 @@ export function findLockfile(startDir: string): { path: string; mtimeMs: number 
     for (const n of names) {
       const p = path.join(dir, n);
       const mt = statMtimeMs(p);
-      if (mt != null) return { path: p, mtimeMs: mt };
+      if (mt !== null) return { path: p, mtimeMs: mt };
     }
     const parent = path.dirname(dir);
     if (parent === dir) break;
@@ -111,17 +110,17 @@ export async function isStale(params: {
   const chain = collectTsconfigChain(tsconfigAbs);
   for (const cfg of chain) {
     const mt = statMtimeMs(cfg);
-    if (mt == null) return { stale: true, reason: "config-missing", detail: cfg };
+    if (mt === null) return { stale: true, reason: "config-missing", detail: cfg };
 
     const cachedMt = cache.project.configFiles[cfg];
-    if (cachedMt == null || Math.abs(cachedMt - mt) > 0.0001) {
+    if (cachedMt === null || Math.abs(cachedMt - mt) > 0.0001) {
       return { stale: true, reason: "config-updated", detail: cfg };
     }
   }
 
   if (cache.project.lockfile?.path) {
     const mt = statMtimeMs(cache.project.lockfile.path);
-    if (mt == null) return { stale: true, reason: "lockfile-missing", detail: cache.project.lockfile.path };
+    if (mt === null) return { stale: true, reason: "lockfile-missing", detail: cache.project.lockfile.path };
 
     if (Math.abs(cache.project.lockfile.mtimeMs - mt) > 0.0001) {
       return { stale: true, reason: "lockfile-updated", detail: cache.project.lockfile.path };
@@ -130,7 +129,7 @@ export async function isStale(params: {
 
   for (const [file, cachedMt] of Object.entries(cache.inputs)) {
     const mt = statMtimeMs(file);
-    if (mt == null) return { stale: true, reason: "input-missing", detail: file };
+    if (mt === null) return { stale: true, reason: "input-missing", detail: file };
     if (Math.abs(cachedMt - mt) > 0.0001) return { stale: true, reason: "input-updated", detail: file };
   }
 

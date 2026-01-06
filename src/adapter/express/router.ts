@@ -19,8 +19,6 @@ import {
     getDateCoercionOptions,
     coerceDatesWithSchema,
     coerceParamValue,
-    getRawQueryString,
-    parseDeepObjectParams,
     parseQueryValue,
     parseCookies,
     normalizeSort
@@ -166,7 +164,7 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
                             if (typeof rawValue === "string" && rawValue.length > 0) {
                                 try {
                                     parsed = JSON.parse(rawValue);
-                                } catch (e) {
+                                } catch {
                                     parsed = rawValue;
                                 }
                             }

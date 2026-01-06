@@ -1,4 +1,4 @@
-import { readMetalDecoratorBagFromConstructor, type MetalColumnDef, type MetalDecoratorBag } from "./readMetalBag.js";
+import { readMetalDecoratorBagFromConstructor, type MetalColumnDef } from "./readMetalBag.js";
 
 export type JsonSchema = Record<string, any>;
 
@@ -105,7 +105,7 @@ function makeNullable(schema: JsonSchema): JsonSchema {
 }
 
 function isGenerated(col: MetalColumnDef) {
-  return !!col.primary || !!col.autoIncrement || col.generated != null;
+  return !!col.primary || !!col.autoIncrement || (col.generated !== null && col.generated !== undefined);
 }
 
 function shouldIncludeColumn(col: MetalColumnDef, mode: "read" | "create" | "update") {
@@ -118,7 +118,7 @@ function shouldIncludeColumn(col: MetalColumnDef, mode: "read" | "create" | "upd
 function shouldRequire(col: MetalColumnDef, mode: "read" | "create" | "update") {
   if (mode === "update") return false;
   if (!col.notNull) return false;
-  if (mode === "create" && col.default != null) return false;
+  if (mode === "create" && (col.default !== null && col.default !== undefined)) return false;
   return true;
 }
 

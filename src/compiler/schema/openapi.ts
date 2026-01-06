@@ -8,7 +8,6 @@ import {
   buildQueryParameters,
   buildHeaderParameters,
   buildCookieParameters,
-  resolveSchemaRef,
 } from "./parameters.js";
 
 const METAL_ORM_WRAPPER_NAMES = ["BelongsToReference", "HasOneReference", "HasManyCollection", "ManyToManyCollection"];
@@ -96,15 +95,15 @@ function cleanupMetalOrmWrappers(schemas: Record<string, JsonSchema>, paths: Rec
 }
 
 function cleanupSchemaRefs(schema: any, schemasToDelete: Set<string>): void {
-  if (typeof schema !== 'object' || schema === null) {
+  if (typeof schema !== "object" || schema === null) {
     return;
   }
   
   if (schema.properties) {
     for (const propName of Object.keys(schema.properties)) {
       const propSchema = schema.properties[propName];
-      if (propSchema.$ref && typeof propSchema.$ref === 'string') {
-        const refName = propSchema.$ref.replace('#/components/schemas/', '');
+      if (propSchema.$ref && typeof propSchema.$ref === "string") {
+        const refName = propSchema.$ref.replace("#/components/schemas/", "");
         if (schemasToDelete.has(refName)) {
           delete schema.properties[propName];
           if (schema.required && Array.isArray(schema.required)) {
@@ -129,13 +128,13 @@ function cleanupSchemaRefs(schema: any, schemasToDelete: Set<string>): void {
 }
 
 function cleanupPathItemRefs(pathItem: any, schemasToDelete: Set<string>): void {
-  if (typeof pathItem !== 'object' || pathItem === null) {
+  if (typeof pathItem !== "object" || pathItem === null) {
     return;
   }
   
   for (const method of Object.keys(pathItem)) {
     const operation: any = pathItem[method];
-    if (typeof operation !== 'object' || operation === null) continue;
+    if (typeof operation !== "object" || operation === null) continue;
     
     if (operation.requestBody) {
       cleanupRequestBodyRefs(operation.requestBody, schemasToDelete);
@@ -158,7 +157,7 @@ function cleanupPathItemRefs(pathItem: any, schemasToDelete: Set<string>): void 
 }
 
 function cleanupRequestBodyRefs(requestBody: any, schemasToDelete: Set<string>): void {
-  if (typeof requestBody !== 'object' || requestBody === null) return;
+  if (typeof requestBody !== "object" || requestBody === null) return;
   
   if (requestBody.content) {
     const contentTypes: any[] = Object.values(requestBody.content);
@@ -172,8 +171,8 @@ function cleanupRequestBodyRefs(requestBody: any, schemasToDelete: Set<string>):
   if (requestBody.properties) {
     for (const propName of Object.keys(requestBody.properties)) {
       const propSchema = requestBody.properties[propName];
-      if (propSchema.$ref && typeof propSchema.$ref === 'string') {
-        const refName = propSchema.$ref.replace('#/components/schemas/', '');
+      if (propSchema.$ref && typeof propSchema.$ref === "string") {
+        const refName = propSchema.$ref.replace("#/components/schemas/", "");
         if (schemasToDelete.has(refName)) {
           delete requestBody.properties[propName];
           if (requestBody.required && Array.isArray(requestBody.required)) {

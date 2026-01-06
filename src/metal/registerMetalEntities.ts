@@ -1,4 +1,4 @@
-import { schemaFromEntity, type SchemaFromEntityOptions, type JsonSchema } from "./schemaFromEntity.js";
+import { schemaFromEntity, type SchemaFromEntityOptions } from "./schemaFromEntity.js";
 
 function deepMerge(a: any, b: any): any {
   if (Array.isArray(a) || Array.isArray(b)) return b ?? a;

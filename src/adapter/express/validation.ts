@@ -51,16 +51,16 @@ export function validateRequestWithPrecompiled(
         if (q.content === "application/json" && typeof value === "string") {
             try {
                 value = JSON.parse(value);
-            } catch (e) {
+            } catch {
                 errors.push({
                     path: `#/query/${q.name}`,
-                    message: `Invalid JSON string`,
+                    message: "Invalid JSON string",
                     keyword: "json",
                     params: {},
                 });
                 continue;
             }
-        }
+    }
     }
 
     return errors.length > 0 ? errors : null;
@@ -104,10 +104,10 @@ export function validateRequest(
         if (q.content === "application/json" && typeof value === "string") {
             try {
                 value = JSON.parse(value);
-            } catch (e) {
+            } catch {
                 errors.push({
                     path: `#/query/${q.name}`,
-                    message: `Invalid JSON string`,
+                    message: "Invalid JSON string",
                     keyword: "json",
                     params: {},
                 });

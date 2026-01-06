@@ -38,10 +38,6 @@ function computeManifestHash(manifest: ManifestV1): string {
   return crypto.createHash("sha256").update(data).digest("hex").slice(0, 16);
 }
 
-function getControllerIds(controllers: Array<new (...args: any[]) => any>): string[] {
-  return controllers.map(c => c.name);
-}
-
 function getControllerUniqueIds(controllers: Array<new (...args: any[]) => any>): string[] {
   return controllers.map(c => `${c.name}:${c.toString()}`);
 }
@@ -109,7 +105,7 @@ function computeBoundRoutes(
       if (!manifestOp) {
         throw new Error(
           `No manifest entry for operationId="${opId}. ` +
-          `Did you run "adorn-api build"? Are your operationId rules aligned?`
+          "Did you run \"adorn-api build\"? Are your operationId rules aligned?"
         );
       }
 
@@ -118,7 +114,7 @@ function computeBoundRoutes(
           `Route mismatch for ${opId}. ` +
           `Runtime: ${routeOp.httpMethod} ${routeOp.path}, ` +
           `Manifest: ${manifestOp.http.method} ${manifestOp.http.path}. ` +
-          `Rebuild with "adorn-api build".`
+          "Rebuild with \"adorn-api build\"."
         );
       }
 

@@ -1,5 +1,5 @@
 import ts from "typescript";
-import type { JsonSchema, DiscriminatorObject, SchemaContext } from "./types.js";
+import type { JsonSchema, SchemaContext } from "./types.js";
 import { handlePrimitiveType } from "./primitives.js";
 import { handleUnion } from "./unionHandler.js";
 import { handleIntersection } from "./intersectionHandler.js";
@@ -57,7 +57,7 @@ export function createSchemaContext(checker: ts.TypeChecker, mode: "request" | "
   };
 }
 
-function isSetType(type: ts.Type, checker: ts.TypeChecker): boolean {
+function isSetType(type: ts.Type, _checker: ts.TypeChecker): boolean {
   const symbol = type.getSymbol();
   if (!symbol) return false;
   const name = symbol.getName();

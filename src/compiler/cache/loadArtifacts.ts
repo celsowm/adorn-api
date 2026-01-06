@@ -132,7 +132,7 @@ export async function loadArtifacts(options: LoadArtifactsOptions): Promise<Load
   const { outDir } = options;
   const cacheKey = path.resolve(outDir);
 
-  let entry = artifactCache.get(cacheKey);
+  const entry = artifactCache.get(cacheKey);
 
   const openapiPath = path.join(outDir, "openapi.json");
   const manifestPath = path.join(outDir, "manifest.json");

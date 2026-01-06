@@ -43,7 +43,7 @@ interface Manifest {
 const OAS_SCHEMA_ONLY = new Set(["discriminator", "xml", "externalDocs", "example"]);
 
 function sanitizeSchemaForAjv(schema: unknown): unknown {
-  if (schema == null || typeof schema !== "object") return schema;
+  if (schema === null || typeof schema !== "object") return schema;
   if (Array.isArray(schema)) return schema.map(sanitizeSchemaForAjv);
 
   const out: Record<string, unknown> = {};
@@ -56,7 +56,7 @@ function sanitizeSchemaForAjv(schema: unknown): unknown {
 }
 
 function rewriteComponentRefs(schema: unknown): unknown {
-  if (schema == null || typeof schema !== "object") return schema;
+  if (schema === null || typeof schema !== "object") return schema;
   if (Array.isArray(schema)) return schema.map(rewriteComponentRefs);
 
   if (typeof (schema as Record<string, unknown>).$ref === "string") {
@@ -160,12 +160,12 @@ export async function emitPrecompiledValidators(opts: EmitPrecompiledValidatorsO
   for (const [operationId, v] of Object.entries(opIndex)) {
     cjs += `  ${JSON.stringify(operationId)}: {\n`;
     cjs += `    body: ${v.body ? `exports[${JSON.stringify(v.body)}]` : "undefined"},\n`;
-    cjs += `    response: {\n`;
+    cjs += "    response: {\n";
     for (const [key, id] of Object.entries(v.response)) {
       cjs += `      ${JSON.stringify(key)}: exports[${JSON.stringify(id)}],\n`;
     }
-    cjs += `    }\n`;
-    cjs += `  },\n`;
+    cjs += "    }\n";
+    cjs += "  },\n";
   }
   cjs += "};\n";
 

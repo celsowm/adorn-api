@@ -1,5 +1,5 @@
 import { getBucket } from "../runtime/metadata/bucket.js";
-import type { AuthMeta, HttpMethod } from "../runtime/metadata/types.js";
+import type { HttpMethod } from "../runtime/metadata/types.js";
 
 export function Auth(scheme: string, options?: { scopes?: string[]; optional?: boolean }) {
   return function (

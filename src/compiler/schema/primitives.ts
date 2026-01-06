@@ -67,7 +67,7 @@ export function isDateType(type: ts.Type, checker: ts.TypeChecker): boolean {
   return symbol?.getName() === "Date";
 }
 
-export function isSetType(type: ts.Type, checker: ts.TypeChecker): boolean {
+export function isSetType(type: ts.Type, _checker: ts.TypeChecker): boolean {
   const symbol = type.getSymbol();
   if (!symbol) return false;
   const name = symbol.getName();
