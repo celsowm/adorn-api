@@ -10,3 +10,5 @@ export { PartType, File, PartType as PartType2, Consumes, Produces } from "./htt
 export type { Query, Body, Headers, Cookies, PaginationParams, PaginatedResponse, HttpMetadata, FilePartOptions } from "./http.js";
 export type { UploadFile } from "./runtime/upload.js";
 export { loadArtifacts, clearArtifactCache, getArtifactCacheStats } from "./compiler/cache/loadArtifacts.js";
+export { isPortAvailable, findProcessOnPort, killProcess, waitForPort } from "./utils/port.js";
+export type { ProcessInfo } from "./utils/port.js";
