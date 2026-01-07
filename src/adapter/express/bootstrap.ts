@@ -1,6 +1,6 @@
 import express from "express";
 import { type Server } from "http";
-import { createExpressRouter, type CreateRouterOptions, setupSwagger, type CorsConfig } from "./index.js";
+import { createExpressRouter, type CreateRouterOptions, setupSwagger, type CorsConfig, type SetupSwaggerOptions } from "./index.js";
 import cors from "cors";
 import path from "node:path";
 
@@ -15,6 +15,8 @@ export interface BootstrapOptions {
   enableSwagger?: boolean;
   swaggerPath?: string;
   swaggerJsonPath?: string;
+  swaggerOptions?: SetupSwaggerOptions["swaggerOptions"];
+  swaggerUiOptions?: SetupSwaggerOptions["swaggerUiOptions"];
   middleware?: CreateRouterOptions["middleware"];
   auth?: CreateRouterOptions["auth"];
   coerce?: CreateRouterOptions["coerce"];
@@ -148,7 +150,9 @@ export function bootstrap(options: BootstrapOptions): Promise<BootstrapResult> {
             uiPath: swaggerPath,
             swaggerOptions: {
               servers: [{ url: serverUrl }],
+              ...options.swaggerOptions,
             },
+            swaggerUiOptions: options.swaggerUiOptions,
           })
         );
       }

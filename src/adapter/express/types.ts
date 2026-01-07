@@ -75,6 +75,13 @@ export interface SetupSwaggerOptions {
         servers?: Array<{ url: string; description?: string }>;
         [key: string]: any;
     };
+    swaggerUiOptions?: {
+        dom_id?: string;
+        deepLinking?: boolean;
+        presets?: Array<any>;
+        plugins?: Array<any>;
+        [key: string]: any;
+    };
 }
 
 /**

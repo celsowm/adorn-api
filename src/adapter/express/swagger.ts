@@ -16,6 +16,7 @@ export function setupSwagger(options: SetupSwaggerOptions = {}): Router {
         jsonPath = "/docs/openapi.json",
         uiPath = "/docs",
         swaggerOptions = {},
+        swaggerUiOptions = {},
     } = options;
 
     const router = Router();
@@ -35,6 +36,7 @@ export function setupSwagger(options: SetupSwaggerOptions = {}): Router {
             url: jsonPath,
             ...swaggerOptions,
         },
+        ...swaggerUiOptions,
     }));
 
     return router;
