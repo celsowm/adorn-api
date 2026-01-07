@@ -3,6 +3,24 @@ import type { ExpressMw, HttpMethod } from "../runtime/metadata/types.js";
 
 type UseTarget = string | ExpressMw;
 
+/**
+ * Decorator to apply middleware to a controller class or individual methods.
+ * 
+ * @param middleware - One or more middleware functions or paths (for path-specific middleware)
+ * 
+ * @example
+ * ```ts
+ * // Apply to entire controller
+ * @Use(cors(), helmet())
+ * @Controller("/api")
+ * class ApiController { }
+ * 
+ * // Apply to specific method
+ * @Use(express.json())
+ * @Post("/upload")
+ * uploadFile() { }
+ * ```
+ */
 export function Use(...middleware: UseTarget[]) {
   return function (
     target: any,

@@ -1,14 +1,34 @@
+/**
+ * Converts Metal ORM entity decorators into JSON Schema for OpenAPI.
+ */
 import { readMetalDecoratorBagFromConstructor, type MetalColumnDef } from "./readMetalBag.js";
 
+/**
+ * JSON Schema representation for OpenAPI.
+ */
 export type JsonSchema = Record<string, any>;
 
+/**
+ * Schema generation mode determining which fields are included.
+ * - "read": All fields (read-only marked on primary keys)
+ * - "create": Exclude auto-generated fields (primary keys, autoIncrement)
+ * - "update": All fields (none required)
+ */
 export type EntitySchemaMode = "read" | "create" | "update";
 
+/**
+ * Options for generating a JSON Schema from an entity.
+ */
 export interface SchemaFromEntityOptions {
+  /** Custom name for the schema (defaults to entity class name) */
   name?: string;
+  /** Strip "Entity" suffix from class name (default: true) */
   stripEntitySuffix?: boolean;
+  /** Schema generation mode (default: "read") */
   mode?: EntitySchemaMode;
+  /** Allow additional properties not defined in schema (default: true) */
   additionalProperties?: boolean;
+  /** How to handle relations in the schema (default: "none") */
   includeRelations?: "none" | "inline";
 }
 
@@ -122,6 +142,19 @@ function shouldRequire(col: MetalColumnDef, mode: "read" | "create" | "update") 
   return true;
 }
 
+/**
+ * Generates a JSON Schema from a Metal ORM entity class.
+ * 
+ * @param ctor - The entity class constructor
+ * @param opts - Schema generation options
+ * @returns JSON Schema object or undefined if entity has no columns
+ * 
+ * @example
+ * ```ts
+ * const schema = schemaFromEntity(User, { mode: "create" });
+ * // Returns: { title: "User", type: "object", properties: {...}, required: [...] }
+ * ```
+ */
 export function schemaFromEntity(ctor: Function, opts: SchemaFromEntityOptions = {}): JsonSchema | undefined {
   const bag = readMetalDecoratorBagFromConstructor(ctor);
   if (!bag || !Array.isArray(bag.columns) || bag.columns.length === 0) return undefined;

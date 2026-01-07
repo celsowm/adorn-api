@@ -1,7 +1,20 @@
+/**
+ * Intersection type handling module.
+ * Converts TypeScript intersection types to JSON Schema allOf constructs.
+ */
 import ts from "typescript";
 import type { JsonSchema, SchemaContext } from "./types.js";
 import { typeToJsonSchema } from "./typeToJsonSchema.js";
 
+/**
+ * Handles TypeScript intersection types and converts them to JSON Schema.
+ * Tries to collapse branded intersections and builds named schemas for complex intersections.
+ * 
+ * @param type - The intersection type to convert
+ * @param ctx - The schema generation context
+ * @param typeNode - Optional type node for additional context
+ * @returns The generated JSON Schema
+ */
 export function handleIntersection(
   type: ts.IntersectionType,
   ctx: SchemaContext,
@@ -37,6 +50,15 @@ export function handleIntersection(
   });
 }
 
+/**
+ * Attempts to collapse a branded intersection type to a simpler schema.
+ * A branded intersection is one that combines a primitive type with a brand object type.
+ * 
+ * @param types - The constituent types of the intersection
+ * @param ctx - The schema generation context
+ * @param typeNode - Optional type node for additional context
+ * @returns The simplified schema if collapse is possible, null otherwise
+ */
 export function tryCollapseBrandedIntersection(
   types: readonly ts.Type[],
   ctx: SchemaContext,
@@ -56,12 +78,27 @@ export function tryCollapseBrandedIntersection(
   return null;
 }
 
+/**
+ * Checks if a TypeScript type represents a primitive type (string, number, boolean, bigint, or their literals).
+ * 
+ * @param t - The type to check
+ * @returns True if the type is a primitive or primitive literal
+ */
 export function isPrimitiveLike(t: ts.Type): boolean {
   return (t.flags & (ts.TypeFlags.String | ts.TypeFlags.Number | ts.TypeFlags.Boolean | ts.TypeFlags.BigInt)) !== 0
     || (t.flags & ts.TypeFlags.StringLiteral) !== 0
     || (t.flags & ts.TypeFlags.NumberLiteral) !== 0;
 }
 
+/**
+ * Checks if a TypeScript type represents a brand/billing object type.
+ * Brand objects are simple objects with only brand-related properties like __brand or brand.
+ * 
+ * @param checker - TypeScript type checker
+ * @param t - The type to check
+ * @param _ctx - The schema generation context (unused)
+ * @returns True if the type appears to be a brand object
+ */
 export function isBrandObject(checker: ts.TypeChecker, t: ts.Type, _ctx: SchemaContext): boolean {
   if (!(t.flags & ts.TypeFlags.Object)) return false;
 

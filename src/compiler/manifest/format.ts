@@ -1,7 +1,18 @@
+/**
+ * Manifest type definitions.
+ * Describes the structure of the manifest file generated during compilation.
+ */
+
+/**
+ * Supported HTTP methods for API operations.
+ */
 export type HttpMethod =
   | "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
   | "OPTIONS" | "HEAD";
 
+/**
+ * Supported content types for request and response bodies.
+ */
 export type ContentType =
   | "application/json"
   | "text/plain"
@@ -9,6 +20,10 @@ export type ContentType =
   | "multipart/form-data"
   | string;
 
+/**
+ * Root manifest interface representing the complete API metadata.
+ * Contains version, generation info, schema references, and all controller definitions.
+ */
 export interface ManifestV1 {
   manifestVersion: 1;
   generatedAt: string;
@@ -32,12 +47,20 @@ export interface ManifestV1 {
   controllers: ControllerEntry[];
 }
 
+/**
+ * Represents a controller entry in the manifest.
+ * Contains the controller identifier and all its operations.
+ */
 export interface ControllerEntry {
   controllerId: string;
   basePath: string;
   operations: OperationEntry[];
 }
 
+/**
+ * Represents a single API operation (endpoint) in the manifest.
+ * Contains operation ID, HTTP method/path, handler reference, arguments, and responses.
+ */
 export interface OperationEntry {
   operationId: string;
   http: {
@@ -51,6 +74,10 @@ export interface OperationEntry {
   responses: ResponseSpec[];
 }
 
+/**
+ * Specification of all arguments for an operation.
+ * Groups arguments by their location (body, path, query, headers, cookies).
+ */
 export interface ArgsSpec {
   body: BodyArgSpec | null;
   path: NamedArgSpec[];
@@ -59,6 +86,9 @@ export interface ArgsSpec {
   cookies: NamedArgSpec[];
 }
 
+/**
+ * Specification for a request body argument.
+ */
 export interface BodyArgSpec {
   index: number;
   required: boolean;
@@ -67,11 +97,18 @@ export interface BodyArgSpec {
   encoding?: Record<string, EncodingSpec>;
 }
 
+/**
+ * Encoding options for multipart request bodies.
+ */
 export interface EncodingSpec {
   contentType?: string;
   headers?: Record<string, string>;
 }
 
+/**
+ * Specification for named arguments (path, query, headers, cookies).
+ * Contains the parameter name, index, requirement status, and schema reference.
+ */
 export interface NamedArgSpec {
   name: string;
   index: number;
@@ -82,12 +119,18 @@ export interface NamedArgSpec {
   content?: "application/json";
 }
 
+/**
+ * Serialization options for complex parameter types.
+ */
 export interface SerializationSpec {
   style?: "form" | "spaceDelimited" | "pipeDelimited" | "deepObject";
   explode?: boolean;
   allowReserved?: boolean;
 }
 
+/**
+ * Specification for an operation response.
+ */
 export interface ResponseSpec {
   status: number;
   contentType: ContentType;

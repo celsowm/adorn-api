@@ -1,7 +1,20 @@
+/**
+ * Object type handling module.
+ * Converts TypeScript object types and interfaces to JSON Schema.
+ */
 import ts from "typescript";
 import type { JsonSchema, SchemaContext } from "./types.js";
 import { typeToJsonSchema } from "./typeToJsonSchema.js";
 
+/**
+ * Handles TypeScript object types and converts them to JSON Schema.
+ * Manages named schemas, component registration, and cycle detection.
+ * 
+ * @param type - The object type to convert
+ * @param ctx - The schema generation context
+ * @param typeNode - Optional type node for additional context
+ * @returns The generated JSON Schema
+ */
 export function handleObjectType(
   type: ts.ObjectType,
   ctx: SchemaContext,
@@ -51,6 +64,15 @@ export function handleObjectType(
   return schema;
 }
 
+/**
+ * Builds the actual object schema from a TypeScript object type.
+ * Extracts properties, handles required fields, and processes Record types.
+ * 
+ * @param type - The object type to convert
+ * @param ctx - The schema generation context
+ * @param typeNode - Optional type node for additional context
+ * @returns The generated object schema
+ */
 export function buildObjectSchema(
   type: ts.ObjectType,
   ctx: SchemaContext,
@@ -108,6 +130,13 @@ export function buildObjectSchema(
   return schema;
 }
 
+/**
+ * Checks if a TypeScript type represents a Record type.
+ * 
+ * @param type - The type to check
+ * @param _checker - TypeScript type checker (unused)
+ * @returns True if the type is a Record type
+ */
 export function isRecordType(type: ts.ObjectType, _checker: ts.TypeChecker): boolean {
   const symbol = type.getSymbol();
   if (!symbol) return false;
@@ -118,6 +147,14 @@ export function isRecordType(type: ts.ObjectType, _checker: ts.TypeChecker): boo
   return false;
 }
 
+/**
+ * Extracts the value type from a Record type.
+ * For Record<K, V>, returns V.
+ * 
+ * @param type - The Record type to extract from
+ * @param _checker - TypeScript type checker (unused)
+ * @returns The value type, or null if not a Record or has no type arguments
+ */
 export function getRecordValueType(type: ts.ObjectType, _checker: ts.TypeChecker): ts.Type | null {
   const symbol = type.getSymbol();
   if (!symbol) return null;
@@ -134,19 +171,45 @@ export function getRecordValueType(type: ts.ObjectType, _checker: ts.TypeChecker
   return null;
 }
 
+/**
+ * Checks if a type represents a Metal ORM wrapper type (e.g., HasManyCollection, BelongsToReference).
+ * 
+ * @param type - The type to check
+ * @param checker - TypeScript type checker for symbol resolution
+ * @returns True if the type is a Metal ORM wrapper
+ */
 export function isMetalOrmWrapperType(type: ts.Type, checker: ts.TypeChecker): boolean {
   return !!findMetalOrmWrapper(type, checker);
 }
 
+/**
+ * Checks if a TypeScript type represents a callable/method-like type.
+ * 
+ * @param type - The type to check
+ * @returns True if the type has call signatures (is callable)
+ */
 export function isMethodLike(type: ts.Type): boolean {
   const callSigs = type.getCallSignatures?.();
   return !!(callSigs && callSigs.length > 0);
 }
 
+/**
+ * Checks if a property name represents an iterator or Symbol property that should be excluded.
+ * 
+ * @param propName - The property name to check
+ * @returns True if the property should be excluded from schema generation
+ */
 export function isIteratorOrSymbolProperty(propName: string): boolean {
   return propName.startsWith("__@") || propName.startsWith("[") || propName === Symbol.iterator.toString();
 }
 
+/**
+ * Gets the type name from a type node or generates an anonymous name.
+ * 
+ * @param typeNode - The type node to extract name from
+ * @param _ctx - The schema generation context (unused)
+ * @returns The type name or generated anonymous name
+ */
 export function getTypeNameFromNode(typeNode: ts.TypeNode | undefined, _ctx: SchemaContext): string {
   const explicitName = getExplicitTypeNameFromNode(typeNode);
   if (explicitName) return explicitName;
@@ -180,6 +243,14 @@ interface MetalOrmWrapperInfo {
   isReadonlyArray: boolean;
 }
 
+/**
+ * Finds and extracts information about a Metal ORM wrapper type within a type.
+ * Handles both direct wrapper types and wrapper types within intersections.
+ * 
+ * @param type - The type to analyze
+ * @param checker - TypeScript type checker for symbol resolution
+ * @returns Wrapper info if found, null otherwise
+ */
 export function findMetalOrmWrapper(
   type: ts.Type,
   checker: ts.TypeChecker
@@ -231,6 +302,13 @@ function findWrapperInType(type: ts.Type, checker: ts.TypeChecker): MetalOrmWrap
   };
 }
 
+/**
+ * Gets the name of a Metal ORM wrapper type if applicable.
+ * 
+ * @param type - The type to check
+ * @param _checker - TypeScript type checker (unused)
+ * @returns The wrapper type name if applicable, null otherwise
+ */
 export function getWrapperTypeName(type: ts.Type, _checker: ts.TypeChecker): string | null {
   const symbol = type.getSymbol();
   if (!symbol) return null;
@@ -238,6 +316,14 @@ export function getWrapperTypeName(type: ts.Type, _checker: ts.TypeChecker): str
   return METAL_ORM_WRAPPER_NAMES.includes(name) ? name : null;
 }
 
+/**
+ * Handles Metal ORM wrapper types and converts them to appropriate JSON Schema.
+ * Different wrapper types result in different schema structures.
+ * 
+ * @param type - The wrapper object type to convert
+ * @param ctx - The schema generation context
+ * @returns The generated JSON Schema for the wrapper
+ */
 export function handleMetalOrmWrapper(type: ts.ObjectType, ctx: SchemaContext): JsonSchema {
   const typeRef = type as ts.TypeReference;
   const typeArgs = typeRef.typeArguments;

@@ -1,3 +1,7 @@
+/**
+ * Main type-to-JSON-Schema conversion module.
+ * Routes different TypeScript types to appropriate handlers.
+ */
 import ts from "typescript";
 import type { JsonSchema, SchemaContext } from "./types.js";
 import { handlePrimitiveType } from "./primitives.js";
@@ -7,6 +11,15 @@ import { handleObjectType, isMetalOrmWrapperType, handleMetalOrmWrapper } from "
 
 export type { JsonSchema, DiscriminatorObject, SchemaContext } from "./types.js";
 
+/**
+ * Converts a TypeScript type to a JSON Schema object.
+ * This is the main entry point for schema generation, routing to appropriate type handlers.
+ * 
+ * @param type - The TypeScript type to convert
+ * @param ctx - The schema generation context
+ * @param typeNode - Optional type node for additional context
+ * @returns The generated JSON Schema
+ */
 export function typeToJsonSchema(
   type: ts.Type,
   ctx: SchemaContext,
@@ -47,6 +60,13 @@ export function typeToJsonSchema(
   return {};
 }
 
+/**
+ * Creates a new schema generation context with fresh component registry and type stack.
+ * 
+ * @param checker - TypeScript type checker for type analysis
+ * @param mode - Generation mode ("request" or "response"), defaults to "response"
+ * @returns A new SchemaContext for schema generation
+ */
 export function createSchemaContext(checker: ts.TypeChecker, mode: "request" | "response" = "response"): SchemaContext {
   return {
     checker,

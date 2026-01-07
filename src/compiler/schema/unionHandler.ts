@@ -1,7 +1,20 @@
+/**
+ * Union type handling module.
+ * Converts TypeScript union types to JSON Schema anyOf/oneOf constructs.
+ */
 import ts from "typescript";
 import type { JsonSchema, DiscriminatorObject, SchemaContext } from "./types.js";
 import { typeToJsonSchema } from "./typeToJsonSchema.js";
 
+/**
+ * Handles TypeScript union types and converts them to JSON Schema.
+ * Creates anyOf schemas with optional discriminator for union members.
+ * 
+ * @param type - The union type to convert
+ * @param ctx - The schema generation context
+ * @param typeNode - Optional type node for additional context
+ * @returns The generated JSON Schema
+ */
 export function handleUnion(
   type: ts.UnionType,
   ctx: SchemaContext,
@@ -69,6 +82,15 @@ export function handleUnion(
   });
 }
 
+/**
+ * Detects if a union type forms a discriminated union.
+ * A discriminated union has a common property with literal values that can be used for discrimination.
+ * 
+ * @param types - The constituent types of the union
+ * @param ctx - The schema generation context
+ * @param branches - The generated schemas for each branch (unused in current impl)
+ * @returns Discriminator object if discriminated union detected, null otherwise
+ */
 export function detectDiscriminatedUnion(
   types: readonly ts.Type[],
   ctx: SchemaContext,
@@ -101,6 +123,13 @@ export function detectDiscriminatedUnion(
   return null;
 }
 
+/**
+ * Finds property names that are common across all types in a union.
+ * 
+ * @param checker - TypeScript type checker for property lookup
+ * @param types - The types to analyze
+ * @returns Array of property names present in all types
+ */
 export function findCommonPropertyNames(checker: ts.TypeChecker, types: readonly ts.Type[]): string[] {
   if (types.length === 0) return [];
 
@@ -110,6 +139,14 @@ export function findCommonPropertyNames(checker: ts.TypeChecker, types: readonly
   );
 }
 
+/**
+ * Checks if a property is required (non-optional) in a given type.
+ * 
+ * @param checker - TypeScript type checker for symbol analysis
+ * @param type - The type to check
+ * @param propName - The property name to check
+ * @returns True if the property is required
+ */
 export function isRequiredProperty(checker: ts.TypeChecker, type: ts.Type, propName: string): boolean {
   const sym = checker.getPropertyOfType(type, propName);
   if (!sym) return false;
@@ -125,6 +162,15 @@ export function isRequiredProperty(checker: ts.TypeChecker, type: ts.Type, propN
   return true;
 }
 
+/**
+ * Gets the literal string values of a property across a type.
+ * Used for detecting discriminated unions.
+ * 
+ * @param checker - TypeScript type checker for property type analysis
+ * @param type - The type to check
+ * @param propName - The property name to get values for
+ * @returns Set of literal values, or null if not a literal union
+ */
 export function getPropertyLiteralValues(checker: ts.TypeChecker, type: ts.Type, propName: string): Set<string> | null {
   const sym = checker.getPropertyOfType(type, propName);
   if (!sym) return null;
@@ -147,6 +193,12 @@ export function getPropertyLiteralValues(checker: ts.TypeChecker, type: ts.Type,
   return null;
 }
 
+/**
+ * Checks if multiple sets are pairwise disjoint (have no common elements).
+ * 
+ * @param sets - Array of sets to check for disjointness
+ * @returns True if all sets are pairwise disjoint
+ */
 export function areSetsDisjoint(sets: Array<Set<string>>): boolean {
   const seen = new Set<string>();
   for (const s of sets) {
@@ -158,6 +210,14 @@ export function areSetsDisjoint(sets: Array<Set<string>>): boolean {
   return true;
 }
 
+/**
+ * Gets the schema name for a union branch type.
+ * Used for discriminator mapping.
+ * 
+ * @param type - The type to get name for
+ * @param ctx - The schema generation context
+ * @returns The schema name, or generated anonymous name
+ */
 export function getBranchSchemaName(type: ts.Type, ctx: SchemaContext): string {
   const symbol = type.getSymbol();
   if (symbol) {

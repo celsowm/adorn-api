@@ -1,3 +1,7 @@
+/**
+ * Metal ORM integration utilities for Adorn.
+ * Provides type-safe query building, entity schema generation, and metadata handling.
+ */
 export { ensureSymbolMetadata } from "./symbolMetadata.js";
 export { readMetalDecoratorBagFromConstructor, METAL_METADATA_KEY } from "./readMetalBag.js";
 export { schemaFromEntity } from "./schemaFromEntity.js";

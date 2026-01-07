@@ -1,6 +1,19 @@
+/**
+ * Primitive type handling module.
+ * Converts TypeScript primitive types to JSON Schema.
+ */
 import ts from "typescript";
 import type { JsonSchema, SchemaContext } from "./types.js";
 
+/**
+ * Handles TypeScript primitive types and converts them to JSON Schema.
+ * Supports string, number, boolean, bigint, null, undefined, Date, and literal types.
+ * 
+ * @param type - The primitive type to convert
+ * @param ctx - The schema generation context
+ * @param typeNode - Optional type node for additional context
+ * @returns The generated JSON Schema, or null if not a recognized primitive
+ */
 export function handlePrimitiveType(
   type: ts.Type,
   ctx: SchemaContext,
@@ -51,6 +64,14 @@ export function handlePrimitiveType(
   return null;
 }
 
+/**
+ * Checks if a TypeScript type represents a Date type.
+ * Handles both direct Date references and aliased Date types.
+ * 
+ * @param type - The type to check
+ * @param checker - TypeScript type checker for symbol resolution
+ * @returns True if the type represents Date
+ */
 export function isDateType(type: ts.Type, checker: ts.TypeChecker): boolean {
   const symbol = type.getSymbol();
   const aliasSymbol = (type as any).aliasSymbol as ts.Symbol | undefined;
@@ -67,6 +88,13 @@ export function isDateType(type: ts.Type, checker: ts.TypeChecker): boolean {
   return symbol?.getName() === "Date";
 }
 
+/**
+ * Checks if a TypeScript type represents a Set type.
+ * 
+ * @param type - The type to check
+ * @param _checker - TypeScript type checker (unused)
+ * @returns True if the type is a Set type
+ */
 export function isSetType(type: ts.Type, _checker: ts.TypeChecker): boolean {
   const symbol = type.getSymbol();
   if (!symbol) return false;
@@ -75,6 +103,16 @@ export function isSetType(type: ts.Type, _checker: ts.TypeChecker): boolean {
   return false;
 }
 
+/**
+ * Normalizes numeric types to either integer or number based on naming conventions.
+ * Types named like "id", "page", "pageSize", etc. are converted to integer schema.
+ * 
+ * @param type - The numeric type to normalize
+ * @param checker - TypeScript type checker for symbol resolution
+ * @param typeNode - Optional type node for name extraction
+ * @param propertyName - Optional property name for name-based inference
+ * @returns The normalized numeric schema
+ */
 export function normalizeNumericType(type: ts.Type, checker: ts.TypeChecker, typeNode?: ts.TypeNode, propertyName?: string): JsonSchema {
   const typeName = getExplicitTypeNameFromNode(typeNode) ?? null;
   const symbol = getEffectiveSymbol(type, checker);
@@ -87,6 +125,13 @@ export function normalizeNumericType(type: ts.Type, checker: ts.TypeChecker, typ
   return { type: "number" };
 }
 
+/**
+ * Determines if a type should be represented as an integer based on its name.
+ * Common patterns include "id", "page", "pageSize", "limit", etc.
+ * 
+ * @param typeName - The type or property name to check
+ * @returns True if the name suggests an integer type
+ */
 export function shouldBeIntegerType(typeName: string | null): boolean {
   if (!typeName) return false;
   const lower = typeName.toLowerCase();
@@ -101,6 +146,12 @@ export function shouldBeIntegerType(typeName: string | null): boolean {
          lower === "offset";
 }
 
+/**
+ * Extracts the explicit type name from a type reference node or type alias declaration.
+ * 
+ * @param typeNode - The type node to extract name from
+ * @returns The extracted type name, or null if not found
+ */
 export function getExplicitTypeNameFromNode(typeNode?: ts.TypeNode): string | null {
   if (!typeNode) return null;
 
@@ -119,6 +170,13 @@ export function getExplicitTypeNameFromNode(typeNode?: ts.TypeNode): string | nu
   return null;
 }
 
+/**
+ * Gets the effective symbol for a type, resolving type aliases.
+ * 
+ * @param type - The type to get symbol from
+ * @param checker - TypeScript type checker for alias resolution
+ * @returns The effective symbol, or null if not found
+ */
 export function getEffectiveSymbol(type: ts.Type, checker: ts.TypeChecker): ts.Symbol | null {
   const aliasSymbol = (type as ts.TypeReference).aliasSymbol ?? (type as any).aliasSymbol;
   if (aliasSymbol && (aliasSymbol.flags & ts.SymbolFlags.Alias)) {

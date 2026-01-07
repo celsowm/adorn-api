@@ -1,3 +1,7 @@
+/**
+ * Type definitions for building "where" clauses with nested relations.
+ * Supports filtering on entity properties and related entity properties.
+ */
 import type {
   BelongsToReference,
   HasManyCollection,
@@ -126,6 +130,14 @@ type WhereShape<
       >;
     });
 
+/**
+ * Represents valid property paths for SearchWhere filtering.
+ * Includes all scalar properties and nested relation paths.
+ * 
+ * @typeParam TEntity - The entity type
+ * @typeParam Depth - Maximum nesting depth (default: 2)
+ * @typeParam Relations - Additional relation overrides
+ */
 export type SearchWherePath<
   TEntity extends object,
   Depth extends SearchWhereDepth = 2,
@@ -142,9 +154,13 @@ export type SearchWherePath<
         }[RelationKeysWithOverrides<TEntity, Relations>]);
 
 type BaseSearchWhereOptions = {
+  /** Maximum depth for relation traversal */
   maxDepth?: SearchWhereDepth;
+  /** Whitelist of allowed property paths */
   include?: readonly string[];
+  /** Paths to exclude from filtering */
   exclude?: readonly string[];
+  /** Relation property names to include */
   relations?: readonly string[];
 };
 
@@ -153,12 +169,35 @@ export type SearchWhereOptions<
   Depth extends SearchWhereDepth = 5,
   Relations = never,
 > = {
+  /** Maximum depth for relation traversal */
   maxDepth?: Depth;
+  /** Whitelist of allowed property paths */
   include?: readonly SearchWherePath<TEntity, Depth, Relations>[];
+  /** Paths to exclude from filtering */
   exclude?: readonly SearchWherePath<TEntity, Depth, Relations>[];
+  /** Relation property names to include */
   relations?: readonly ObjectKeys<TEntity>[];
 };
 
+/**
+ * Type representing a where clause for querying entities.
+ * Supports filtering on scalar properties and nested relations.
+ * 
+ * @typeParam TEntity - The entity type to filter
+ * @typeParam Opts - SearchWhere configuration options
+ * 
+ * @example
+ * ```ts
+ * // Simple equality filter
+ * { name: "John" }
+ * 
+ * // With operators
+ * { age: { gt: 18 }, name: { contains: "John" } }
+ * 
+ * // Nested relation filter
+ * { posts: { title: { contains: "Hello" } } }
+ * ```
+ */
 export type SearchWhere<TEntity extends object, Opts extends BaseSearchWhereOptions = {}> =
   Opts extends SearchWhereOptions<TEntity, ResolveDepth<Opts>, ResolveRelations<Opts>>
     ? WhereShape<TEntity, ResolveDepth<Opts>, ResolveInclude<Opts>, ResolveExclude<Opts>, ResolveRelations<Opts>>

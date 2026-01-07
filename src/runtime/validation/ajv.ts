@@ -2,28 +2,109 @@ import Ajv from "ajv";
 import addFormats from "ajv-formats";
 import type { ErrorObject } from "ajv";
 
+/**
+ * Runtime validation module using AJV.
+ * 
+ * @remarks
+ * This module provides validation utilities using the AJV JSON schema validator.
+ * It includes interfaces for validation results, errors, and helper functions
+ * for creating validators and formatting error messages.
+ * 
+ * @package
+ */
+
+/**
+ * Represents a single validation error with details.
+ * 
+ * @public
+ */
 export interface ValidationError {
+  /**
+   * The JSON path to the invalid property.
+   */
   path: string;
+  
+  /**
+   * Human-readable error message.
+   */
   message: string;
+  
+  /**
+   * The AJV keyword that failed validation.
+   */
   keyword: string;
+  
+  /**
+   * Additional parameters from the validation error.
+   */
   params: Record<string, unknown>;
 }
 
+/**
+ * Result of a validation operation.
+ * 
+ * @public
+ */
 export interface ValidationResult {
+  /**
+   * Whether the data passed validation.
+   */
   valid: boolean;
+  
+  /**
+   * Array of validation errors if validation failed, null otherwise.
+   */
   errors: ValidationError[] | null;
 }
 
+/**
+ * Error thrown when request validation fails.
+ * 
+ * @public
+ */
 export class ValidationErrorResponse extends Error {
-  constructor(
-    public statusCode: number,
-    public errors: ValidationError[]
-  ) {
+  /**
+   * HTTP status code for validation errors.
+   */
+  statusCode: number;
+  
+  /**
+   * Detailed validation errors.
+   */
+  errors: ValidationError[];
+
+  /**
+   * Creates a new ValidationErrorResponse.
+   * 
+   * @param statusCode - HTTP status code (typically 400)
+   * @param errors - Array of validation errors
+   */
+  constructor(statusCode: number, errors: ValidationError[]) {
     super("Validation failed");
     this.name = "ValidationErrorResponse";
+    this.statusCode = statusCode;
+    this.errors = errors;
   }
 }
 
+/**
+ * Creates a configured AJV validator instance.
+ * 
+ * @remarks
+ * This function creates an AJV validator with adorn-api's default configuration,
+ * including support for custom formats like "br-phone" for Brazilian phone numbers.
+ * 
+ * @returns A configured AJV validator instance
+ * 
+ * @example
+ * ```typescript
+ * const validator = createValidator();
+ * const validate = validator.compile(mySchema);
+ * const result = validate(myData);
+ * ```
+ * 
+ * @public
+ */
 export function createValidator() {
   const ajv = new Ajv.default({
     allErrors: true,
@@ -39,6 +120,21 @@ export function createValidator() {
   return ajv;
 }
 
+/**
+ * Validates data against a JSON schema.
+ * 
+ * @remarks
+ * This function compiles the schema and validates the data, returning a
+ * structured result with formatted error messages.
+ * 
+ * @param ajv - The AJV validator instance
+ * @param data - The data to validate
+ * @param schema - The JSON schema to validate against
+ * @param dataPath - Base path for error messages (default: "#")
+ * @returns ValidationResult with validity and any errors
+ * 
+ * @public
+ */
 export function validateData(
   ajv: ReturnType<typeof createValidator>,
   data: unknown,
@@ -62,6 +158,11 @@ export function validateData(
   return { valid: false, errors };
 }
 
+/**
+ * Formats an error path for display.
+ * 
+ * @internal
+ */
 function formatErrorPath(basePath: string, err: ErrorObject): string {
   const instancePath = err.instancePath;
 
@@ -76,6 +177,18 @@ function formatErrorPath(basePath: string, err: ErrorObject): string {
   return `${basePath}${instancePath}`;
 }
 
+/**
+ * Formats validation errors into a structured API response.
+ * 
+ * @remarks
+ * This function converts validation errors into a format suitable for API
+ * responses, grouping errors by their path.
+ * 
+ * @param errors - Array of validation errors
+ * @returns Formatted error response object
+ * 
+ * @public
+ */
 export function formatValidationErrors(errors: ValidationError[]): Record<string, unknown> {
   const formatted: Record<string, string[]> = {};
 

@@ -1,3 +1,7 @@
+/**
+ * Cache writing module.
+ * Persists cache information to disk for future staleness checks.
+ */
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
@@ -18,6 +22,12 @@ function isProjectSourceFile(f: string): boolean {
   return /\.(ts|tsx|mts|cts)$/.test(f);
 }
 
+/**
+ * Writes cache information to the output directory.
+ * Captures the current state of the compilation environment for future staleness checks.
+ * 
+ * @param params - Object containing output directory, tsconfig path, TypeScript program, and adorn version
+ */
 export function writeCache(params: {
   outDir: string;
   tsconfigAbs: string;

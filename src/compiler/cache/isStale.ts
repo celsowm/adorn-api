@@ -1,7 +1,16 @@
+/**
+ * Cache invalidation and staleness detection module.
+ * Determines whether the compiled artifacts need to be regenerated based on file changes.
+ */
 import fs from "node:fs";
 import path from "node:path";
 import type { AdornCacheV1 } from "./schema.js";
 
+/**
+ * Result of a cache staleness check.
+ * - stale: false means cache is valid and artifacts can be used as-is
+ * - stale: true means cache is invalid and artifacts need to be regenerated
+ */
 export type StaleResult =
   | { stale: false; reason: "up-to-date" }
   | { stale: true; reason: string; detail?: string };
@@ -26,6 +35,13 @@ function ensureAbs(p: string): string {
   return path.isAbsolute(p) ? p : path.resolve(p);
 }
 
+/**
+ * Collects all TypeScript config files in the inheritance chain.
+ * Follows the "extends" property recursively to build a complete list of config files.
+ * 
+ * @param tsconfigPathAbs - Absolute path to the root tsconfig.json
+ * @returns Array of absolute paths to all config files in the chain, in order from root to leaf
+ */
 export function collectTsconfigChain(tsconfigPathAbs: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -65,6 +81,13 @@ export function collectTsconfigChain(tsconfigPathAbs: string): string[] {
   return out;
 }
 
+/**
+ * Searches for a package lockfile (pnpm-lock.yaml, package-lock.json, or yarn.lock)
+ * starting from the given directory and moving up the directory tree.
+ * 
+ * @param startDir - The directory to start searching from
+ * @returns Object with path and modification time of the found lockfile, or null if not found
+ */
 export function findLockfile(startDir: string): { path: string; mtimeMs: number } | null {
   const names = ["pnpm-lock.yaml", "package-lock.json", "yarn.lock"];
   let dir = startDir;
@@ -82,6 +105,13 @@ export function findLockfile(startDir: string): { path: string; mtimeMs: number 
   return null;
 }
 
+/**
+ * Determines whether the compiled artifacts are stale and need to be regenerated.
+ * Checks the manifest, cache file, TypeScript config files, lockfile, and input files.
+ * 
+ * @param params - Object containing outDir, project path, adorn version, and TypeScript version
+ * @returns Promise resolving to a StaleResult indicating whether regeneration is needed
+ */
 export async function isStale(params: {
   outDir: string;
   project: string;

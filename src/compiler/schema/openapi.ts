@@ -1,3 +1,7 @@
+/**
+ * OpenAPI specification generation module.
+ * Converts scanned controllers to OpenAPI 3.1 format.
+ */
 import ts from "typescript";
 import type { ScannedController, ScannedOperation, ScannedParameter } from "../analyze/scanControllers.js";
 import { typeToJsonSchema } from "./typeToJsonSchema.js";
@@ -12,6 +16,9 @@ import {
 
 const METAL_ORM_WRAPPER_NAMES = ["BelongsToReference", "HasOneReference", "HasManyCollection", "ManyToManyCollection"];
 
+/**
+ * OpenAPI 3.1 specification interface.
+ */
 export interface OpenAPI31 {
   openapi: "3.1.0";
   info: {
@@ -24,6 +31,14 @@ export interface OpenAPI31 {
   paths: Record<string, Record<string, any>>;
 }
 
+/**
+ * Generates an OpenAPI 3.1 specification from scanned controllers.
+ * 
+ * @param controllers - Array of scanned controllers to include in the spec
+ * @param checker - TypeScript type checker for type analysis
+ * @param options - Optional title and version for the OpenAPI info object
+ * @returns Complete OpenAPI 3.1 specification object
+ */
 export function generateOpenAPI(
   controllers: ScannedController[],
   checker: ts.TypeChecker,

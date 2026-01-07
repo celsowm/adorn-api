@@ -1,8 +1,20 @@
+/**
+ * Parameter specification building module.
+ * Converts scanned parameters to OpenAPI parameter objects.
+ */
 import type { ScannedOperation } from "../analyze/scanControllers.js";
 import type { SchemaContext, JsonSchema } from "./types.js";
 import { typeToJsonSchema } from "./typeToJsonSchema.js";
 import { extractPropertySchemaFragments, mergeFragments } from "./extractAnnotations.js";
 
+/**
+ * Builds OpenAPI path parameter objects from scanned operation parameters.
+ * Adds them to the provided parameters array.
+ * 
+ * @param operation - The scanned operation containing path parameters
+ * @param ctx - The schema generation context
+ * @param parameters - Array to accumulate parameter objects
+ */
 export function buildPathParameters(operation: ScannedOperation, ctx: SchemaContext, parameters: any[]): void {
   for (const paramIndex of operation.pathParamIndices) {
     const param = operation.parameters[paramIndex];
@@ -39,6 +51,14 @@ export function buildPathParameters(operation: ScannedOperation, ctx: SchemaCont
   }
 }
 
+/**
+ * Builds OpenAPI query parameter objects from scanned operation parameters.
+ * Handles both individual query parameters and query objects.
+ * 
+ * @param operation - The scanned operation containing query parameters
+ * @param ctx - The schema generation context
+ * @param parameters - Array to accumulate parameter objects
+ */
 export function buildQueryParameters(operation: ScannedOperation, ctx: SchemaContext, parameters: any[]): void {
   if (operation.queryObjectParamIndex !== null) {
     const queryParam = operation.parameters[operation.queryObjectParamIndex];
@@ -145,6 +165,14 @@ export function buildQueryParameters(operation: ScannedOperation, ctx: SchemaCon
   }
 }
 
+/**
+ * Builds OpenAPI header parameter objects from scanned operation parameters.
+ * Extracts individual header parameters from a headers object.
+ * 
+ * @param operation - The scanned operation containing header parameters
+ * @param ctx - The schema generation context
+ * @param parameters - Array to accumulate parameter objects
+ */
 export function buildHeaderParameters(operation: ScannedOperation, ctx: SchemaContext, parameters: any[]): void {
   if (operation.headerObjectParamIndex === null) return;
 
@@ -166,6 +194,14 @@ export function buildHeaderParameters(operation: ScannedOperation, ctx: SchemaCo
   }
 }
 
+/**
+ * Builds OpenAPI cookie parameter objects from scanned operation parameters.
+ * Extracts individual cookie parameters from a cookies object.
+ * 
+ * @param operation - The scanned operation containing cookie parameters
+ * @param ctx - The schema generation context
+ * @param parameters - Array to accumulate parameter objects
+ */
 export function buildCookieParameters(operation: ScannedOperation, ctx: SchemaContext, parameters: any[]): void {
   if (operation.cookieObjectParamIndex === null) return;
 
@@ -189,6 +225,12 @@ export function buildCookieParameters(operation: ScannedOperation, ctx: SchemaCo
   }
 }
 
+/**
+ * Determines OpenAPI serialization style/explode options based on schema type.
+ * 
+ * @param schemaType - The schema type(s) to analyze
+ * @returns Object containing style and explode options if applicable
+ */
 export function determineQuerySerialization(schemaType: string | string[] | undefined): { style?: string; explode?: boolean } {
   const typeArray = Array.isArray(schemaType) ? schemaType : schemaType ? [schemaType] : [];
   const isArray = typeArray.includes("array");
@@ -200,6 +242,14 @@ export function determineQuerySerialization(schemaType: string | string[] | unde
   return {};
 }
 
+/**
+ * Generates an example value description for a schema.
+ * Creates a human-readable example showing the expected structure.
+ * 
+ * @param schema - The JSON Schema to generate example for
+ * @param propName - The property name for the example
+ * @returns A description string with example value
+ */
 export function generateExampleValue(schema: JsonSchema, propName: string): string {
   const resolved = resolveSchemaRef(schema, new Map());
   
@@ -227,6 +277,13 @@ export function generateExampleValue(schema: JsonSchema, propName: string): stri
   return `Example: ${propName}=${JSON.stringify({ key: "value" })}`;
 }
 
+/**
+ * Parses an example value from a description string.
+ * Extracts the JSON object from "Example: propName={...}" format.
+ * 
+ * @param description - The description string to parse
+ * @returns The extracted JSON string, or default if not found
+ */
 export function parseExampleValue(description: string): string {
   const match = description.match(/Example:\s*\w+=(\{[^}]+\})/);
   if (match) {
@@ -258,6 +315,13 @@ function isObjectLikeSchema(schema: JsonSchema, ctx: SchemaContext): boolean {
   return false;
 }
 
+/**
+ * Recursively resolves $ref references in a JSON Schema.
+ * 
+ * @param schema - The schema to resolve references in
+ * @param components - Map of component schemas for reference resolution
+ * @returns The resolved schema with all references followed
+ */
 export function resolveSchemaRef(schema: JsonSchema, components: Map<string, JsonSchema>): JsonSchema {
   const ref = schema.$ref;
   if (typeof ref !== "string" || !ref.startsWith("#/components/schemas/")) {
@@ -271,6 +335,14 @@ export function resolveSchemaRef(schema: JsonSchema, components: Map<string, Jso
   return resolveSchemaRef(next, components);
 }
 
+/**
+ * Resolves object schema references and collects all properties.
+ * Handles allOf composition and $ref resolution.
+ * 
+ * @param schema - The object schema to process
+ * @param components - Map of component schemas for reference resolution
+ * @returns Object containing all collected properties and required fields
+ */
 export function resolveAndCollectObjectProps(
   schema: JsonSchema,
   components: Map<string, JsonSchema>

@@ -1,7 +1,14 @@
+/**
+ * Cache management module for compiled artifacts.
+ * Loads OpenAPI specs, manifests, and validators from the output directory.
+ */
 import fs from "node:fs";
 import path from "node:path";
 import { stat } from "node:fs/promises";
 
+/**
+ * OpenAPI specification interface as loaded from openapi.json
+ */
 interface OpenApi {
   openapi: string;
   components?: {
@@ -12,6 +19,10 @@ interface OpenApi {
   security?: Array<Record<string, string[]>>;
 }
 
+/**
+ * Manifest interface describing the compiled API structure.
+ * Contains metadata about the generation process and all controllers/operations.
+ */
 interface Manifest {
   manifestVersion: number;
   generatedAt: string;
@@ -87,6 +98,9 @@ interface Manifest {
   }>;
 }
 
+/**
+ * Validator module interface for precompiled validation logic.
+ */
 interface ValidatorModule {
   validators: Record<string, {
     body?: (data: unknown) => boolean;
@@ -96,6 +110,9 @@ interface ValidatorModule {
   validateResponse: (operationId: string, status: number, contentType: string, data: unknown) => { ok: boolean; errors: unknown[] | null };
 }
 
+/**
+ * Internal cache entry for tracking loaded artifacts and their modification times.
+ */
 interface ArtifactCacheEntry {
   openapi: OpenApi | null;
   manifest: Manifest | null;
@@ -118,16 +135,29 @@ async function getMtime(filePath: string): Promise<number | null> {
   }
 }
 
+/**
+ * Options for loading artifacts from the output directory.
+ */
 export interface LoadArtifactsOptions {
   outDir: string;
 }
 
+/**
+ * Result of loading artifacts from the output directory.
+ */
 export interface LoadedArtifacts {
   openapi: OpenApi;
   manifest: Manifest;
   validators: ValidatorModule | null;
 }
 
+/**
+ * Loads OpenAPI spec, manifest, and validators from the output directory.
+ * Results are cached in memory to avoid repeated file I/O.
+ * 
+ * @param options - Object containing the output directory path
+ * @returns Promise resolving to loaded artifacts including OpenAPI spec, manifest, and validators
+ */
 export async function loadArtifacts(options: LoadArtifactsOptions): Promise<LoadedArtifacts> {
   const { outDir } = options;
   const cacheKey = path.resolve(outDir);
@@ -194,6 +224,13 @@ export async function loadArtifacts(options: LoadArtifactsOptions): Promise<Load
   };
 }
 
+/**
+ * Clears the in-memory artifact cache.
+ * If an output directory is specified, only that entry is removed.
+ * Otherwise, the entire cache is cleared.
+ * 
+ * @param outDir - Optional specific output directory to clear from cache
+ */
 export function clearArtifactCache(outDir?: string): void {
   if (outDir) {
     const cacheKey = path.resolve(outDir);
@@ -203,6 +240,12 @@ export function clearArtifactCache(outDir?: string): void {
   }
 }
 
+/**
+ * Returns statistics about the current artifact cache state.
+ * Useful for debugging and monitoring cache behavior.
+ * 
+ * @returns Object containing cache size and array of cached keys
+ */
 export function getArtifactCacheStats(): { size: number; keys: string[] } {
   return {
     size: artifactCache.size,

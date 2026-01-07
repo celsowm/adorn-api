@@ -1,3 +1,7 @@
+/**
+ * Manifest generation module.
+ * Creates the manifest file describing the compiled API structure.
+ */
 import type { ScannedController, ScannedOperation } from "../analyze/scanControllers.js";
 import type { ManifestV1, ControllerEntry, OperationEntry, ArgsSpec, HttpMethod } from "./format.js";
 import { typeToJsonSchema } from "../schema/typeToJsonSchema.js";
@@ -6,6 +10,16 @@ import ts from "typescript";
 
 type ValidationMode = "none" | "ajv-runtime" | "precompiled";
 
+/**
+ * Generates the manifest file content from scanned controllers.
+ * The manifest describes the complete API structure including all controllers, operations, and their parameters.
+ * 
+ * @param controllers - Array of scanned controllers to include in the manifest
+ * @param checker - TypeScript type checker for analyzing types
+ * @param version - Version of the adorn-api package
+ * @param validationMode - Validation mode to specify in the manifest (default: "ajv-runtime")
+ * @returns The generated manifest object
+ */
 export function generateManifest(
   controllers: ScannedController[],
   checker: ts.TypeChecker,
@@ -52,6 +66,10 @@ export function generateManifest(
   };
 }
 
+/**
+ * Recursively resolves $ref references in JSON Schema objects.
+ * @internal
+ */
 function resolveSchemaRef(schema: JsonSchema, components: Map<string, JsonSchema>): JsonSchema {
   const ref = schema.$ref;
   if (typeof ref !== "string" || !ref.startsWith("#/components/schemas/")) {
@@ -65,6 +83,10 @@ function resolveSchemaRef(schema: JsonSchema, components: Map<string, JsonSchema
   return resolveSchemaRef(next, components);
 }
 
+/**
+ * Resolves and collects properties from an object schema, handling $ref and allOf.
+ * @internal
+ */
 function resolveAndCollectObjectProps(
   schema: JsonSchema,
   components: Map<string, JsonSchema>
@@ -103,6 +125,10 @@ function resolveAndCollectObjectProps(
   return { properties, required };
 }
 
+/**
+ * Checks if a schema represents an object-like structure.
+ * @internal
+ */
 function isObjectLikeSchema(schema: JsonSchema, components: Map<string, JsonSchema>): boolean {
   const resolved = resolveSchemaRef(schema, components);
   
@@ -126,6 +152,10 @@ function isObjectLikeSchema(schema: JsonSchema, components: Map<string, JsonSche
   return false;
 }
 
+/**
+ * Builds an OperationEntry from a ScannedOperation.
+ * @internal
+ */
 function buildOperationEntry(op: ScannedOperation, ctx: SchemaContext): OperationEntry {
   const args: ArgsSpec = {
     body: null,
@@ -189,6 +219,10 @@ function buildOperationEntry(op: ScannedOperation, ctx: SchemaContext): Operatio
   };
 }
 
+/**
+ * Builds path argument specifications from scanned operation parameters.
+ * @internal
+ */
 function buildPathArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec): void {
   for (const paramIndex of op.pathParamIndices) {
     const param = op.parameters[paramIndex];
@@ -206,6 +240,10 @@ function buildPathArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec)
   }
 }
 
+/**
+ * Builds query argument specifications from scanned operation parameters.
+ * @internal
+ */
 function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec): void {
   if (op.queryObjectParamIndex !== null) {
     const queryParam = op.parameters[op.queryObjectParamIndex];
@@ -254,6 +292,10 @@ function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec
   }
 }
 
+/**
+ * Builds header argument specifications from scanned operation parameters.
+ * @internal
+ */
 function buildHeaderArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec): void {
   if (op.headerObjectParamIndex === null) return;
 
@@ -280,6 +322,10 @@ function buildHeaderArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpe
   }
 }
 
+/**
+ * Builds cookie argument specifications from scanned operation parameters.
+ * @internal
+ */
 function buildCookieArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec): void {
   if (op.cookieObjectParamIndex === null) return;
 

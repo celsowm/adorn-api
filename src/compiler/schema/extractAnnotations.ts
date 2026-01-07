@@ -1,9 +1,25 @@
+/**
+ * Schema annotation extraction module.
+ * Parses decorator-based schema annotations from TypeScript source code.
+ */
 import ts from "typescript";
 
+/**
+ * Represents a fragment of JSON Schema that can be merged with other fragments.
+ * Used for collecting schema annotations from decorators.
+ */
 export interface SchemaFragment {
   [key: string]: unknown;
 }
 
+/**
+ * Extracts schema annotation fragments from a property or parameter declaration.
+ * Looks for decorators like @Min, @Max, @Pattern, etc. and converts them to JSON Schema fragments.
+ * 
+ * @param checker - TypeScript type checker for symbol resolution
+ * @param prop - The property or parameter declaration to analyze
+ * @returns Array of schema fragments from found decorators
+ */
 export function extractPropertySchemaFragments(
   checker: ts.TypeChecker,
   prop: ts.PropertyDeclaration | ts.ParameterDeclaration
@@ -168,6 +184,14 @@ function literalToJson(node: ts.Expression): unknown {
   return undefined;
 }
 
+/**
+ * Merges multiple schema fragments into a single schema object.
+ * Later fragments override earlier ones for conflicting keys.
+ * 
+ * @param base - The base schema object to merge into
+ * @param frags - Variable number of schema fragments to merge
+ * @returns The merged schema object
+ */
 export function mergeFragments(base: Record<string, unknown>, ...frags: SchemaFragment[]): Record<string, unknown> {
   const result = { ...base };
   for (const frag of frags) {
@@ -176,6 +200,13 @@ export function mergeFragments(base: Record<string, unknown>, ...frags: SchemaFr
   return result;
 }
 
+/**
+ * Extracts the description from JSDoc comments on a node.
+ * 
+ * @param checker - TypeScript type checker
+ * @param node - The AST node to extract description from
+ * @returns The cleaned description text, or undefined if no description found
+ */
 export function extractJSDocDescription(checker: ts.TypeChecker, node: ts.Node): string | undefined {
   const sourceFile = node.getSourceFile();
   const docComments = ts.getLeadingCommentRanges(sourceFile.fileName, node.pos);
@@ -197,6 +228,14 @@ export function extractJSDocDescription(checker: ts.TypeChecker, node: ts.Node):
   return fullComment.trim() || undefined;
 }
 
+/**
+ * Extracts JSDoc tags from a node and converts them to schema properties.
+ * Supports @example, @default, @description, and @deprecated tags.
+ * 
+ * @param checker - TypeScript type checker
+ * @param node - The AST node to extract tags from
+ * @returns Object mapping tag names to their extracted values
+ */
 export function extractJSDocTags(checker: ts.TypeChecker, node: ts.Node): Record<string, unknown> {
   const tags: Record<string, unknown> = {};
 
@@ -259,6 +298,14 @@ function parseDefaultValue(comment: string): unknown {
   return trimmed;
 }
 
+/**
+ * Extracts schema annotation fragments from a class declaration.
+ * Looks for class-level decorators and JSDoc comments.
+ * 
+ * @param checker - TypeScript type checker for symbol resolution
+ * @param classDecl - The class declaration to analyze
+ * @returns Array of schema fragments from found annotations
+ */
 export function extractClassSchemaFragments(
   checker: ts.TypeChecker,
   classDecl: ts.ClassDeclaration

@@ -1,6 +1,19 @@
 import { getBucket } from "../runtime/metadata/bucket.js";
 import type { HttpMethod } from "../runtime/metadata/types.js";
 
+/**
+ * Decorator to mark a method as public (no authentication required).
+ * Use this to explicitly allow unauthenticated access to specific endpoints.
+ * 
+ * @example
+ * ```ts
+ * @Public()
+ * @Get("/health")
+ * healthCheck() {
+ *   return { status: "ok" };
+ * }
+ * ```
+ */
 export function Public() {
   return function (
     target: any,

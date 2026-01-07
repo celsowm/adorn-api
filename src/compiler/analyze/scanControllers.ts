@@ -1,42 +1,94 @@
+/**
+ * Scans TypeScript source files for controller classes decorated with @Controller and extracts their operations.
+ * This module provides the foundation for API compilation by identifying all HTTP endpoints defined in the codebase.
+ */
 import ts from "typescript";
 import { defaultOperationId } from "../../utils/operationId.js";
 
+/**
+ * Represents a scanned controller class with its metadata and operations.
+ * Contains information about the controller class, base path, and all HTTP operations it defines.
+ */
 export interface ScannedController {
+  /** The name of the controller class */
   className: string;
+  /** The base path prefix for all operations in this controller */
   basePath: string;
+  /** The TypeScript source file containing this controller */
   sourceFile: ts.SourceFile;
+  /** The class declaration node from the TypeScript AST */
   classDeclaration: ts.ClassDeclaration;
+  /** Array of scanned operations (endpoints) in this controller */
   operations: ScannedOperation[];
+  /** Optional list of content types this controller consumes */
   consumes?: string[];
+  /** Optional list of content types this controller produces */
   produces?: string[];
 }
 
+/**
+ * Represents a scanned HTTP operation (endpoint) within a controller.
+ * Contains all metadata needed to generate API documentation and client code.
+ */
 export interface ScannedOperation {
+  /** The name of the method implementing this operation */
   methodName: string;
+  /** The HTTP method (GET, POST, PUT, PATCH, DELETE) */
   httpMethod: string;
+  /** The URL path for this operation, relative to controller base path */
   path: string;
+  /** Unique identifier for this operation, used in OpenAPI specs and client generation */
   operationId: string;
+  /** The method declaration node from the TypeScript AST */
   methodDeclaration: ts.MethodDeclaration;
+  /** The TypeScript return type of this operation */
   returnType: ts.Type;
+  /** Optional TypeScript type node for the return type */
   returnTypeNode?: ts.TypeNode;
+  /** Array of scanned parameters for this operation */
   parameters: ScannedParameter[];
+  /** Indices of parameters that are path parameters */
   pathParamIndices: number[];
+  /** Index of the parameter that is the request body, or null if none */
   bodyParamIndex: number | null;
+  /** Indices of parameters that are query parameters */
   queryParamIndices: number[];
+  /** Index of the parameter that is a query object (all query params as properties), or null if none */
   queryObjectParamIndex: number | null;
+  /** Index of the parameter that is a headers object, or null if none */
   headerObjectParamIndex: number | null;
+  /** Index of the parameter that is a cookies object, or null if none */
   cookieObjectParamIndex: number | null;
+  /** The content type of the request body, if applicable */
   bodyContentType?: string;
 }
 
+/**
+ * Represents a scanned parameter of an operation.
+ * Contains metadata about the parameter's name, type, and position.
+ */
 export interface ScannedParameter {
+  /** The name of the parameter */
   name: string;
+  /** The zero-based index of the parameter in the function signature */
   index: number;
+  /** The TypeScript type of this parameter */
   type: ts.Type;
+  /** Whether this parameter is optional */
   isOptional: boolean;
+  /** Optional parameter declaration node from the TypeScript AST */
   paramNode?: ts.ParameterDeclaration;
 }
 
+/**
+ * Scans an array of TypeScript source files for controller classes and extracts their operations.
+ * Only classes decorated with @Controller are considered, and only methods with HTTP method decorators
+ * (e.g., @Get, @Post) are treated as operations.
+ * 
+ * @param sourceFiles - Array of TypeScript source files to scan
+ * @param checker - TypeScript type checker for analyzing types
+ * @returns Array of scanned controllers with their operations
+ */
 export function scanControllers(
   sourceFiles: ts.SourceFile[],
   checker: ts.TypeChecker
@@ -57,6 +109,14 @@ export function scanControllers(
   return controllers;
 }
 
+/**
+ * Analyzes a TypeScript class declaration to determine if it's a controller and extracts its metadata.
+ * 
+ * @param node - The class declaration node to analyze
+ * @param sourceFile - The source file containing the class
+ * @param checker - TypeScript type checker for analyzing types
+ * @returns ScannedController if the class is a valid controller, null otherwise
+ */
 function analyzeClass(
   node: ts.ClassDeclaration,
   sourceFile: ts.SourceFile,
@@ -97,6 +157,10 @@ function analyzeClass(
   };
 }
 
+/**
+ * Extracts the @Consumes decorator content types from a controller class.
+ * @internal
+ */
 function extractClassConsumes(node: ts.ClassDeclaration, _checker: ts.TypeChecker): string[] | undefined {
   const decorator = findDecorator(node, "Consumes");
   if (!decorator) return undefined;
@@ -118,6 +182,10 @@ function extractClassConsumes(node: ts.ClassDeclaration, _checker: ts.TypeChecke
   return undefined;
 }
 
+/**
+ * Extracts the @Produces decorator content types from a controller class.
+ * @internal
+ */
 function extractClassProduces(node: ts.ClassDeclaration, _checker: ts.TypeChecker): string[] | undefined {
   const decorator = findDecorator(node, "Produces");
   if (!decorator) return undefined;
@@ -139,6 +207,10 @@ function extractClassProduces(node: ts.ClassDeclaration, _checker: ts.TypeChecke
   return undefined;
 }
 
+/**
+ * Analyzes a method declaration to determine if it's an HTTP operation and extracts its metadata.
+ * @internal
+ */
 function analyzeMethod(
   node: ts.MethodDeclaration,
   className: string,
@@ -210,12 +282,21 @@ function analyzeMethod(
   };
 }
 
+/**
+ * Extracts path parameter names from a URL path string.
+ * Path parameters are denoted by colon prefixes (e.g., ":id", ":userId").
+ * @internal
+ */
 function extractPathParams(path: string): string[] {
   const matches = path.match(/:([^/]+)/g);
   if (!matches) return [];
   return matches.map(m => m.slice(1));
 }
 
+/**
+ * Maps path parameter names to their indices in the parameters array.
+ * @internal
+ */
 function matchPathParamsToIndices(pathParamNames: string[], parameters: ScannedParameter[]): number[] {
   const indices: number[] = [];
   for (const name of pathParamNames) {
@@ -227,6 +308,11 @@ function matchPathParamsToIndices(pathParamNames: string[], parameters: ScannedP
   return indices;
 }
 
+/**
+ * Classifies parameters into different categories (body, query, path, headers, cookies).
+ * This determines how each parameter will be processed in the OpenAPI generation.
+ * @internal
+ */
 function classifyParameters(
   parameters: ScannedParameter[],
   httpMethod: string,
@@ -307,6 +393,10 @@ function classifyParameters(
   };
 }
 
+/**
+ * Checks if a TypeScript type represents an object type.
+ * @internal
+ */
 function isObjectType(type: ts.Type, checker: ts.TypeChecker): boolean {
   const objectFlags = (type.flags & ts.TypeFlags.Object) !== 0;
   const intersectionFlags = (type.flags & ts.TypeFlags.Intersection) !== 0;
@@ -325,6 +415,10 @@ function isObjectType(type: ts.Type, checker: ts.TypeChecker): boolean {
   return true;
 }
 
+/**
+ * Gets the type name from a TypeScript type, checking both alias and direct symbols.
+ * @internal
+ */
 function getTypeName(type: ts.Type): string {
   const aliasSymbol = (type as ts.TypeReference).aliasSymbol ?? (type as any).aliasSymbol;
   if (aliasSymbol) return aliasSymbol.getName();
@@ -332,6 +426,10 @@ function getTypeName(type: ts.Type): string {
   return symbol?.getName() ?? "";
 }
 
+/**
+ * Finds a decorator by name on a TypeScript node.
+ * @internal
+ */
 function findDecorator(node: ts.HasDecorators, name: string): ts.Decorator | null {
   const decorators = ts.getDecorators(node);
   if (!decorators) return null;
@@ -347,6 +445,10 @@ function findDecorator(node: ts.HasDecorators, name: string): ts.Decorator | nul
   return null;
 }
 
+/**
+ * Extracts the first string argument from a decorator call expression.
+ * @internal
+ */
 function extractDecoratorStringArg(decorator: ts.Decorator): string | null {
   if (ts.isCallExpression(decorator.expression)) {
     const arg = decorator.expression.arguments[0];
@@ -357,6 +459,10 @@ function extractDecoratorStringArg(decorator: ts.Decorator): string | null {
   return null;
 }
 
+/**
+ * Unwraps a Promise type to get the inner type.
+ * @internal
+ */
 function unwrapPromise(type: ts.Type, _checker: ts.TypeChecker): ts.Type {
   const symbol = type.getSymbol();
   if (symbol?.getName() === "Promise") {
@@ -368,6 +474,10 @@ function unwrapPromise(type: ts.Type, _checker: ts.TypeChecker): ts.Type {
   return type;
 }
 
+/**
+ * Unwraps a Promise type node to get the inner type node.
+ * @internal
+ */
 function unwrapPromiseTypeNode(typeNode?: ts.TypeNode): ts.TypeNode | undefined {
   if (!typeNode) return undefined;
 

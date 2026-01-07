@@ -1,3 +1,7 @@
+/**
+ * Precompiled validator generation module.
+ * Uses AJV to generate standalone validation code for improved performance.
+ */
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -6,6 +10,9 @@ import Ajv from "ajv";
 import addFormats from "ajv-formats";
 import type { AnySchema } from "ajv";
 
+/**
+ * OpenAPI specification interface for validator generation.
+ */
 interface OpenApi {
   openapi: string;
   components?: {
@@ -13,6 +20,9 @@ interface OpenApi {
   };
 }
 
+/**
+ * Manifest interface for validator generation.
+ */
 interface Manifest {
   manifestVersion: number;
   controllers: Array<{
@@ -82,6 +92,9 @@ function schemaNameFromRef(schemaRef: string): string {
   return schemaRef.replace(/^#\/components\/schemas\//, "");
 }
 
+/**
+ * Options for emitting precompiled validators.
+ */
 export interface EmitPrecompiledValidatorsOptions {
   outDir: string;
   openapi: OpenApi;
@@ -90,6 +103,13 @@ export interface EmitPrecompiledValidatorsOptions {
   formatsMode?: "fast" | "full";
 }
 
+/**
+ * Emits precompiled validators for the API.
+ * Generates standalone validation code using AJV for optimal performance.
+ * 
+ * @param opts - Options including output directory, OpenAPI spec, manifest, and validation settings
+ * @returns Promise resolving to paths of generated validator files and a content hash
+ */
 export async function emitPrecompiledValidators(opts: EmitPrecompiledValidatorsOptions): Promise<{
   validatorsCjsPath: string;
   validatorsEsmPath: string;

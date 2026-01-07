@@ -1,5 +1,13 @@
+/**
+ * JSON Schema type definitions for the compiler.
+ * Core types used throughout schema generation.
+ */
 import ts from "typescript";
 
+/**
+ * JSON Schema representation used throughout the compiler.
+ * Extended with OpenAPI and vendor-specific properties.
+ */
 export interface JsonSchema {
   type?: string | string[];
   properties?: Record<string, JsonSchema>;
@@ -41,11 +49,18 @@ export interface JsonSchema {
   "x-ts-type"?: string;
 }
 
+/**
+ * OpenAPI discriminator object for polymorphism support.
+ */
 export interface DiscriminatorObject {
   propertyName: string;
   mapping?: Record<string, string>;
 }
 
+/**
+ * Context object passed through schema generation functions.
+ * Provides access to type checker, component registry, and generation options.
+ */
 export interface SchemaContext {
   checker: ts.TypeChecker;
   components: Map<string, JsonSchema>;
