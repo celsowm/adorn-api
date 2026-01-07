@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createProgramFromConfig } from "./compiler/runner/createProgram.js";
 import { scanControllers } from "./compiler/analyze/scanControllers.js";
 import { generateOpenAPI } from "./compiler/schema/openapi.js";
@@ -17,7 +18,29 @@ import { SchemaGraph } from "./compiler/graph/schemaGraph.js";
 import ts from "typescript";
 import process from "node:process";
 
-const ADORN_VERSION = "0.1.0";
+const ADORN_VERSION = (() => {
+  try {
+    // First, try to load from the local package.json (when running from the project)
+    const localPkgPath = resolve(process.cwd(), "package.json");
+    try {
+      const localPkg = JSON.parse(readFileSync(localPkgPath, "utf-8"));
+      // Check if this is the adorn-api package by looking for the CLI bin entry
+      if (localPkg.bin?.["adorn-api"] || localPkg.name === "adorn-api") {
+        return localPkg.version ?? "0.0.0";
+      }
+    } catch {
+      // Continue to try bundled package.json
+    }
+    
+    // Try to load from the package.json in the same directory as this script
+    const cliDir = dirname(fileURLToPath(import.meta.url));
+    const bundledPkgPath = resolve(cliDir, "..", "package.json");
+    const bundledPkg = JSON.parse(readFileSync(bundledPkgPath, "utf-8"));
+    return bundledPkg.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+})();
 
 type ValidationMode = "none" | "ajv-runtime" | "precompiled";
 
@@ -286,11 +309,22 @@ async function buildCommand(args: string[]) {
 
   // Phase 4: Generate OpenAPI
   progress.startPhase("openapi", "Generating OpenAPI schema");
-  if (verbose) {
-    progress.verboseLog("Processing schemas from type definitions");
-  }
+  
+  const openapiSpinner = new Spinner("Processing schemas");
+  if (!quiet) openapiSpinner.start();
+  
+  let processedControllers = 0;
+  let processedOperations = 0;
   
   const openapi = generateOpenAPI(controllers, checker, { title: "API", version: "1.0.0" });
+  
+  // Update spinner with progress info
+  if (!quiet) {
+    openapiSpinner.setStatus(`Processed ${controllers.length} controllers, ${totalOperations} operations`);
+  }
+  
+  if (!quiet) openapiSpinner.stop();
+  
   const schemaCount = Object.keys(openapi.components?.schemas || {}).length;
   
   // Auto-split logic (default enabled, --no-split to disable)

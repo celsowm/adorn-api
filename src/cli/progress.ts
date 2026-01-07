@@ -202,6 +202,9 @@ export class Spinner {
   private frames = ["⠋", "⠙", "⠹", "⠸", "⢰", "⠴", "⠦", "⠧", "⠇", "⠏"];
   private interval?: NodeJS.Timeout;
   private message: string;
+  private current: number = 0;
+  private total: number = 0;
+  private customStatus?: string;
 
   constructor(message: string = "") {
     this.message = message;
@@ -214,9 +217,37 @@ export class Spinner {
     let frameIndex = 0;
     this.interval = setInterval(() => {
       const frame = this.frames[frameIndex];
-      process.stdout.write(`\r${frame} ${this.message}`);
+      if (this.customStatus) {
+        process.stdout.write(`\r${frame} ${this.customStatus}`);
+      } else if (this.total > 0) {
+        process.stdout.write(`\r${frame} ${this.message} (${this.current}/${this.total})`);
+      } else {
+        process.stdout.write(`\r${frame} ${this.message}`);
+      }
       frameIndex = (frameIndex + 1) % this.frames.length;
     }, 80);
+  }
+
+  /**
+   * Set progress counters.
+   */
+  setProgress(current: number, total: number): void {
+    this.current = current;
+    this.total = total;
+  }
+
+  /**
+   * Set a custom status message (overrides counters).
+   */
+  setStatus(status: string): void {
+    this.customStatus = status;
+  }
+
+  /**
+   * Clear the custom status message.
+   */
+  clearStatus(): void {
+    this.customStatus = undefined;
   }
 
   /**
@@ -228,7 +259,7 @@ export class Spinner {
       this.interval = undefined;
     }
     // Clear the line
-    process.stdout.write("\r" + " ".repeat(50) + "\r");
+    process.stdout.write("\r" + " ".repeat(60) + "\r");
     if (completedMessage) {
       process.stdout.write(completedMessage + "\n");
     }

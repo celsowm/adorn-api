@@ -465,7 +465,7 @@ export function handleMetalOrmWrapper(type: ts.ObjectType, ctx: SchemaContext): 
         required: ["id"]
       };
       if (wrapperName === "ManyToManyCollection" && typeArgs?.[1]) {
-        wrapperRel.pivot = typeArgs[1];
+        wrapperRel.pivot = ctx.checker.typeToString(typeArgs[1]);
       }
       return {
         type: "array",
