@@ -286,11 +286,13 @@ export function getRawQueryString(req: Request): string {
  * 
  * @param rawQuery - The raw query string
  * @param names - Set of parameter names that use deepObject style
+ * @param maxDepth - Maximum nesting depth (default: 5)
  * @returns Object containing the parsed deep object parameters
  */
 export function parseDeepObjectParams(
     rawQuery: string,
-    names: Set<string>
+    names: Set<string>,
+    maxDepth: number = 5
 ): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     if (!rawQuery || names.size === 0) return out;
@@ -299,6 +301,9 @@ export function parseDeepObjectParams(
     for (const [key, value] of params.entries()) {
         const path = parseBracketPath(key);
         if (path.length === 0) continue;
+        if (path.length > maxDepth) {
+            throw new Error(`Query parameter nesting depth (${path.length}) exceeds maximum of ${maxDepth}`);
+        }
         const root = path[0];
         if (!names.has(root)) continue;
         assignDeepValue(out, path, value);
@@ -399,3 +404,4 @@ export function normalizeSort(sort: unknown): string[] {
     }
     return [];
 }
+

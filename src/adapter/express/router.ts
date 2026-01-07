@@ -21,7 +21,9 @@ import {
     coerceParamValue,
     parseQueryValue,
     parseCookies,
-    normalizeSort
+    normalizeSort,
+    getRawQueryString,
+    parseDeepObjectParams
 } from "./coercion.js";
 import { createAuthMiddleware } from "./auth.js";
 import { validateRequest, validateRequestWithPrecompiled } from "./validation.js";
@@ -33,7 +35,7 @@ import { validateRequest, validateRequestWithPrecompiled } from "./validation.js
  * @returns Promise that resolves with the configured Express router
  */
 export async function createExpressRouter(options: CreateRouterOptions): Promise<Router> {
-    const { controllers, artifactsDir = ".adorn", middleware = {}, defaultPageSize = 10 } = options;
+    const { controllers, artifactsDir = ".adorn", middleware = {}, defaultPageSize = 10, queryOptions } = options;
 
     let manifest: ManifestV1;
     let openapi: OpenAPI31;
@@ -119,13 +121,24 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
 
         (router as any)[method](route.fullPath, ...middlewareChain, async (req: Request, res: Response, next: NextFunction) => {
             try {
+                const maxDepth = queryOptions?.maxNestingDepth ?? 5;
+
                 const validationErrors = precompiledValidators
-                    ? validateRequestWithPrecompiled(route, req, precompiledValidators)
-                    : validateRequest(route, req, openapi, validator!);
+                    ? validateRequestWithPrecompiled(route, req, precompiledValidators, maxDepth)
+                    : validateRequest(route, req, openapi, validator!, maxDepth);
 
                 if (validationErrors) {
                     return res.status(400).json(formatValidationErrors(validationErrors));
                 }
+
+                const deepNames = new Set(
+                    route.args.query
+                        .filter(q => q.serialization?.style === "deepObject")
+                        .map(q => q.name)
+                );
+                const deepValues = deepNames.size > 0
+                    ? parseDeepObjectParams(getRawQueryString(req), deepNames, maxDepth)
+                    : {};
 
                 const instance = getInstance(route.controllerCtor);
                 const handler = instance[route.methodName];
@@ -163,7 +176,7 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
 
                     if (jsonArgs.length > 0) {
                         for (const q of jsonArgs) {
-                            const rawValue = req.query[q.name];
+                            const rawValue = q.serialization?.style === "deepObject" ? deepValues[q.name] : req.query[q.name];
                             if (rawValue === undefined || rawValue === null) continue;
 
                             let parsed: any = rawValue;
@@ -188,7 +201,7 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
 
                     if (standardArgs.length > 0) {
                         for (const q of standardArgs) {
-                            const rawValue = req.query[q.name];
+                            const rawValue = q.serialization?.style === "deepObject" ? deepValues[q.name] : req.query[q.name];
                             if (rawValue === undefined) continue;
 
                             const parsed = parseQueryValue(rawValue, q);

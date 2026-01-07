@@ -71,11 +71,21 @@ export function buildQueryParameters(operation: ScannedOperation, ctx: SchemaCon
     for (const [propName, propSchema] of Object.entries(queryObjProps)) {
       const isRequired = queryRequired.includes(propName);
       
+      const isDeepObject = isDeepObjectSchema(propSchema, ctx);
       const isObjectLike = isObjectLikeSchema(propSchema, ctx);
       const serialization = determineQuerySerialization(propSchema.type);
       const exampleValue = generateExampleValue(propSchema, propName);
       
-      if (isObjectLike) {
+      if (isDeepObject) {
+        parameters.push({
+          name: propName,
+          in: "query",
+          required: isRequired,
+          style: "deepObject",
+          explode: true,
+          schema: propSchema.$ref ? { $ref: propSchema.$ref } : propSchema,
+        });
+      } else if (isObjectLike) {
         const schemaRef = propSchema.$ref || "#/components/schemas/InlineQueryParam";
         parameters.push({
           name: propName,
@@ -135,9 +145,19 @@ export function buildQueryParameters(operation: ScannedOperation, ctx: SchemaCon
         }
       }
 
+      const isDeepObject = isDeepObjectSchema(paramSchema, ctx);
       const isObjectLike = isObjectLikeSchema(paramSchema, ctx);
       
-      if (isObjectLike) {
+      if (isDeepObject) {
+        parameters.push({
+          name: param.name,
+          in: "query",
+          required: !param.isOptional,
+          style: "deepObject",
+          explode: true,
+          schema: paramSchema.$ref ? { $ref: paramSchema.$ref } : paramSchema,
+        });
+      } else if (isObjectLike) {
         const schemaRef = paramSchema.$ref || "#/components/schemas/InlineQueryParam";
         const exampleValue = generateExampleValue(paramSchema, param.name);
         parameters.push({
@@ -290,6 +310,28 @@ export function parseExampleValue(description: string): string {
     return match[1];
   }
   return JSON.stringify({ key: "value" });
+}
+
+function isDeepObjectSchema(schema: JsonSchema, ctx: SchemaContext): boolean {
+  const resolved = resolveSchemaRef(schema, ctx.components);
+  
+  if (resolved.type === "array") {
+    return false;
+  }
+  
+  if (resolved.type === "object" || resolved.properties || resolved.additionalProperties) {
+    return true;
+  }
+  
+  if (resolved.allOf) {
+    for (const branch of resolved.allOf) {
+      if (isDeepObjectSchema(branch, ctx)) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
 }
 
 function isObjectLikeSchema(schema: JsonSchema, ctx: SchemaContext): boolean {

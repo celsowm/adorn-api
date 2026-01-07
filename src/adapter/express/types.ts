@@ -36,6 +36,14 @@ export interface CoerceOptions {
 }
 
 /**
+ * Query parameter options
+ */
+export interface QueryOptions {
+    /** Maximum nesting depth for deepObject parameters (default: 5) */
+    maxNestingDepth?: number;
+}
+
+/**
  * Options for creating an Express router
  */
 export interface CreateRouterOptions {
@@ -48,6 +56,7 @@ export interface CreateRouterOptions {
     };
     coerce?: CoerceOptions;
     defaultPageSize?: number;
+    queryOptions?: QueryOptions;
     middleware?: {
         global?: Array<string | ((req: any, res: any, next: (err?: any) => void) => any)>;
         named?: Record<string, (req: any, res: any, next: (err?: any) => void) => any>;

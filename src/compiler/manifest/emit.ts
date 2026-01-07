@@ -126,6 +126,32 @@ function resolveAndCollectObjectProps(
 }
 
 /**
+ * Checks if a schema represents a deepObject style parameter (object but not array).
+ * @internal
+ */
+function isDeepObjectSchema(schema: JsonSchema, components: Map<string, JsonSchema>): boolean {
+  const resolved = resolveSchemaRef(schema, components);
+  
+  if (resolved.type === "array") {
+    return false;
+  }
+  
+  if (resolved.type === "object" || resolved.properties || resolved.additionalProperties) {
+    return true;
+  }
+  
+  if (resolved.allOf) {
+    for (const branch of resolved.allOf) {
+      if (isDeepObjectSchema(branch, components)) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+/**
  * Checks if a schema represents an object-like structure.
  * @internal
  */
@@ -255,6 +281,7 @@ function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec
     
     for (const [propName, propSchema] of Object.entries(queryObjProps)) {
       const isRequired = queryRequired.includes(propName) ?? false;
+      const isDeepObject = isDeepObjectSchema(propSchema, ctx.components);
       const isObjectLike = isObjectLikeSchema(propSchema, ctx.components);
       
       let schemaRef = (propSchema as any).$ref;
@@ -268,7 +295,8 @@ function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec
         required: isRequired,
         schemaRef,
         schemaType: (propSchema as any).type,
-        content: isObjectLike ? "application/json" : undefined,
+        serialization: isDeepObject ? { style: "deepObject", explode: true } : undefined,
+        content: !isDeepObject && isObjectLike ? "application/json" : undefined,
       });
     }
   }
@@ -277,6 +305,7 @@ function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec
     const param = op.parameters[paramIndex];
     if (param) {
       const paramSchema = typeToJsonSchema(param.type, ctx);
+      const isDeepObject = isDeepObjectSchema(paramSchema, ctx.components);
       const isObjectLike = isObjectLikeSchema(paramSchema, ctx.components);
       const schemaRef = (paramSchema as any).$ref ?? "#/components/schemas/InlineQueryParam";
 
@@ -286,7 +315,8 @@ function buildQueryArgs(op: ScannedOperation, ctx: SchemaContext, args: ArgsSpec
         required: !param.isOptional,
         schemaRef,
         schemaType: (paramSchema as any).type,
-        content: isObjectLike ? "application/json" : undefined,
+        serialization: isDeepObject ? { style: "deepObject", explode: true } : undefined,
+        content: !isDeepObject && isObjectLike ? "application/json" : undefined,
       });
     }
   }

@@ -26,12 +26,13 @@ import {
 export function validateRequestWithPrecompiled(
     route: BoundRoute,
     req: Request,
-    validators: Record<string, { body?: (data: unknown) => boolean; response: Record<string, (data: unknown) => boolean> }>
+    validators: Record<string, { body?: (data: unknown) => boolean; response: Record<string, (data: unknown) => boolean> }>,
+    maxDepth: number = 5
 ): ValidationError[] | null {
     const errors: ValidationError[] = [];
     const deepNames = new Set(route.args.query.filter(q => q.serialization?.style === "deepObject").map(q => q.name));
     const deepValues = deepNames.size > 0
-        ? parseDeepObjectParams(getRawQueryString(req), deepNames)
+        ? parseDeepObjectParams(getRawQueryString(req), deepNames, maxDepth)
         : {};
 
     if (route.args.body) {
@@ -85,13 +86,14 @@ export function validateRequest(
     route: BoundRoute,
     req: Request,
     openapi: OpenAPI31,
-    validator: ReturnType<typeof createValidator>
+    validator: ReturnType<typeof createValidator>,
+    maxDepth: number = 5
 ): ValidationError[] | null {
     const openapiOperation = getOpenApiOperation(openapi, route);
     const paramSchemaIndex = getParamSchemaIndex(openapiOperation);
     const deepNames = new Set(route.args.query.filter(q => q.serialization?.style === "deepObject").map(q => q.name));
     const deepValues = deepNames.size > 0
-        ? parseDeepObjectParams(getRawQueryString(req), deepNames)
+        ? parseDeepObjectParams(getRawQueryString(req), deepNames, maxDepth)
         : {};
 
     const errors: ValidationError[] = [];
