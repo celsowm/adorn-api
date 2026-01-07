@@ -37,10 +37,6 @@ export function handleObjectType(
       return {};
     }
     
-    if (components.has(typeName)) {
-      return { $ref: `#/components/schemas/${typeName}` };
-    }
-
     if (typeStack.has(type)) {
       return { $ref: `#/components/schemas/${typeName}` };
     }
@@ -56,6 +52,11 @@ export function handleObjectType(
     const existing = components.get(typeName);
     if (!existing) {
       components.set(typeName, schema);
+    } else {
+      const merged = mergeSchemasIfNeeded(existing, schema);
+      if (merged !== existing) {
+        components.set(typeName, merged);
+      }
     }
     return { $ref: `#/components/schemas/${typeName}` };
   }
@@ -233,6 +234,122 @@ function getExplicitTypeNameFromNode(typeNode?: ts.TypeNode): string | null {
   }
 
   return null;
+}
+
+function mergeSchemasIfNeeded(existing: JsonSchema, newSchema: JsonSchema): JsonSchema {
+  if (existing.type === "array" && newSchema.type === "array") {
+    return mergeArraySchemas(existing, newSchema);
+  }
+  
+  const result = { ...existing };
+  
+  for (const [key, newValue] of Object.entries(newSchema)) {
+    if (key === "properties" && newValue) {
+      result.properties = mergePropertiesIfNeeded(existing.properties || {}, newValue as Record<string, JsonSchema>);
+    } else if (key === "required" && newValue) {
+      result.required = mergeRequiredFields(existing.required || [], newValue as string[]);
+    } else if (!deepEqual((existing as Record<string, unknown>)[key], newValue)) {
+      (result as Record<string, unknown>)[key] = newValue;
+    }
+  }
+  
+  return result;
+}
+
+function mergePropertiesIfNeeded(existing: Record<string, JsonSchema>, newProps: Record<string, JsonSchema>): Record<string, JsonSchema> {
+  const result = { ...existing };
+  
+  for (const [propName, newPropSchema] of Object.entries(newProps)) {
+    const existingProp = existing[propName];
+    
+    if (!existingProp) {
+      result[propName] = newPropSchema;
+    } else if (deepEqual(existingProp, newPropSchema)) {
+      continue;
+    } else {
+      result[propName] = mergePropertySchemas(existingProp, newPropSchema);
+    }
+  }
+  
+  return result;
+}
+
+function mergePropertySchemas(schema1: JsonSchema, schema2: JsonSchema): JsonSchema {
+  if (deepEqual(schema1, schema2)) {
+    return schema1;
+  }
+  
+  if (schema1.type === "array" && schema2.type === "array") {
+    return mergeArraySchemas(schema1, schema2);
+  }
+  
+  const existingOneOf = schema1.oneOf || schema1.anyOf;
+  const newOneOf = schema2.oneOf || schema2.anyOf;
+  
+  if (existingOneOf) {
+    const mergedOneOf = [...existingOneOf];
+    
+    if (newOneOf) {
+      for (const newItem of newOneOf) {
+        if (!mergedOneOf.some(item => deepEqual(item, newItem))) {
+          mergedOneOf.push(newItem);
+        }
+      }
+    } else if (!mergedOneOf.some(item => deepEqual(item, schema2))) {
+      mergedOneOf.push(schema2);
+    }
+    
+    return { ...schema1, oneOf: mergedOneOf };
+  }
+  
+  return {
+    oneOf: [schema1, schema2]
+  };
+}
+
+function mergeArraySchemas(schema1: JsonSchema, schema2: JsonSchema): JsonSchema {
+  const result: JsonSchema = { type: "array" };
+  
+  if (schema1.uniqueItems || schema2.uniqueItems) {
+    result.uniqueItems = true;
+  }
+  
+  if (schema1.items && schema2.items) {
+    result.items = mergePropertySchemas(schema1.items, schema2.items);
+  } else if (schema1.items) {
+    result.items = schema1.items;
+  } else if (schema2.items) {
+    result.items = schema2.items;
+  }
+  
+  return result;
+}
+
+function mergeRequiredFields(existing: string[], newFields: string[]): string[] {
+  const merged = new Set([...existing, ...newFields]);
+  return Array.from(merged);
+}
+
+function deepEqual(a: any, b: any): boolean {
+  if (a === b) return true;
+  if (a == null || b == null) return false;
+  if (typeof a !== typeof b) return false;
+  
+  if (typeof a === 'object') {
+    const aKeys = Object.keys(a);
+    const bKeys = Object.keys(b);
+    
+    if (aKeys.length !== bKeys.length) return false;
+    
+    for (const key of aKeys) {
+      if (!bKeys.includes(key)) return false;
+      if (!deepEqual(a[key], b[key])) return false;
+    }
+    
+    return true;
+  }
+  
+  return false;
 }
 
 const METAL_ORM_WRAPPER_NAMES = ["HasManyCollection", "ManyToManyCollection", "BelongsToReference", "HasOneReference"];
