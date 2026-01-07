@@ -1,6 +1,7 @@
 import express from "express";
 import { type Server } from "http";
-import { createExpressRouter, type CreateRouterOptions, setupSwagger } from "./index.js";
+import { createExpressRouter, type CreateRouterOptions, setupSwagger, type CorsConfig } from "./index.js";
+import cors from "cors";
 import path from "node:path";
 
 /**
@@ -17,6 +18,7 @@ export interface BootstrapOptions {
   middleware?: CreateRouterOptions["middleware"];
   auth?: CreateRouterOptions["auth"];
   coerce?: CreateRouterOptions["coerce"];
+  cors?: CorsConfig;
 }
 
 /**
@@ -29,6 +31,54 @@ export interface BootstrapResult {
   port: number;
   host: string;
   close: () => Promise<void>;
+}
+
+/**
+ * Professional default CORS configuration
+ */
+const DEFAULT_CORS_CONFIG = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
+      ? process.env.CORS_ALLOWED_ORIGINS.split(',')
+      : ['http://localhost:*', 'http://127.0.0.1:*'];
+
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (allowed === '*') return true;
+      if (allowed.includes('*')) {
+        const regex = new RegExp(allowed.replace('*', '.*'));
+        return regex.test(origin);
+      }
+      return origin === allowed;
+    });
+
+    callback(null, isAllowed);
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: false,
+  optionsSuccessStatus: 204,
+  maxAge: 86400,
+};
+
+/**
+ * Applies CORS middleware to Express app
+ */
+function applyCors(app: express.Express, config: Exclude<CorsConfig, false>): void {
+  if (typeof config === 'function') {
+    config(app);
+    return;
+  }
+
+  if (config === true) {
+    app.use(cors(DEFAULT_CORS_CONFIG));
+    return;
+  }
+
+  app.use(cors(config));
 }
 
 /**
@@ -50,6 +100,7 @@ export function bootstrap(options: BootstrapOptions): Promise<BootstrapResult> {
       middleware,
       auth,
       coerce,
+      cors,
     } = options;
 
     if (controllers.length === 0) {
@@ -72,6 +123,10 @@ export function bootstrap(options: BootstrapOptions): Promise<BootstrapResult> {
 
     const app = express();
     app.use(express.json());
+
+    if (cors !== undefined && cors !== false) {
+      applyCors(app, cors);
+    }
 
     createExpressRouter({
       controllers,
