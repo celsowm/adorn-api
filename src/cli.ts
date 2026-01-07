@@ -9,6 +9,11 @@ import { emitPrecompiledValidators } from "./compiler/validation/emitPrecompiled
 import { isStale } from "./compiler/cache/isStale.js";
 import { writeCache } from "./compiler/cache/writeCache.js";
 import { ProgressTracker, Spinner } from "./cli/progress.js";
+import { partitionSchemas, type PartitionStrategy } from "./compiler/schema/partitioner.js";
+import { generateModularOpenAPI } from "./compiler/schema/splitOpenapi.js";
+import { createGraph, addNode, addEdge, type Graph, type AnyNode } from "./compiler/graph/types.js";
+import { buildGraph } from "./compiler/graph/builder.js";
+import { SchemaGraph } from "./compiler/graph/schemaGraph.js";
 import ts from "typescript";
 import process from "node:process";
 
@@ -23,6 +28,9 @@ interface BuildOptions {
   validationMode: ValidationMode;
   verbose: boolean;
   quiet: boolean;
+  noSplit: boolean;
+  splitStrategy: PartitionStrategy | undefined;
+  splitThreshold: number;
 }
 
 function log(msg: string, options?: { indent?: boolean }) {
@@ -75,6 +83,104 @@ function sanitizeForJson(obj: unknown): unknown {
   return result;
 }
 
+/**
+ * Build a minimal graph from controllers for schema partitioning
+ */
+function buildControllerGraph(controllers: any[]): Graph {
+  const graph = createGraph(ts.version);
+  const nodeMap = new Map<string, AnyNode>();
+  
+  // Create controller nodes
+  for (const ctrl of controllers) {
+    const nodeId = `Controller:${ctrl.className}`;
+    const node: AnyNode = {
+      id: nodeId,
+      kind: 'Controller',
+      metadata: {
+        name: ctrl.className,
+        sourceLocation: { filePath: '', line: 0, column: 0 },
+        tags: new Set(),
+        annotations: new Map(),
+      },
+      edges: [],
+      controller: {
+        basePath: ctrl.basePath,
+      },
+    };
+    addNode(graph, node);
+    nodeMap.set(nodeId, node);
+  }
+  
+  // Create operation nodes
+  let opIndex = 0;
+  for (const ctrl of controllers) {
+    for (const op of ctrl.operations) {
+      const nodeId = `Operation:${op.operationId}`;
+      const node: AnyNode = {
+        id: nodeId,
+        kind: 'Operation',
+        metadata: {
+          name: op.operationId,
+          sourceLocation: { filePath: '', line: 0, column: 0 },
+          tags: new Set(),
+          annotations: new Map(),
+        },
+        edges: [],
+        operation: {
+          httpMethod: op.httpMethod,
+          path: op.path,
+          operationId: op.operationId,
+          returnType: op.returnType || '',
+        },
+      };
+      addNode(graph, node);
+      nodeMap.set(nodeId, node);
+      
+      // Connect controller to operation
+      const ctrlNode = nodeMap.get(`Controller:${ctrl.className}`);
+      if (ctrlNode) {
+        addEdge(graph, ctrlNode.id, node.id, 'contains');
+      }
+      
+      opIndex++;
+    }
+  }
+  
+  // Create type definition nodes for return types
+  for (const ctrl of controllers) {
+    for (const op of ctrl.operations) {
+      if (op.returnType && !nodeMap.has(op.returnType)) {
+        const node: AnyNode = {
+          id: op.returnType,
+          kind: 'TypeDefinition',
+          metadata: {
+            name: op.returnType,
+            sourceLocation: { filePath: '', line: 0, column: 0 },
+            tags: new Set(),
+            annotations: new Map(),
+          },
+          edges: [],
+          typeDef: {
+            isGeneric: false,
+            properties: new Map(),
+          },
+        };
+        addNode(graph, node);
+        nodeMap.set(op.returnType, node);
+        
+        // Connect operation to return type
+        const opNodeId = `Operation:${op.operationId}`;
+        const opNode = nodeMap.get(opNodeId);
+        if (opNode) {
+          addEdge(graph, opNode.id, node.id, 'uses');
+        }
+      }
+    }
+  }
+  
+  return graph;
+}
+
 async function buildCommand(args: string[]) {
   const progress = new ProgressTracker({ verbose: args.includes("--verbose"), quiet: args.includes("--quiet") });
 
@@ -93,6 +199,19 @@ async function buildCommand(args: string[]) {
 
   const verbose = args.includes("--verbose");
   const quiet = args.includes("--quiet");
+  const noSplit = args.includes("--no-split");
+  
+  // Parse split strategy override
+  const splitStrategyIndex = args.indexOf("--split-strategy");
+  const splitStrategy = splitStrategyIndex !== -1 
+    ? args[splitStrategyIndex + 1] as PartitionStrategy 
+    : undefined;
+  
+  // Parse split threshold
+  const splitThresholdIndex = args.indexOf("--split-threshold");
+  const splitThreshold = splitThresholdIndex !== -1 
+    ? parseInt(args[splitThresholdIndex + 1], 10) 
+    : 50;
 
   if (validationMode !== "none" && validationMode !== "ajv-runtime" && validationMode !== "precompiled") {
     console.error(`Invalid validation mode: ${validationMode}. Valid values: none, ajv-runtime, precompiled`);
@@ -173,7 +292,62 @@ async function buildCommand(args: string[]) {
   
   const openapi = generateOpenAPI(controllers, checker, { title: "API", version: "1.0.0" });
   const schemaCount = Object.keys(openapi.components?.schemas || {}).length;
-  progress.completePhase("openapi", `Generated ${schemaCount} schema(s)`);
+  
+  // Auto-split logic (default enabled, --no-split to disable)
+  let splitEnabled = false;
+  
+  if (!noSplit && schemaCount >= splitThreshold) {
+    progress.verboseLog(`Schema count (${schemaCount}) >= threshold (${splitThreshold}), analyzing for auto-split...`);
+    
+    // Build minimal graph for partitioning
+    const graph = buildControllerGraph(controllers);
+    const schemaGraph = new SchemaGraph(graph);
+    
+    // Convert schemas to Map format
+    const schemasMap = new Map(Object.entries(openapi.components?.schemas || {}));
+    
+    // Run smart partitioning
+    const strategy = splitStrategy || 'auto';
+    const partitioning = partitionSchemas(schemasMap, graph, schemaGraph, {
+      strategy,
+      threshold: splitThreshold,
+      verbose,
+    });
+    
+    splitEnabled = partitioning.shouldSplit;
+    
+    if (splitEnabled) {
+      progress.verboseLog(`Partitioning result: ${partitioning.strategy} strategy`);
+      progress.verboseLog(`Recommendation: ${partitioning.recommendation}`);
+      
+      // Generate modular OpenAPI
+      generateModularOpenAPI(openapi, partitioning, {
+        outputDir: outputPath,
+        schemasDir: "schemas",
+        createIndexFile: true,
+        prettyPrint: true,
+      });
+      
+      if (!quiet) {
+        log(`  Auto-split enabled: ${partitioning.strategy} strategy`);
+        log(`  Schema groups: ${partitioning.groups.length}`);
+      }
+    } else {
+      if (!quiet) {
+        log(`  Auto-split not needed: ${partitioning.recommendation}`);
+      }
+    }
+  } else if (noSplit) {
+    if (!quiet) {
+      log(`  Splitting disabled (--no-split)`);
+    }
+  } else {
+    if (!quiet) {
+      log(`  Schema count (${schemaCount}) below threshold (${splitThreshold}), single file mode`);
+    }
+  }
+  
+  progress.completePhase("openapi", `Generated ${schemaCount} schema(s)${splitEnabled ? ' (split into groups)' : ''}`);
 
   // Phase 5: Generate manifest
   progress.startPhase("manifest", "Generating manifest");
@@ -187,13 +361,29 @@ async function buildCommand(args: string[]) {
   const openapiPath = resolve(outputPath, "openapi.json");
   const manifestPath = resolve(outputPath, "manifest.json");
   
-  writeFileSync(openapiPath, JSON.stringify(sanitizeForJson(openapi), null, 2));
+  // Write openapi.json (if not already written by split)
+  if (!splitEnabled) {
+    writeFileSync(openapiPath, JSON.stringify(sanitizeForJson(openapi), null, 2));
+  }
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
   
   const artifacts: Array<{ name: string; size?: number }> = [
     { name: "openapi.json", size: getFileSize(openapiPath) },
     { name: "manifest.json", size: getFileSize(manifestPath) },
   ];
+  
+  // Add schema files to artifacts list
+  if (splitEnabled) {
+    const schemasDir = resolve(outputPath, "schemas");
+    if (existsSync(schemasDir)) {
+      const fs = await import("node:fs");
+      const files = fs.readdirSync(schemasDir);
+      for (const file of files) {
+        const filePath = resolve(schemasDir, file);
+        artifacts.push({ name: `schemas/${file}`, size: getFileSize(filePath) });
+      }
+    }
+  }
   
   if (verbose) {
     for (const artifact of artifacts) {
@@ -202,10 +392,8 @@ async function buildCommand(args: string[]) {
   }
 
   // Phase 7: Precompiled validators (if enabled)
-  let validatorsPhase = false;
   if (validationMode === "precompiled") {
     progress.startPhase("validators", "Generating precompiled validators");
-    validatorsPhase = true;
     
     const manifestObj = JSON.parse(readFileSync(manifestPath, "utf-8"));
     
@@ -272,6 +460,7 @@ async function buildCommand(args: string[]) {
     schemas: schemaCount,
     sourceFiles: projectSourceFiles.length,
     artifactsWritten: artifacts.map(a => a.name),
+    splitEnabled,
   };
   
   progress.printSummary(stats);
@@ -317,6 +506,9 @@ Options:
   --output <dir>           Output directory (default: .adorn)
   --if-stale               Only rebuild if artifacts are stale
   --validation-mode <mode> Validation mode: none, ajv-runtime, precompiled (default: ajv-runtime)
+  --no-split               Disable automatic schema splitting (default: auto-split enabled)
+  --split-strategy <mode>  Override splitting strategy: controller, dependency, size, auto (default: auto)
+  --split-threshold <num>  Schema count threshold for auto-split (default: 50)
   --verbose                Show detailed progress information
   --quiet                  Suppress non-essential output
 
@@ -325,6 +517,9 @@ Examples:
   adorn-api build --if-stale
   adorn-api build --validation-mode precompiled
   adorn-api build --verbose
+  adorn-api build --no-split              # Force single file mode
+  adorn-api build --split-strategy controller  # Force controller-based splitting
+  adorn-api build --split-threshold 100   # Increase threshold to 100
   adorn-api clean
   `);
 }
