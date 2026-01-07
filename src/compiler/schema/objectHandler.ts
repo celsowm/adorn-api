@@ -451,7 +451,29 @@ export function handleMetalOrmWrapper(type: ts.ObjectType, ctx: SchemaContext): 
   
   const wrapperRel: Record<string, unknown> = { wrapper: wrapperName };
   
+  if (!targetType) {
+    return { "x-metal-orm-rel": wrapperRel };
+  }
+  
   if (wrapperName === "HasManyCollection" || wrapperName === "ManyToManyCollection") {
+    if (ctx.typeStack.has(targetType)) {
+      const items = {
+        type: "object",
+        properties: {
+          id: { type: "integer" }
+        },
+        required: ["id"]
+      };
+      if (wrapperName === "ManyToManyCollection" && typeArgs?.[1]) {
+        wrapperRel.pivot = typeArgs[1];
+      }
+      return {
+        type: "array",
+        items,
+        "x-metal-orm-rel": wrapperRel,
+      };
+    }
+    
     const items = targetType ? typeToJsonSchema(targetType, ctx) : {};
     if (wrapperName === "ManyToManyCollection" && typeArgs?.[1]) {
       wrapperRel.pivot = typeArgs[1];
@@ -462,10 +484,6 @@ export function handleMetalOrmWrapper(type: ts.ObjectType, ctx: SchemaContext): 
       items,
       "x-metal-orm-rel": wrapperRel,
     };
-  }
-  
-  if (!targetType) {
-    return { "x-metal-orm-rel": wrapperRel };
   }
   
   if (wrapperName === "BelongsToReference" || wrapperName === "HasOneReference") {
@@ -480,7 +498,7 @@ export function handleMetalOrmWrapper(type: ts.ObjectType, ctx: SchemaContext): 
 }
 
 function handleBelongsToReference(targetType: ts.Type, ctx: SchemaContext, wrapperRel: Record<string, unknown>): JsonSchema {
-  const { components } = ctx;
+  const { components, typeStack } = ctx;
   
   const targetSymbol = targetType.getSymbol();
   const typeName = targetSymbol?.getName();
@@ -497,6 +515,21 @@ function handleBelongsToReference(targetType: ts.Type, ctx: SchemaContext, wrapp
   
   if (components.has(refSchemaName)) {
     return { 
+      $ref: `#/components/schemas/${refSchemaName}`,
+      "x-metal-orm-rel": wrapperRel,
+    };
+  }
+  
+  if (typeStack.has(targetType)) {
+    const circularRefSchema = {
+      type: "object",
+      properties: {
+        id: { type: "integer" }
+      },
+      required: ["id"]
+    };
+    components.set(refSchemaName, circularRefSchema);
+    return {
       $ref: `#/components/schemas/${refSchemaName}`,
       "x-metal-orm-rel": wrapperRel,
     };
