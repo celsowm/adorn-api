@@ -26,6 +26,12 @@ import {
 import { createAuthMiddleware } from "./auth.js";
 import { validateRequest, validateRequestWithPrecompiled } from "./validation.js";
 
+/**
+ * Creates an Express router with Adorn API controllers
+ * 
+ * @param options - Router configuration options
+ * @returns Promise that resolves with the configured Express router
+ */
 export async function createExpressRouter(options: CreateRouterOptions): Promise<Router> {
     const { controllers, artifactsDir = ".adorn", middleware = {}, defaultPageSize = 10 } = options;
 
@@ -173,7 +179,6 @@ export async function createExpressRouter(options: CreateRouterOptions): Promise
                                 ?? schemaFromType(q.schemaType);
                             const coerced = coerceParamValue(parsed, paramSchema, coerceQueryDates, openapi.components.schemas);
 
-                            // Merge into existing query object instead of overwriting
                             if (!args[q.index] || typeof args[q.index] !== "object") {
                                 args[q.index] = {};
                             }

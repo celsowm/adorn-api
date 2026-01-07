@@ -15,6 +15,14 @@ import {
     coerceParamValue
 } from "./coercion.js";
 
+/**
+ * Validates a request using precompiled validators
+ * 
+ * @param route - The bound route configuration
+ * @param req - The Express request object
+ * @param validators - Precompiled validators for the route
+ * @returns Array of validation errors, or null if validation passes
+ */
 export function validateRequestWithPrecompiled(
     route: BoundRoute,
     req: Request,
@@ -44,8 +52,6 @@ export function validateRequestWithPrecompiled(
         }
     }
 
-    // Note: Precompiled validation for query/path params is limited in currently implementation
-    // This logic is preserved from index.ts
     for (const q of route.args.query) {
         let value = q.serialization?.style === "deepObject" ? deepValues[q.name] : req.query[q.name];
         if (q.content === "application/json" && typeof value === "string") {
@@ -66,6 +72,15 @@ export function validateRequestWithPrecompiled(
     return errors.length > 0 ? errors : null;
 }
 
+/**
+ * Validates a request against the OpenAPI schema
+ * 
+ * @param route - The bound route configuration
+ * @param req - The Express request object
+ * @param openapi - The OpenAPI specification
+ * @param validator - The AJV validator instance
+ * @returns Array of validation errors, or null if validation passes
+ */
 export function validateRequest(
     route: BoundRoute,
     req: Request,

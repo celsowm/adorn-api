@@ -2,6 +2,12 @@ import type { Request } from "express";
 import type { CoerceLocation, DateCoercionOptions, CoerceOptions } from "./types.js";
 import { resolveSchema } from "./openapi.js";
 
+/**
+ * Normalizes coercion options to ensure all properties are set
+ * 
+ * @param coerce - Optional coercion options
+ * @returns Required coercion options with defaults applied
+ */
 export function normalizeCoerceOptions(coerce?: CoerceOptions): Required<CoerceOptions> {
     return {
         body: coerce?.body ?? false,
@@ -14,6 +20,13 @@ export function normalizeCoerceOptions(coerce?: CoerceOptions): Required<CoerceO
     };
 }
 
+/**
+ * Gets date coercion options for a specific location
+ * 
+ * @param coerce - Required coercion options
+ * @param location - The location to get options for
+ * @returns Date coercion options for the specified location
+ */
 export function getDateCoercionOptions(
     coerce: Required<CoerceOptions>,
     location: CoerceLocation
@@ -25,6 +38,15 @@ export function getDateCoercionOptions(
     };
 }
 
+/**
+ * Coerces dates in a value based on the schema
+ * 
+ * @param value - The value to coerce
+ * @param schema - The schema to use for coercion
+ * @param dateCoercion - Date coercion options
+ * @param components - OpenAPI components for schema resolution
+ * @returns The coerced value
+ */
 export function coerceDatesWithSchema(
     value: any,
     schema: Record<string, unknown> | null,
@@ -35,6 +57,15 @@ export function coerceDatesWithSchema(
     return coerceWithSchema(value, schema, dateCoercion, components, { coercePrimitives: false });
 }
 
+/**
+ * Coerces a parameter value based on the schema
+ * 
+ * @param value - The value to coerce
+ * @param schema - The schema to use for coercion
+ * @param dateCoercion - Date coercion options
+ * @param components - OpenAPI components for schema resolution
+ * @returns The coerced value
+ */
 export function coerceParamValue(
     value: any,
     schema: Record<string, unknown> | null,
@@ -45,6 +76,16 @@ export function coerceParamValue(
     return coerceWithSchema(value, schema, dateCoercion, components, { coercePrimitives: true });
 }
 
+/**
+ * Coerces a value based on the schema
+ * 
+ * @param value - The value to coerce
+ * @param schema - The schema to use for coercion
+ * @param dateCoercion - Date coercion options
+ * @param components - OpenAPI components for schema resolution
+ * @param options - Additional coercion options
+ * @returns The coerced value
+ */
 export function coerceWithSchema(
     value: any,
     schema: Record<string, unknown>,
@@ -174,12 +215,25 @@ function coercePrimitiveValue(value: any, types: string[]): any {
     return value;
 }
 
+/**
+ * Checks if a value is a plain object
+ * 
+ * @param value - The value to check
+ * @returns True if the value is a plain object
+ */
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
     const proto = Object.getPrototypeOf(value);
     return proto === Object.prototype || proto === null;
 }
 
+/**
+ * Parses a query value based on its schema type and serialization options
+ * 
+ * @param value - The raw query value
+ * @param param - The parameter configuration
+ * @returns The parsed value
+ */
 export function parseQueryValue(value: any, param: { schemaType?: string | string[]; serialization?: { style?: string; explode?: boolean } }): any {
     if (value === undefined || value === null) return value;
 
@@ -214,6 +268,12 @@ export function parseQueryValue(value: any, param: { schemaType?: string | strin
     return value;
 }
 
+/**
+ * Gets the raw query string from a request
+ * 
+ * @param req - The Express request object
+ * @returns The raw query string without the leading "?"
+ */
 export function getRawQueryString(req: Request): string {
     const url = req.originalUrl ?? req.url ?? "";
     const index = url.indexOf("?");
@@ -221,6 +281,13 @@ export function getRawQueryString(req: Request): string {
     return url.slice(index + 1);
 }
 
+/**
+ * Parses query string parameters with deep object style
+ * 
+ * @param rawQuery - The raw query string
+ * @param names - Set of parameter names that use deepObject style
+ * @returns Object containing the parsed deep object parameters
+ */
 export function parseDeepObjectParams(
     rawQuery: string,
     names: Set<string>
@@ -295,6 +362,12 @@ function assignDeepValue(
     }
 }
 
+/**
+ * Parses cookies from a cookie header
+ * 
+ * @param cookieHeader - The cookie header string
+ * @returns Object containing the parsed cookies
+ */
 export function parseCookies(cookieHeader: string | undefined): Record<string, string> {
     if (!cookieHeader) return {};
 
@@ -311,6 +384,12 @@ export function parseCookies(cookieHeader: string | undefined): Record<string, s
     return cookies;
 }
 
+/**
+ * Normalizes a sort parameter to an array of strings
+ * 
+ * @param sort - The sort parameter (array or string)
+ * @returns Array of sort field names
+ */
 export function normalizeSort(sort: unknown): string[] {
     if (Array.isArray(sort)) {
         return sort.map(s => String(s));
@@ -320,4 +399,3 @@ export function normalizeSort(sort: unknown): string[] {
     }
     return [];
 }
-

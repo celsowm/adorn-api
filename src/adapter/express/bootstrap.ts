@@ -3,6 +3,9 @@ import { type Server } from "http";
 import { createExpressRouter, type CreateRouterOptions, setupSwagger } from "./index.js";
 import path from "node:path";
 
+/**
+ * Options for bootstrapping an Express server with Adorn API
+ */
 export interface BootstrapOptions {
   controllers: Array<new (...args: any[]) => any>;
   port?: number;
@@ -16,6 +19,9 @@ export interface BootstrapOptions {
   coerce?: CreateRouterOptions["coerce"];
 }
 
+/**
+ * Result of bootstrapping an Express server
+ */
 export interface BootstrapResult {
   server: Server;
   app: express.Express;
@@ -25,6 +31,12 @@ export interface BootstrapResult {
   close: () => Promise<void>;
 }
 
+/**
+ * Bootstraps an Express server with the provided controllers and options
+ * 
+ * @param options - Configuration options for the server
+ * @returns Promise that resolves with the server instance and metadata
+ */
 export function bootstrap(options: BootstrapOptions): Promise<BootstrapResult> {
   return new Promise((resolve, reject) => {
     const {

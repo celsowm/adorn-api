@@ -4,6 +4,12 @@ import { resolve, isAbsolute } from "node:path";
 import swaggerUi from "swagger-ui-express";
 import type { SetupSwaggerOptions } from "./types.js";
 
+/**
+ * Sets up Swagger UI for API documentation
+ * 
+ * @param options - Swagger configuration options
+ * @returns Express router with Swagger endpoints
+ */
 export function setupSwagger(options: SetupSwaggerOptions = {}): Router {
     const {
         artifactsDir = ".adorn",

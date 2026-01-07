@@ -2,6 +2,14 @@ import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest, CreateRouterOptions, OpenAPI31 } from "./types.js";
 import type { BoundRoute } from "./merge.js";
 
+/**
+ * Creates an authentication middleware for Express routes
+ * 
+ * @param authConfig - Authentication configuration
+ * @param routeAuth - Route-specific authentication settings
+ * @param globalSecurity - Global security requirements from OpenAPI
+ * @returns Express middleware function
+ */
 export function createAuthMiddleware(
     authConfig: NonNullable<CreateRouterOptions["auth"]>,
     routeAuth: BoundRoute["auth"],

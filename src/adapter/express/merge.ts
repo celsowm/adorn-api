@@ -4,6 +4,9 @@ import { defaultOperationId } from "../../utils/operationId.js";
 import { joinPaths } from "../../utils/path.js";
 import crypto from "node:crypto";
 
+/**
+ * Represents a route bound to a controller
+ */
 export interface BoundRoute {
   operationId: string;
   fullPath: string;
@@ -42,6 +45,12 @@ function getControllerUniqueIds(controllers: Array<new (...args: any[]) => any>)
   return controllers.map(c => `${c.name}:${c.toString()}`);
 }
 
+/**
+ * Binds controllers to routes from the manifest
+ * 
+ * @param params - Binding parameters including controllers and manifest
+ * @returns Array of bound routes
+ */
 export function bindRoutes(params: {
   controllers: Array<new (...args: any[]) => any>;
   manifest: ManifestV1;
@@ -139,14 +148,21 @@ function computeBoundRoutes(
   return bound;
 }
 
+/**
+ * Clears the route cache
+ */
 export function clearRouteCache(): void {
   routeCache.clear();
 }
 
+/**
+ * Gets statistics about the route cache
+ * 
+ * @returns Object containing cache size and keys
+ */
 export function getRouteCacheStats(): { size: number; keys: string[] } {
   return {
     size: routeCache.size,
     keys: Array.from(routeCache.keys()),
   };
 }
-

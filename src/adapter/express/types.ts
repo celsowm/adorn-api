@@ -2,6 +2,9 @@ import type { Request } from "express";
 import type { ManifestV1 } from "../../compiler/manifest/format.js";
 import type { AuthSchemeRuntime } from "../../runtime/auth/runtime.js";
 
+/**
+ * OpenAPI 3.1 specification structure
+ */
 export interface OpenAPI31 {
     openapi: string;
     components: {
@@ -12,10 +15,16 @@ export interface OpenAPI31 {
     security?: Array<Record<string, string[]>>;
 }
 
+/**
+ * Express request with authentication data
+ */
 export interface AuthenticatedRequest extends Request {
     auth?: any;
 }
 
+/**
+ * Coercion options for request parameters
+ */
 export interface CoerceOptions {
     body?: boolean;
     query?: boolean;
@@ -26,6 +35,9 @@ export interface CoerceOptions {
     date?: boolean;
 }
 
+/**
+ * Options for creating an Express router
+ */
 export interface CreateRouterOptions {
     controllers: Array<new (...args: any[]) => any>;
     artifactsDir?: string;
@@ -42,6 +54,9 @@ export interface CreateRouterOptions {
     };
 }
 
+/**
+ * Options for setting up Swagger UI
+ */
 export interface SetupSwaggerOptions {
     artifactsDir?: string;
     jsonPath?: string;
@@ -53,6 +68,9 @@ export interface SetupSwaggerOptions {
     };
 }
 
+/**
+ * Represents a validation error
+ */
 export interface ValidationError {
     path: string;
     message: string;
