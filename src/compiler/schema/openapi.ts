@@ -13,6 +13,8 @@ import {
   buildHeaderParameters,
   buildCookieParameters,
 } from "./parameters.js";
+import { analyzeQueryBuilderForSchema, type QueryBuilderSchema } from "./queryBuilderAnalyzer.js";
+import { buildSchemaFromQueryBuilder, wrapInPaginatedResult } from "./queryBuilderSchemaBuilder.js";
 
 const METAL_ORM_WRAPPER_NAMES = ["BelongsToReference", "HasOneReference", "HasManyCollection", "ManyToManyCollection"];
 
@@ -232,6 +234,121 @@ function convertToOpenApiPath(basePath: string, path: string): string {
   return fullPath;
 }
 
+function tryInferQueryBuilderSchema(
+  operation: ScannedOperation,
+  checker: ts.TypeChecker
+): QueryBuilderSchema | null {
+  return analyzeQueryBuilderForSchema(operation.methodDeclaration, checker) ?? null;
+}
+
+function getEntityTypeFromReturnType(
+  operation: ScannedOperation,
+  checker: ts.TypeChecker
+): ts.Type | null {
+  const returnType = operation.returnType;
+  
+  const unwrapPromise = (type: ts.Type): ts.Type => {
+    const symbol = type.getSymbol();
+    if (symbol?.getName() === "Promise") {
+      const typeArgs = (type as ts.TypeReference).typeArguments;
+      if (typeArgs && typeArgs.length > 0) {
+        return typeArgs[0];
+      }
+    }
+    return type;
+  };
+
+  const innerType = unwrapPromise(returnType);
+  
+  const symbol = innerType.getSymbol();
+  if (symbol?.getName() === "PaginatedResult") {
+    const typeArgs = (innerType as ts.TypeReference).typeArguments;
+    if (typeArgs && typeArgs.length > 0) {
+      return typeArgs[0];
+    }
+  }
+  
+  return null;
+}
+
+function filterSchemaByQueryBuilder(
+  querySchema: QueryBuilderSchema,
+  operation: ScannedOperation,
+  ctx: SchemaContext
+): JsonSchema {
+  const entityType = getEntityTypeFromReturnType(operation, ctx.checker);
+  
+  if (!entityType) {
+    return {};
+  }
+
+  const entitySchema = typeToJsonSchema(entityType, ctx);
+  
+  let baseSchema = entitySchema;
+  if (entitySchema.$ref && entitySchema.$ref.startsWith('#/components/schemas/')) {
+    const schemaName = entitySchema.$ref.replace('#/components/schemas/', '');
+    const componentSchema = ctx.components.get(schemaName);
+    if (componentSchema) {
+      baseSchema = componentSchema;
+    }
+  }
+  
+  if (!baseSchema.properties || Object.keys(baseSchema.properties).length === 0) {
+    return {};
+  }
+
+  const filteredSchema = buildFilteredSchema(querySchema, baseSchema);
+  
+  if (querySchema.isPaged) {
+    return wrapInPaginatedResult(filteredSchema);
+  }
+
+  return filteredSchema;
+}
+
+function buildFilteredSchema(
+  querySchema: QueryBuilderSchema,
+  entitySchema: JsonSchema
+): JsonSchema {
+  const properties: Record<string, JsonSchema> = {};
+  const required: string[] = [];
+
+  for (const field of querySchema.selectedFields) {
+    if (entitySchema.properties?.[field]) {
+      properties[field] = entitySchema.properties[field];
+      if (entitySchema.required && entitySchema.required.includes(field)) {
+        required.push(field);
+      }
+    }
+  }
+
+  for (const [relationName, includeSpec] of Object.entries(querySchema.includes)) {
+    if (entitySchema.properties?.[relationName]) {
+      properties[relationName] = {
+        type: "object",
+        properties: {
+          id: { type: "integer" }
+        },
+        required: ["id"]
+      };
+      if (entitySchema.required && entitySchema.required.includes(relationName)) {
+        required.push(relationName);
+      }
+    }
+  }
+
+  const schema: JsonSchema = {
+    type: "object",
+    properties,
+  };
+
+  if (required.length > 0) {
+    schema.required = required;
+  }
+
+  return schema;
+}
+
 function buildOperation(operation: ScannedOperation, ctx: SchemaContext, controllerConsumes?: string[]): any {
   const op: any = {
     operationId: operation.operationId,
@@ -250,7 +367,20 @@ function buildOperation(operation: ScannedOperation, ctx: SchemaContext, control
   }
 
   const responseCtx = { ...ctx, mode: "response" as const };
-  const responseSchema = typeToJsonSchema(operation.returnType, responseCtx, operation.returnTypeNode);
+  
+  let responseSchema: JsonSchema;
+  
+  const querySchema = tryInferQueryBuilderSchema(operation, ctx.checker);
+  if (querySchema) {
+    const entityType = getEntityTypeFromReturnType(operation, ctx.checker);
+    if (entityType) {
+      responseSchema = filterSchemaByQueryBuilder(querySchema, operation, responseCtx);
+    } else {
+      responseSchema = typeToJsonSchema(operation.returnType, responseCtx, operation.returnTypeNode);
+    }
+  } else {
+    responseSchema = typeToJsonSchema(operation.returnType, responseCtx, operation.returnTypeNode);
+  }
 
   const status = operation.httpMethod === "POST" ? 201 : 200;
   op.responses[status] = {

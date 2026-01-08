@@ -68,4 +68,5 @@ export interface SchemaContext {
   typeNameStack: string[];
   mode?: "request" | "response";
   propertyName?: string;
+  typeParameterSubstitutions?: Map<string, ts.Type>;
 }

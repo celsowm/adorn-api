@@ -7,6 +7,106 @@ import type { JsonSchema, SchemaContext } from "./types.js";
 import { typeToJsonSchema } from "./typeToJsonSchema.js";
 
 /**
+ * Checks if a type is a type parameter (generic type variable like T, U, etc.)
+ * 
+ * @param type - The type to check
+ * @returns True if the type is a type parameter
+ */
+export function isTypeParameter(type: ts.Type): boolean {
+  return !!(type.flags & ts.TypeFlags.TypeParameter);
+}
+
+/**
+ * Gets the name of a type parameter if the type is one
+ * 
+ * @param type - The type to check
+ * @returns The type parameter name, or null if not a type parameter
+ */
+export function getTypeParameterName(type: ts.Type): string | null {
+  if (type.flags & ts.TypeFlags.TypeParameter) {
+    const typeParam = type as ts.TypeParameter;
+    return typeParam.symbol?.getName() ?? null;
+  }
+  return null;
+}
+
+/**
+ * Extracts type arguments from a generic type reference
+ * 
+ * @param type - The type to extract from
+ * @returns Array of type arguments, or undefined if not a generic type
+ */
+export function getTypeArguments(type: ts.Type): ts.Type[] | undefined {
+  const typeRef = type as ts.TypeReference;
+  const args = typeRef.typeArguments;
+  if (!args) return undefined;
+  return Array.from(args);
+}
+
+/**
+ * Creates a type parameter substitution map from a generic type
+ * For interface Foo<T, U>, creates Map("T" -> arg1, "U" -> arg2)
+ * 
+ * @param type - The generic type
+ * @param typeNode - Optional type node for extracting type parameter names
+ * @param checker - TypeScript type checker
+ * @returns Map of type parameter names to actual types
+ */
+export function createTypeParameterSubstitutions(
+  type: ts.Type,
+  typeNode: ts.TypeNode | undefined,
+  checker: ts.TypeChecker
+): Map<string, ts.Type> | undefined {
+  const typeArgs = getTypeArguments(type);
+  if (!typeArgs || typeArgs.length === 0) {
+    return undefined;
+  }
+
+  if (!typeNode || !ts.isTypeReferenceNode(typeNode)) {
+    return undefined;
+  }
+
+  const typeParams = typeNode.typeArguments;
+  if (!typeParams || typeParams.length !== typeArgs.length) {
+    return undefined;
+  }
+
+  const substitutions = new Map<string, ts.Type>();
+  for (let i = 0; i < typeParams.length; i++) {
+    const typeParamNode = typeParams[i];
+    const typeArg = typeArgs[i];
+
+    if (ts.isIdentifier(typeParamNode)) {
+      substitutions.set(typeParamNode.text, typeArg);
+    }
+  }
+
+  return substitutions.size > 0 ? substitutions : undefined;
+}
+
+/**
+ * Resolves a type parameter to its actual type if a substitution is available
+ * 
+ * @param type - The type to resolve
+ * @param substitutions - Map of type parameter names to actual types
+ * @param _checker - TypeScript type checker (unused, for future extensions)
+ * @returns The resolved type if the type is a type parameter with a substitution, otherwise null
+ */
+export function resolveTypeParameter(
+  type: ts.Type,
+  substitutions: Map<string, ts.Type> | undefined,
+  _checker: ts.TypeChecker
+): ts.Type | null {
+  if (!substitutions) return null;
+  
+  const paramName = getTypeParameterName(type);
+  if (!paramName) return null;
+  
+  const resolved = substitutions.get(paramName);
+  return resolved ?? null;
+}
+
+/**
  * Handles TypeScript object types and converts them to JSON Schema.
  * Manages named schemas, component registration, and cycle detection.
  * 
@@ -44,7 +144,12 @@ export function handleObjectType(
     typeStack.add(type);
   }
 
-  const schema = buildObjectSchema(type, ctx, typeNode);
+  const typeParamSubstitutions = createTypeParameterSubstitutions(type, typeNode, checker);
+  const buildCtx: SchemaContext = typeParamSubstitutions
+    ? { ...ctx, typeParameterSubstitutions: typeParamSubstitutions }
+    : ctx;
+
+  const schema = buildObjectSchema(type, buildCtx, typeNode);
 
   if (typeName && typeName !== "__type") {
     typeStack.delete(type);
@@ -79,7 +184,7 @@ export function buildObjectSchema(
   ctx: SchemaContext,
   _typeNode?: ts.TypeNode
 ): JsonSchema {
-  const { checker, mode } = ctx;
+  const { checker, mode, typeParameterSubstitutions } = ctx;
 
   const properties: Record<string, JsonSchema> = {};
   const required: string[] = [];
@@ -92,9 +197,14 @@ export function buildObjectSchema(
       continue;
     }
     
-    const propType = checker.getTypeOfSymbol(prop);
+    let propType = checker.getTypeOfSymbol(prop);
     if (isMethodLike(propType)) {
       continue;
+    }
+
+    const resolvedType = resolveTypeParameter(propType, typeParameterSubstitutions, checker);
+    if (resolvedType) {
+      propType = resolvedType;
     }
 
     const isOptional = !!(prop.flags & ts.SymbolFlags.Optional);
@@ -124,7 +234,8 @@ export function buildObjectSchema(
   if (isRecordType(type, checker)) {
     const valueType = getRecordValueType(type, checker);
     if (valueType) {
-      schema.additionalProperties = typeToJsonSchema(valueType, ctx);
+      const resolvedValueType = resolveTypeParameter(valueType, typeParameterSubstitutions, checker);
+      schema.additionalProperties = typeToJsonSchema(resolvedValueType ?? valueType, ctx);
     }
   }
 

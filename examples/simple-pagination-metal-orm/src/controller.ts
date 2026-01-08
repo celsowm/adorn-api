@@ -1,6 +1,6 @@
-import { Controller, Get, Post } from "../../dist/index.js";
-import type { ListQuery } from "../../dist/metal/index.js";
-import { applyListQuery } from "../../dist/metal/index.js";
+import { Controller, Get, Post } from "adorn-api";
+import type { ListQuery } from "adorn-api/metal";
+import { applyListQuery } from "adorn-api/metal";
 import type { PaginatedResult } from "metal-orm";
 import { getSession } from "./db.js";
 import { Task } from "./entity.js";

@@ -26,11 +26,11 @@ import type { PaginatedResult } from "metal-orm";
  * ```
  */
 export async function applyListQuery<TEntity extends object>(
-  qb: SelectQueryBuilder<TEntity>,
+  qb: SelectQueryBuilder<any, any>,
   session: OrmSession,
   query?: ListQuery<TEntity>
 ): Promise<PaginatedResult<TEntity>> {
-  return qb.executePaged(session, pagedOptions(query));
+  return qb.executePaged(session, pagedOptions(query)) as Promise<PaginatedResult<TEntity>>;
 }
 
 /**
