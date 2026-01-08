@@ -476,8 +476,8 @@ export function handleMetalOrmWrapper(type: ts.ObjectType, ctx: SchemaContext): 
     
     const items = targetType ? typeToJsonSchema(targetType, ctx) : {};
     if (wrapperName === "ManyToManyCollection" && typeArgs?.[1]) {
-      wrapperRel.pivot = typeArgs[1];
-    }
+        wrapperRel.pivot = ctx.checker.typeToString(typeArgs[1]);
+      }
     
     return {
       type: "array",
