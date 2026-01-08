@@ -1,9 +1,9 @@
 {
   "manifestVersion": 1,
-  "generatedAt": "2026-01-08T14:11:12.892Z",
+  "generatedAt": "2026-01-08T15:59:54.861Z",
   "generator": {
     "name": "adorn-api",
-    "version": "1.0.20",
+    "version": "1.0.22",
     "typescript": "5.9.3"
   },
   "schemas": {
