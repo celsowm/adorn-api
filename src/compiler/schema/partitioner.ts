@@ -498,7 +498,7 @@ export function partitionSchemas(
       complexity: totalComplexity,
       dependencies: [],
     }];
-    recommendation = recommendation || 'Single file mode (--no-split)';
+    recommendation = recommendation || 'Single file mode (--split not specified)';
   } else if (strategy === 'controller') {
     groups = partitionByController(schemas, graph, finalConfig);
   } else if (strategy === 'dependency') {

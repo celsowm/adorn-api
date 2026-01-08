@@ -75,7 +75,7 @@ interface BuildOptions {
   validationMode: ValidationMode;
   verbose: boolean;
   quiet: boolean;
-  noSplit: boolean;
+  split: boolean;
   splitStrategy: PartitionStrategy | undefined;
   splitThreshold: number;
 }
@@ -246,7 +246,7 @@ async function buildCommand(args: string[]) {
 
   const verbose = args.includes("--verbose");
   const quiet = args.includes("--quiet");
-  const noSplit = args.includes("--no-split");
+  const split = args.includes("--split");
   
   // Parse split strategy override
   const splitStrategyIndex = args.indexOf("--split-strategy");
@@ -356,10 +356,10 @@ async function buildCommand(args: string[]) {
   
   const schemaCount = Object.keys(openapi.components?.schemas || {}).length;
   
-  // Auto-split logic (default enabled, --no-split to disable)
+  // Auto-split logic (default disabled, --split to enable)
   let splitEnabled = false;
   
-  if (!noSplit && schemaCount >= splitThreshold) {
+  if (split && schemaCount >= splitThreshold) {
     progress.verboseLog(`Schema count (${schemaCount}) >= threshold (${splitThreshold}), analyzing for auto-split...`);
     
     // Build minimal graph for partitioning
@@ -413,9 +413,9 @@ async function buildCommand(args: string[]) {
         log(`  Auto-split not needed: ${partitioning.recommendation}`);
       }
     }
-  } else if (noSplit) {
+  } else if (!split) {
     if (!quiet) {
-      log(`  Splitting disabled (--no-split)`);
+      log(`  Splitting disabled (--split not specified)`);
     }
   } else {
     if (!quiet) {
@@ -577,12 +577,12 @@ Commands:
   build     Generate OpenAPI and manifest from TypeScript source
   clean     Remove generated artifacts
 
-Options:
+ Options:
   -p <path>                Path to tsconfig.json (default: ./tsconfig.json)
   --output <dir>           Output directory (default: .adorn)
   --if-stale               Only rebuild if artifacts are stale
   --validation-mode <mode> Validation mode: none, ajv-runtime, precompiled (default: ajv-runtime)
-  --no-split               Disable automatic schema splitting (default: auto-split enabled)
+  --split                  Enable automatic schema splitting (default: disabled)
   --split-strategy <mode>  Override splitting strategy: controller, dependency, size, auto (default: auto)
   --split-threshold <num>  Schema count threshold for auto-split (default: 50)
   --verbose                Show detailed progress information
@@ -593,7 +593,7 @@ Examples:
   adorn-api build --if-stale
   adorn-api build --validation-mode precompiled
   adorn-api build --verbose
-  adorn-api build --no-split              # Force single file mode
+  adorn-api build --split                 # Enable split mode
   adorn-api build --split-strategy controller  # Force controller-based splitting
   adorn-api build --split-threshold 100   # Increase threshold to 100
   adorn-api clean
