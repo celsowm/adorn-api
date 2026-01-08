@@ -28,21 +28,39 @@ const ADORN_VERSION = (() => {
     }
   };
 
-  // Method 1: Try to read from the script's package.json (bundled build)
-  const cliDir = dirname(fileURLToPath(import.meta.url));
-  const bundledPkgPath = resolve(cliDir, "..", "package.json");
-  const bundledVersion = tryReadPackageJson(bundledPkgPath);
-  if (bundledVersion) return bundledVersion;
-
-  // Method 2: Try to read from the working directory's package.json
-  const localPkgPath = resolve(process.cwd(), "package.json");
-  const localVersion = tryReadPackageJson(localPkgPath);
-  if (localVersion) return localVersion;
-
-  // Method 3: Try to find in node_modules (for npx/global installs)
-  const nodeModulesPath = resolve(cliDir, "..", "package.json");
-  const nodeModulesVersion = tryReadPackageJson(nodeModulesPath);
-  if (nodeModulesVersion) return nodeModulesVersion;
+  // List of potential package.json locations to try
+  const potentialPaths: string[] = [];
+  
+  // Try ESM context first
+  try {
+    const importMetaUrl = import.meta?.url;
+    if (importMetaUrl && typeof importMetaUrl === "string" && importMetaUrl.length > 0) {
+      const cliDir = dirname(fileURLToPath(importMetaUrl));
+      potentialPaths.push(
+        resolve(cliDir, "..", "package.json"),
+        resolve(cliDir, "package.json")
+      );
+    }
+  } catch {
+    // Ignore errors from import.meta access
+  }
+  
+  // Add common paths for all contexts
+  const cwd = process.cwd();
+  potentialPaths.push(
+    resolve(cwd, "package.json"),
+    resolve(cwd, "node_modules", "adorn-api", "package.json"),
+    resolve(cwd, "..", "package.json"),
+    resolve(cwd, "..", "..", "package.json")
+  );
+  
+  // Try each potential path
+  for (const pkgPath of potentialPaths) {
+    const version = tryReadPackageJson(pkgPath);
+    if (version) {
+      return version;
+    }
+  }
 
   // Fallback: Return 0.0.0 if all methods fail
   return "0.0.0";
