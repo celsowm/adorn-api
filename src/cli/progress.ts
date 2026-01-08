@@ -70,7 +70,9 @@ export class ProgressTracker {
     }
     if (!this.quiet) {
       const elapsed = phase ? this.formatElapsed(phase.startTime, phase.endTime) : "";
-      const status = this.verbose ? `✓ ${message || name} ${elapsed}` : `✓ ${message || name}`;
+      const status = this.verbose 
+        ? `✓ ${message || name} ${elapsed}`
+        : `✓ ${message || name} ${elapsed}`;
       this.log(status);
     }
   }
@@ -151,8 +153,6 @@ export class ProgressTracker {
   printSummary(stats: BuildStatistics): void {
     if (this.quiet) return;
 
-    const totalTime = this.getTotalElapsed();
-    
     this.log("");
     this.log("Build Summary:");
     this.log(`  Controllers:     ${stats.controllers}`);
@@ -217,12 +217,17 @@ export class Spinner {
     let frameIndex = 0;
     this.interval = setInterval(() => {
       const frame = this.frames[frameIndex];
+      let output: string;
       if (this.customStatus) {
-        process.stdout.write(`\r${frame} ${this.customStatus}`);
+        output = `\r${frame} ${this.customStatus}`;
       } else if (this.total > 0) {
-        process.stdout.write(`\r${frame} ${this.message} (${this.current}/${this.total})`);
+        output = `\r${frame} ${this.message} (${this.current}/${this.total})`;
       } else {
-        process.stdout.write(`\r${frame} ${this.message}`);
+        output = `\r${frame} ${this.message}`;
+      }
+      process.stdout.write(output);
+      if (process.stdout.writable) {
+        process.stdout.write("");
       }
       frameIndex = (frameIndex + 1) % this.frames.length;
     }, 80);
@@ -241,6 +246,12 @@ export class Spinner {
    */
   setStatus(status: string): void {
     this.customStatus = status;
+    // Write immediately to ensure update is visible
+    const frame = this.frames[this.current];
+    process.stdout.write(`\r${frame} ${status}`);
+    if (process.stdout.writable) {
+      process.stdout.write("");
+    }
   }
 
   /**
@@ -262,6 +273,10 @@ export class Spinner {
     process.stdout.write("\r" + " ".repeat(60) + "\r");
     if (completedMessage) {
       process.stdout.write(completedMessage + "\n");
+    }
+    // Also flush to ensure output is visible
+    if (process.stdout.writable) {
+      process.stdout.write("");
     }
   }
 

@@ -9,6 +9,13 @@ import type { OpenAPI31 } from "./openapi.js";
 import type { PartitioningResult, SchemaGroup } from "./partitioner.js";
 
 /**
+ * Progress callback for modular OpenAPI generation
+ */
+export interface ModularProgressCallback {
+  (step: string, index: number, total: number): void;
+}
+
+/**
  * Configuration for modular OpenAPI generation
  */
 export interface SplitOpenAPIConfig {
@@ -16,6 +23,7 @@ export interface SplitOpenAPIConfig {
   schemasDir?: string;           // Relative to outputDir (default: "schemas")
   createIndexFile?: boolean;     // Create index.json with all refs (default: true)
   prettyPrint?: boolean;         // Pretty print JSON (default: true)
+  onProgress?: ModularProgressCallback; // Progress callback
 }
 
 /**
@@ -158,14 +166,21 @@ export function generateModularOpenAPI(
     schemasDir = "schemas",
     createIndexFile = true,
     prettyPrint = true,
+    onProgress,
   } = config;
   
   const indent = prettyPrint ? 2 : 0;
   let totalSize = 0;
   const schemaFiles: string[] = [];
   
+  // Ensure output directory exists
+  mkdirSync(outputDir, { recursive: true });
+  
   // If not splitting, just write the main file
   if (!partitioning.shouldSplit || partitioning.groups.length === 1) {
+    if (onProgress) {
+      onProgress("Writing single OpenAPI file", 1, 1);
+    }
     const mainPath = resolve(outputDir, "openapi.json");
     writeFileSync(mainPath, JSON.stringify(openapi, null, indent));
     totalSize = Buffer.byteLength(JSON.stringify(openapi));
@@ -182,13 +197,21 @@ export function generateModularOpenAPI(
   const schemasPath = resolve(outputDir, schemasDir);
   mkdirSync(schemasPath, { recursive: true });
   
+  if (onProgress) {
+    onProgress("Creating schemas directory", 0, partitioning.groups.length + 2);
+  }
+  
   // Collect all schemas with their groups
   const schemaMap = collectAllSchemas(partitioning.groups);
   
   // Generate individual schema files
   const schemaToFile: Map<string, string> = new Map();
   
-  for (const group of partitioning.groups) {
+  for (let i = 0; i < partitioning.groups.length; i++) {
+    const group = partitioning.groups[i];
+    if (onProgress) {
+      onProgress(`Writing schema group ${group.name} (${group.schemas.size} schemas)`, i + 1, partitioning.groups.length + 2);
+    }
     const filename = getSchemaFilename(group);
     const filePath = resolve(outputDir, filename);
     
@@ -206,6 +229,9 @@ export function generateModularOpenAPI(
   // Generate index file if requested
   let indexFile: string | undefined;
   if (createIndexFile) {
+    if (onProgress) {
+      onProgress("Generating index file", partitioning.groups.length + 1, partitioning.groups.length + 2);
+    }
     const indexPath = resolve(outputDir, "schemas/index.json");
     const indexContent = generateSchemaIndex(partitioning.groups, schemaMap);
     writeFileSync(indexPath, JSON.stringify(indexContent, null, indent));
@@ -214,6 +240,9 @@ export function generateModularOpenAPI(
   }
   
   // Generate main openapi.json with $ref pointers
+  if (onProgress) {
+    onProgress("Generating main OpenAPI spec", partitioning.groups.length + 2, partitioning.groups.length + 2);
+  }
   const mainSpec = generateMainSpec(openapi, schemaMap, schemaToFile);
   const mainPath = resolve(outputDir, "openapi.json");
   writeFileSync(mainPath, JSON.stringify(mainSpec, null, indent));

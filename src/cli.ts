@@ -19,27 +19,33 @@ import ts from "typescript";
 import process from "node:process";
 
 const ADORN_VERSION = (() => {
-  try {
-    // First, try to load from the local package.json (when running from the project)
-    const localPkgPath = resolve(process.cwd(), "package.json");
+  const tryReadPackageJson = (filePath: string): string | null => {
     try {
-      const localPkg = JSON.parse(readFileSync(localPkgPath, "utf-8"));
-      // Check if this is the adorn-api package by looking for the CLI bin entry
-      if (localPkg.bin?.["adorn-api"] || localPkg.name === "adorn-api") {
-        return localPkg.version ?? "0.0.0";
-      }
+      const pkg = JSON.parse(readFileSync(filePath, "utf-8"));
+      return pkg.version ?? null;
     } catch {
-      // Continue to try bundled package.json
+      return null;
     }
-    
-    // Try to load from the package.json in the same directory as this script
-    const cliDir = dirname(fileURLToPath(import.meta.url));
-    const bundledPkgPath = resolve(cliDir, "..", "package.json");
-    const bundledPkg = JSON.parse(readFileSync(bundledPkgPath, "utf-8"));
-    return bundledPkg.version ?? "0.0.0";
-  } catch {
-    return "0.0.0";
-  }
+  };
+
+  // Method 1: Try to read from the script's package.json (bundled build)
+  const cliDir = dirname(fileURLToPath(import.meta.url));
+  const bundledPkgPath = resolve(cliDir, "..", "package.json");
+  const bundledVersion = tryReadPackageJson(bundledPkgPath);
+  if (bundledVersion) return bundledVersion;
+
+  // Method 2: Try to read from the working directory's package.json
+  const localPkgPath = resolve(process.cwd(), "package.json");
+  const localVersion = tryReadPackageJson(localPkgPath);
+  if (localVersion) return localVersion;
+
+  // Method 3: Try to find in node_modules (for npx/global installs)
+  const nodeModulesPath = resolve(cliDir, "..", "package.json");
+  const nodeModulesVersion = tryReadPackageJson(nodeModulesPath);
+  if (nodeModulesVersion) return nodeModulesVersion;
+
+  // Fallback: Return 0.0.0 if all methods fail
+  return "0.0.0";
 })();
 
 type ValidationMode = "none" | "ajv-runtime" | "precompiled";
@@ -313,12 +319,17 @@ async function buildCommand(args: string[]) {
   const openapiSpinner = new Spinner("Processing schemas");
   if (!quiet) openapiSpinner.start();
   
-  let processedControllers = 0;
-  let processedOperations = 0;
+  const openapi = generateOpenAPI(controllers, checker, { 
+    title: "API", 
+    version: "1.0.0",
+    onProgress: (message, current, total) => {
+      if (!quiet) {
+        openapiSpinner.setStatus(`${message} (${current}/${total})`);
+      }
+    }
+  });
   
-  const openapi = generateOpenAPI(controllers, checker, { title: "API", version: "1.0.0" });
-  
-  // Update spinner with progress info
+  // Update spinner with final progress info
   if (!quiet) {
     openapiSpinner.setStatus(`Processed ${controllers.length} controllers, ${totalOperations} operations`);
   }
@@ -354,16 +365,29 @@ async function buildCommand(args: string[]) {
       progress.verboseLog(`Partitioning result: ${partitioning.strategy} strategy`);
       progress.verboseLog(`Recommendation: ${partitioning.recommendation}`);
       
-      // Generate modular OpenAPI
+      if (!quiet) {
+        log(`  Auto-split enabled: ${partitioning.strategy} strategy`);
+      }
+      
+      // Generate modular OpenAPI with progress tracking
+      const splitSpinner = new Spinner("Writing split schema files");
+      if (!quiet) splitSpinner.start();
+      
       generateModularOpenAPI(openapi, partitioning, {
         outputDir: outputPath,
         schemasDir: "schemas",
         createIndexFile: true,
         prettyPrint: true,
+        onProgress: (step, index, total) => {
+          if (!quiet) {
+            progress.logSub(`${step} (${index}/${total})`);
+          }
+        }
       });
       
+      if (!quiet) splitSpinner.stop();
+      
       if (!quiet) {
-        log(`  Auto-split enabled: ${partitioning.strategy} strategy`);
         log(`  Schema groups: ${partitioning.groups.length}`);
       }
     } else {

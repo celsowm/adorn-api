@@ -32,17 +32,25 @@ export interface OpenAPI31 {
 }
 
 /**
+ * Progress callback for OpenAPI generation
+ */
+export interface OpenAPIProgressCallback {
+  (message: string, current: number, total: number): void;
+}
+
+/**
  * Generates an OpenAPI 3.1 specification from scanned controllers.
  * 
  * @param controllers - Array of scanned controllers to include in the spec
  * @param checker - TypeScript type checker for type analysis
  * @param options - Optional title and version for the OpenAPI info object
+ * @param onProgress - Optional callback to report progress during generation
  * @returns Complete OpenAPI 3.1 specification object
  */
 export function generateOpenAPI(
   controllers: ScannedController[],
   checker: ts.TypeChecker,
-  options: { title?: string; version?: string } = {}
+  options: { title?: string; version?: string; onProgress?: OpenAPIProgressCallback } = {}
 ): OpenAPI31 {
   const components = new Map<string, JsonSchema>();
   const ctx: SchemaContext = {
@@ -54,8 +62,14 @@ export function generateOpenAPI(
   };
 
   const paths: Record<string, Record<string, any>> = {};
+  const { onProgress } = options;
 
-  for (const controller of controllers) {
+  for (let i = 0; i < controllers.length; i++) {
+    const controller = controllers[i];
+    if (onProgress) {
+      onProgress(`Processing controller ${controller.className}`, i + 1, controllers.length);
+    }
+    
     for (const operation of controller.operations) {
       const fullPath = convertToOpenApiPath(controller.basePath, operation.path);
 
@@ -69,6 +83,11 @@ export function generateOpenAPI(
   }
 
   const schemas = Object.fromEntries(components);
+  
+  if (onProgress) {
+    onProgress("Generating and cleaning schemas", controllers.length, controllers.length);
+  }
+  
   cleanupMetalOrmWrappers(schemas, paths);
 
   return {
