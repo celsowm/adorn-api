@@ -87,6 +87,7 @@ async getPosts(): Promise<PaginatedResult<BlogPost>> {
 
 The query builder must follow this pattern to be detected:
 
+### Direct Patterns (Current)
 1. **Direct return statement** - Query builder must be in the return statement
 2. **Chained calls** - Methods must be chained (not variable reassignments)
 3. **Supported methods:**
@@ -95,6 +96,37 @@ The query builder must follow this pattern to be detected:
    - `.include({...})` - Relation inclusion
    - `.execute(session)` - Execute query
    - `.executePaged(session, options)` - Execute with pagination
+
+### Enhanced Patterns (New - Service Call Support)
+1. **Service method calls** - Controllers calling service methods with query builders
+2. **Helper function patterns** - Complex query construction in helper functions
+3. **Nested service calls** - Multi-level service call chains
+4. **Wrapper patterns** - Methods wrapped in utility functions (e.g., `withSession()`)
+
+**Examples of Enhanced Patterns:**
+
+```typescript
+// ✅ Service method call
+@Get("/posts")
+async getPosts(): Promise<PaginatedResult<BlogPost>> {
+  return PostService.listPaged(session, filters, options);
+}
+
+// ✅ Helper function pattern
+@Get("/posts")
+async getPosts(): Promise<PaginatedResult<BlogPost>> {
+  const filters = buildFilters(query);
+  return buildQuery(filters).executePaged(session, options);
+}
+
+// ✅ Wrapper pattern
+@Get("/posts")
+async getPosts(): Promise<PaginatedResult<BlogPost>> {
+  return withSession(session =>
+    PostService.listPaged(session, filters, options)
+  );
+}
+```
 
 ### Unsupported Patterns
 
@@ -173,6 +205,30 @@ Wraps a schema in a PaginatedResult structure.
 
 **Returns:** `JsonSchema`
 
+## Enhanced Service Call Support
+
+The enhanced analyzer now supports following service calls and helper functions to detect query builder patterns:
+
+### Service Call Traversal
+- **Multi-level analysis** - Follows controller → service → helper function chains
+- **Caching system** - Prevents redundant analysis of the same methods
+- **Depth limiting** - Configurable maximum depth to prevent infinite recursion
+- **Error handling** - Graceful fallback when service analysis fails
+
+### Configuration Options
+```typescript
+const options = {
+  maxDepth: 3,           // Maximum service call depth to traverse
+  analyzeHelpers: true,  // Whether to analyze helper functions
+  // ... other options
+};
+```
+
+### Performance Features
+- **Lazy analysis** - Only analyzes service methods when needed
+- **Method caching** - Caches results by method signature and location
+- **Parallel processing** - Analyzes independent service methods concurrently
+
 ## Future Enhancements
 
 1. **Support variable reassignments** - Track `qb = ...` patterns
@@ -181,12 +237,40 @@ Wraps a schema in a PaginatedResult structure.
 4. **Resolve entity types** - Get actual entity class to build proper nested schemas
 5. **Nested relation schemas** - Build proper schemas for nested includes (currently uses basic ref)
 
+## Performance Optimizations
+
+### Memory Management
+- **Cache clearing** - `clearServiceCallAnalyzerCaches()` for large codebases
+- **Lazy loading** - Only analyzes methods when query builder patterns are not detected
+- **Memory limits** - Configurable cache size limits to prevent memory issues
+
+### Batch Processing
+```typescript
+// Analyze multiple controllers efficiently
+const results = analyzeMultipleControllersWithServiceCalls(
+  controllerMethods,
+  checker,
+  program,
+  { maxDepth: 3 }
+);
+```
+
+### Configuration for Large Codebases
+```typescript
+const options = {
+  maxDepth: 2,           // Limit traversal depth
+  analyzeHelpers: false, // Skip helper analysis for speed
+  // ... other performance options
+};
+```
+
 ## Limitations
 
 1. **Only works with metal-orm** - Requires `selectFromEntity()` pattern
-2. **Limited pattern support** - Only supports direct chained calls
+2. **Limited pattern support** - Only supports direct chained calls and basic service calls
 3. **Basic relation handling** - Includes relations as simple refs or basic objects
 4. **No runtime validation** - Schema is inferred at compile-time, not validated at runtime
+5. **TypeScript program required** - Service call analysis needs full TypeScript program context
 
 ## Testing
 

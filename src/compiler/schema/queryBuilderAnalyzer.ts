@@ -11,6 +11,7 @@
  */
 
 import ts from "typescript";
+import { analyzeControllerWithServiceCalls } from "./serviceCallAnalyzer.js";
 
 /**
  * Represents a schema extracted from a query builder chain
@@ -109,6 +110,49 @@ export function analyzeQueryBuilderWithDetails(
   operationInfo?: { methodName?: string; httpMethod?: string; path?: string; operationId?: string }
 ): QueryBuilderAnalysisResult {
   const schema = analyzeQueryBuilderForSchema(methodDeclaration, checker, options);
+  
+  return {
+    detected: schema !== null,
+    schema,
+    ...operationInfo
+  };
+}
+
+/**
+ * Enhanced analysis that follows service calls to detect query builder patterns
+ *
+ * @param methodDeclaration - The method declaration to analyze
+ * @param checker - TypeScript type checker
+ * @param program - TypeScript program for AST traversal
+ * @param options - Analyzer options including service call traversal settings
+ * @param operationInfo - Optional operation metadata for logging
+ * @returns Detailed analysis result with operation info
+ */
+export function analyzeQueryBuilderWithServiceCalls(
+  methodDeclaration: ts.MethodDeclaration,
+  checker: ts.TypeChecker,
+  program: ts.Program | null,
+  options: QueryBuilderAnalyzerOptions & {
+    maxDepth?: number;
+    analyzeHelpers?: boolean;
+  } = {},
+  operationInfo?: { methodName?: string; httpMethod?: string; path?: string; operationId?: string }
+): QueryBuilderAnalysisResult {
+  // Try direct analysis first
+  let schema = analyzeQueryBuilderForSchema(methodDeclaration, checker, options);
+  
+  // If no direct pattern found and service call analysis is enabled, try enhanced analysis
+  if (!schema && program) {
+    try {
+      schema = analyzeControllerWithServiceCalls(methodDeclaration, checker, program, {
+        maxDepth: options.maxDepth,
+        analyzeHelpers: options.analyzeHelpers
+      });
+    } catch (error) {
+      // Service call analysis failed, fall back to direct analysis
+      console.warn("Service call analysis failed:", error);
+    }
+  }
   
   return {
     detected: schema !== null,

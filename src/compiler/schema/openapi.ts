@@ -13,7 +13,7 @@ import {
   buildHeaderParameters,
   buildCookieParameters,
 } from "./parameters.js";
-import { analyzeQueryBuilderForSchema, analyzeQueryBuilderWithDetails, type QueryBuilderSchema } from "./queryBuilderAnalyzer.js";
+import { analyzeQueryBuilderForSchema, analyzeQueryBuilderWithDetails, analyzeQueryBuilderWithServiceCalls, type QueryBuilderSchema } from "./queryBuilderAnalyzer.js";
 import { buildSchemaFromQueryBuilder, wrapInPaginatedResult } from "./queryBuilderSchemaBuilder.js";
 
 const METAL_ORM_WRAPPER_NAMES = ["BelongsToReference", "HasOneReference", "HasManyCollection", "ManyToManyCollection"];
@@ -122,10 +122,11 @@ export function generateOpenAPI(
 
       const method = operation.httpMethod.toLowerCase();
       
-      // Analyze query builder pattern with details
-      const analysisResult = analyzeQueryBuilderWithDetails(
+      // Analyze query builder pattern with service call support
+      const analysisResult = analyzeQueryBuilderWithServiceCalls(
         operation.methodDeclaration,
         checker,
+        null, // TODO: Pass program when available
         {},
         {
           methodName: operation.operationId,
