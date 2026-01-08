@@ -78,6 +78,7 @@ interface BuildOptions {
   split: boolean;
   splitStrategy: PartitionStrategy | undefined;
   splitThreshold: number;
+  showQueryBuilder: boolean;
 }
 
 function log(msg: string, options?: { indent?: boolean }) {
@@ -247,6 +248,7 @@ async function buildCommand(args: string[]) {
   const verbose = args.includes("--verbose");
   const quiet = args.includes("--quiet");
   const split = args.includes("--split");
+  const showQueryBuilder = args.includes("--show-query-builder");
   
   // Parse split strategy override
   const splitStrategyIndex = args.indexOf("--split-strategy");
@@ -334,6 +336,22 @@ async function buildCommand(args: string[]) {
   // Phase 4: Generate OpenAPI
   progress.startPhase("openapi", "Generating OpenAPI schema");
   
+  // Query builder statistics tracking
+  const queryBuilderStats = {
+    totalOperations: totalOperations,
+    detected: 0,
+    fallback: 0,
+    operations: [] as Array<{
+      operationId: string;
+      method: string;
+      path: string;
+      detected: boolean;
+      entityName?: string;
+      selectedFields?: string[];
+      isPaged?: boolean;
+    }>
+  };
+  
   const openapiSpinner = new Spinner("Processing schemas");
   if (!quiet) openapiSpinner.start();
   
@@ -343,6 +361,37 @@ async function buildCommand(args: string[]) {
     onProgress: (message, current, total) => {
       if (!quiet) {
         openapiSpinner.setStatus(`${message} (${current}/${total})`);
+      }
+    },
+    onQueryBuilderProgress: (info) => {
+      // Track statistics
+      if (info.queryBuilderDetected) {
+        queryBuilderStats.detected++;
+      } else {
+        queryBuilderStats.fallback++;
+      }
+      
+      queryBuilderStats.operations.push({
+        operationId: info.operation,
+        method: info.method,
+        path: info.path,
+        detected: info.queryBuilderDetected,
+        entityName: info.entityName,
+        selectedFields: info.selectedFields,
+        isPaged: info.isPaged
+      });
+      
+      // Log query builder detection info
+      if (showQueryBuilder || verbose) {
+        if (info.queryBuilderDetected) {
+          const fieldsStr = info.selectedFields && info.selectedFields.length > 0 
+            ? ` [select: ${info.selectedFields.join(",")}]`
+            : "";
+          const pagedStr = info.isPaged ? " (paged)" : "";
+          progress.verboseLog(`  ✓ Query builder: ${info.method} ${info.path} → ${info.entityName}${fieldsStr}${pagedStr}`);
+        } else {
+          progress.verboseLog(`  ○ No query builder: ${info.method} ${info.path} → using full entity schema`);
+        }
       }
     }
   });
@@ -424,6 +473,22 @@ async function buildCommand(args: string[]) {
   }
   
   progress.completePhase("openapi", `Generated ${schemaCount} schema(s)${splitEnabled ? ' (split into groups)' : ''}`);
+
+  // Print query builder analysis summary
+  if (showQueryBuilder && totalOperations > 0) {
+    log("");
+    log("Query Builder Analysis:");
+    log(`  Operations analyzed:    ${totalOperations}`);
+    log(`  Patterns detected:      ${queryBuilderStats.detected} (${Math.round(queryBuilderStats.detected / totalOperations * 100)}%)`);
+    log(`  Full schemas used:      ${queryBuilderStats.fallback} (${Math.round(queryBuilderStats.fallback / totalOperations * 100)}%)`);
+    
+    if (queryBuilderStats.detected > 0) {
+      const totalFields = queryBuilderStats.operations
+        .filter(op => op.detected && op.selectedFields)
+        .reduce((sum, op) => sum + (op.selectedFields?.length || 0), 0);
+      log(`  Fields selected:        ${totalFields} total (avg ${Math.round(totalFields / queryBuilderStats.detected)} per query)`);
+    }
+  }
 
   // Phase 5: Generate manifest
   progress.startPhase("manifest", "Generating manifest");
@@ -537,6 +602,11 @@ async function buildCommand(args: string[]) {
     sourceFiles: projectSourceFiles.length,
     artifactsWritten: artifacts.map(a => a.name),
     splitEnabled,
+    queryBuilder: {
+      detected: queryBuilderStats.detected,
+      fallback: queryBuilderStats.fallback,
+      total: totalOperations
+    }
   };
   
   progress.printSummary(stats);
@@ -573,29 +643,31 @@ if (command === "build") {
   console.log(`
 adorn-api CLI v${ADORN_VERSION}
 
-Commands:
-  build     Generate OpenAPI and manifest from TypeScript source
-  clean     Remove generated artifacts
+ Commands:
+   build     Generate OpenAPI and manifest from TypeScript source
+   clean     Remove generated artifacts
 
- Options:
-  -p <path>                Path to tsconfig.json (default: ./tsconfig.json)
-  --output <dir>           Output directory (default: .adorn)
-  --if-stale               Only rebuild if artifacts are stale
-  --validation-mode <mode> Validation mode: none, ajv-runtime, precompiled (default: ajv-runtime)
-  --split                  Enable automatic schema splitting (default: disabled)
-  --split-strategy <mode>  Override splitting strategy: controller, dependency, size, auto (default: auto)
-  --split-threshold <num>  Schema count threshold for auto-split (default: 50)
-  --verbose                Show detailed progress information
-  --quiet                  Suppress non-essential output
+  Options:
+   -p <path>                Path to tsconfig.json (default: ./tsconfig.json)
+   --output <dir>           Output directory (default: .adorn)
+   --if-stale               Only rebuild if artifacts are stale
+   --validation-mode <mode> Validation mode: none, ajv-runtime, precompiled (default: ajv-runtime)
+   --split                  Enable automatic schema splitting (default: disabled)
+   --split-strategy <mode>  Override splitting strategy: controller, dependency, size, auto (default: auto)
+   --split-threshold <num>  Schema count threshold for auto-split (default: 50)
+   --verbose                Show detailed progress information
+   --quiet                  Suppress non-essential output
+   --show-query-builder     Show query builder inspection details and statistics
 
-Examples:
-  adorn-api build -p ./tsconfig.json --output .adorn
-  adorn-api build --if-stale
-  adorn-api build --validation-mode precompiled
-  adorn-api build --verbose
-  adorn-api build --split                 # Enable split mode
-  adorn-api build --split-strategy controller  # Force controller-based splitting
-  adorn-api build --split-threshold 100   # Increase threshold to 100
-  adorn-api clean
-  `);
+ Examples:
+   adorn-api build -p ./tsconfig.json --output .adorn
+   adorn-api build --if-stale
+   adorn-api build --validation-mode precompiled
+   adorn-api build --verbose
+   adorn-api build --show-query-builder  # Show query builder analysis details
+   adorn-api build --split                 # Enable split mode
+   adorn-api build --split-strategy controller  # Force controller-based splitting
+   adorn-api build --split-threshold 100   # Increase threshold to 100
+   adorn-api clean
+   `);
 }

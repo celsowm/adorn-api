@@ -13,7 +13,7 @@ import {
   buildHeaderParameters,
   buildCookieParameters,
 } from "./parameters.js";
-import { analyzeQueryBuilderForSchema, type QueryBuilderSchema } from "./queryBuilderAnalyzer.js";
+import { analyzeQueryBuilderForSchema, analyzeQueryBuilderWithDetails, type QueryBuilderSchema } from "./queryBuilderAnalyzer.js";
 import { buildSchemaFromQueryBuilder, wrapInPaginatedResult } from "./queryBuilderSchemaBuilder.js";
 
 const METAL_ORM_WRAPPER_NAMES = ["BelongsToReference", "HasOneReference", "HasManyCollection", "ManyToManyCollection"];
@@ -41,18 +41,52 @@ export interface OpenAPIProgressCallback {
 }
 
 /**
+ * Detailed progress callback with query builder analysis info
+ */
+export interface OpenAPIDetailedProgressCallback {
+  (info: {
+    /** Controller being processed */
+    controller: string;
+    /** Operation being processed */
+    operation: string;
+    /** HTTP method */
+    method: string;
+    /** Operation path */
+    path: string;
+    /** Whether query builder pattern was detected */
+    queryBuilderDetected: boolean;
+    /** Entity name if detected */
+    entityName?: string;
+    /** Selected fields if detected */
+    selectedFields?: string[];
+    /** Whether using paged results */
+    isPaged?: boolean;
+    /** Current progress */
+    current: number;
+    /** Total operations */
+    total: number;
+  }): void;
+}
+
+/**
  * Generates an OpenAPI 3.1 specification from scanned controllers.
  * 
  * @param controllers - Array of scanned controllers to include in the spec
  * @param checker - TypeScript type checker for type analysis
  * @param options - Optional title and version for the OpenAPI info object
  * @param onProgress - Optional callback to report progress during generation
+ * @param onQueryBuilderProgress - Optional callback to report query builder detection details
  * @returns Complete OpenAPI 3.1 specification object
  */
 export function generateOpenAPI(
   controllers: ScannedController[],
   checker: ts.TypeChecker,
-  options: { title?: string; version?: string; onProgress?: OpenAPIProgressCallback } = {}
+  options: { 
+    title?: string; 
+    version?: string; 
+    onProgress?: OpenAPIProgressCallback;
+    onQueryBuilderProgress?: OpenAPIDetailedProgressCallback;
+  } = {}
 ): OpenAPI31 {
   const components = new Map<string, JsonSchema>();
   const ctx: SchemaContext = {
@@ -64,7 +98,14 @@ export function generateOpenAPI(
   };
 
   const paths: Record<string, Record<string, any>> = {};
-  const { onProgress } = options;
+  const { onProgress, onQueryBuilderProgress } = options;
+
+  let totalOperations = 0;
+  for (const controller of controllers) {
+    totalOperations += controller.operations.length;
+  }
+
+  let currentOperation = 0;
 
   for (let i = 0; i < controllers.length; i++) {
     const controller = controllers[i];
@@ -80,6 +121,37 @@ export function generateOpenAPI(
       }
 
       const method = operation.httpMethod.toLowerCase();
+      
+      // Analyze query builder pattern with details
+      const analysisResult = analyzeQueryBuilderWithDetails(
+        operation.methodDeclaration,
+        checker,
+        {},
+        {
+          methodName: operation.operationId,
+          httpMethod: operation.httpMethod,
+          path: operation.path,
+          operationId: operation.operationId
+        }
+      );
+
+      // Report query builder progress if callback provided
+      if (onQueryBuilderProgress) {
+        currentOperation++;
+        onQueryBuilderProgress({
+          controller: controller.className,
+          operation: operation.operationId,
+          method: operation.httpMethod,
+          path: operation.path,
+          queryBuilderDetected: analysisResult.detected,
+          entityName: analysisResult.schema?.entityName,
+          selectedFields: analysisResult.schema?.selectedFields,
+          isPaged: analysisResult.schema?.isPaged,
+          current: currentOperation,
+          total: totalOperations
+        });
+      }
+
       paths[fullPath][method] = buildOperation(operation, ctx, controller.consumes);
     }
   }

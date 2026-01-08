@@ -27,6 +27,24 @@ export interface QueryBuilderSchema {
 }
 
 /**
+ * Result of query builder analysis including operation details for logging
+ */
+export interface QueryBuilderAnalysisResult {
+  /** Whether a query builder pattern was detected */
+  detected: boolean;
+  /** Schema information if detected */
+  schema: QueryBuilderSchema | null;
+  /** Operation method name (for logging) */
+  methodName?: string;
+  /** Operation HTTP method (for logging) */
+  httpMethod?: string;
+  /** Operation path (for logging) */
+  path?: string;
+  /** Operation ID (for logging) */
+  operationId?: string;
+}
+
+/**
  * Analysis options for query builder detection
  */
 export interface QueryBuilderAnalyzerOptions {
@@ -72,6 +90,31 @@ export function analyzeQueryBuilderForSchema(
 
   // Parse chain to extract schema information
   return parseQueryBuilderChain(callChain, checker, options);
+}
+
+/**
+ * Analyzes a method declaration and returns detailed result with operation info
+ * Useful for logging and statistics
+ *
+ * @param methodDeclaration - The method declaration to analyze
+ * @param checker - TypeScript type checker
+ * @param options - Analyzer options
+ * @param operationInfo - Optional operation metadata for logging
+ * @returns Detailed analysis result with operation info
+ */
+export function analyzeQueryBuilderWithDetails(
+  methodDeclaration: ts.MethodDeclaration,
+  checker: ts.TypeChecker,
+  options: QueryBuilderAnalyzerOptions = {},
+  operationInfo?: { methodName?: string; httpMethod?: string; path?: string; operationId?: string }
+): QueryBuilderAnalysisResult {
+  const schema = analyzeQueryBuilderForSchema(methodDeclaration, checker, options);
+  
+  return {
+    detected: schema !== null,
+    schema,
+    ...operationInfo
+  };
 }
 
 /**
