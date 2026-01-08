@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 const fixtureRoot = resolve(__dirname, "fixtures/users");
 const artifactsDir = resolve(fixtureRoot, ".adorn");
 const projectRoot = resolve(__dirname, "..");
+const pkgVersion = JSON.parse(readFileSync(resolve(projectRoot, "package.json"), "utf-8")).version;
 
 interface GeneratedManifest {
   manifestVersion: number;
@@ -89,7 +90,7 @@ describe("Compiler Build - Users Fixture", () => {
     expect(generatedManifest.manifestVersion).toBe(1);
     expect(generatedManifest.generatedAt).toBeDefined();
     expect(generatedManifest.generator.name).toBe("adorn-api");
-    expect(generatedManifest.generator.version).toBe("0.1.0");
+    expect(generatedManifest.generator.version).toBe(pkgVersion);
     expect(generatedManifest.schemas.kind).toBe("openapi-3.1");
     expect(generatedManifest.schemas.file).toBe("./openapi.json");
     expect(generatedManifest.schemas.componentsSchemasPointer).toBe("/components/schemas");
