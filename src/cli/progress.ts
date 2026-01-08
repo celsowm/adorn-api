@@ -205,6 +205,8 @@ export class Spinner {
   private current: number = 0;
   private total: number = 0;
   private customStatus?: string;
+  private frameIndex: number = 0;
+  private lastLineLength: number = 0;
 
   constructor(message: string = "") {
     this.message = message;
@@ -214,9 +216,8 @@ export class Spinner {
    * Start the spinner.
    */
   start(): void {
-    let frameIndex = 0;
     this.interval = setInterval(() => {
-      const frame = this.frames[frameIndex];
+      const frame = this.frames[this.frameIndex];
       let output: string;
       if (this.customStatus) {
         output = `\r${frame} ${this.customStatus}`;
@@ -225,11 +226,12 @@ export class Spinner {
       } else {
         output = `\r${frame} ${this.message}`;
       }
+      this.lastLineLength = output.length - 1;
       process.stdout.write(output);
       if (process.stdout.writable) {
         process.stdout.write("");
       }
-      frameIndex = (frameIndex + 1) % this.frames.length;
+      this.frameIndex = (this.frameIndex + 1) % this.frames.length;
     }, 80);
   }
 
@@ -246,9 +248,14 @@ export class Spinner {
    */
   setStatus(status: string): void {
     this.customStatus = status;
-    // Write immediately to ensure update is visible
-    const frame = this.frames[this.current];
-    process.stdout.write(`\r${frame} ${status}`);
+    // Clear previous line content and write immediately
+    const frame = this.frames[this.frameIndex];
+    const output = `\r${frame} ${status}`;
+    // Clear the entire line to prevent leftover characters
+    const clearLength = Math.max(this.lastLineLength, output.length - 1);
+    process.stdout.write("\r" + " ".repeat(clearLength) + "\r");
+    this.lastLineLength = output.length - 1;
+    process.stdout.write(output);
     if (process.stdout.writable) {
       process.stdout.write("");
     }
@@ -269,8 +276,8 @@ export class Spinner {
       clearInterval(this.interval);
       this.interval = undefined;
     }
-    // Clear the line
-    process.stdout.write("\r" + " ".repeat(60) + "\r");
+    // Clear the entire line based on actual content length
+    process.stdout.write("\r" + " ".repeat(this.lastLineLength) + "\r");
     if (completedMessage) {
       process.stdout.write(completedMessage + "\n");
     }
