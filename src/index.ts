@@ -51,19 +51,46 @@ export type { Middleware } from './http/middleware.js';
 export { compose } from './http/middleware.js';
 export { HttpError, isHttpError } from './http/errors.js';
 
-export type { OpenApiDocument, OpenApiInfo } from './openapi/builder.js';
+export type {
+  OpenApiDocument,
+  OpenApiInfo,
+  OpenApiSpecEnhancer,
+  OpenApiSpecOptions
+} from './openapi/builder.js';
 export { buildOpenApiSpec } from './openapi/builder.js';
-export { mergeSchemas, schemaRef } from './openapi/schema.js';
+export {
+  mergeSchemas,
+  schemaRef,
+  objectSchema,
+  arraySchema,
+  pickSchemaProperties
+} from './openapi/schema.js';
 export { createSwaggerUiHandler, swaggerHtml } from './openapi/swagger.js';
 
 export type { ExpressAdapterOptions } from './adapters/express.js';
 export { createExpressAdapter } from './adapters/express.js';
+export type {
+  ExpressBootstrapOptions,
+  ExpressOpenApiOptions,
+  OpenApiRoutes
+} from './adapters/express-app.js';
+export { bootstrapExpressApp, registerOpenApiRoutes } from './adapters/express-app.js';
 export { createFastifyAdapter } from './adapters/fastify.js';
 export { createKoaAdapter } from './adapters/koa.js';
 
-export { registerEntitySchema, getEntitySchema, listEntitySchemas } from './metal/entity.js';
+export {
+  registerEntitySchema,
+  defineEntitySchema,
+  defineEntitySchemaBundle,
+  getEntitySchema,
+  listEntitySchemas,
+  getEntitySchemaComponents
+} from './metal/entity.js';
+export type { EntitySchemaBundleOptions, EntitySchemaSelection } from './metal/entity.js';
 export { mergeOpenApiComponents } from './metal/schema-bridge.js';
 export * from './metal/query-contract.js';
 
 export { invariant } from './util/assert.js';
 export type { AnyRecord, Constructor } from './util/types.js';
+export { normalizePagination } from './util/pagination.js';
+export type { PaginationInput, PaginationOptions } from './util/pagination.js';

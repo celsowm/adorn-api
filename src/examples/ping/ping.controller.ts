@@ -1,6 +1,6 @@
-import { Contract, Controller, Get } from '../core/decorators/index.js';
-import type { HttpContext } from '../http/context.js';
-import { registerContract } from '../contracts/builder.js';
+import { Contract, Controller, Get } from '../../core/decorators/index.js';
+import type { HttpContext } from '../../http/context.js';
+import { registerContract } from '../../contracts/builder.js';
 
 export const PingContract = registerContract('Ping', {
   mode: 'single',

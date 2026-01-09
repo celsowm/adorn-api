@@ -1,5 +1,4 @@
 import { createParamProxy } from 'metal-orm';
-import type { OpenApiSchemaBundle, SelectQueryBuilder } from 'metal-orm';
 
 import { registerContract } from '../builder.js';
 import type { Contract, ContractMode, ContractSchemas } from '../types.js';
@@ -8,10 +7,6 @@ export interface MetalContractOptions {
   mode?: ContractMode;
   schemaOptions?: unknown;
 }
-
-type AnyMetalQueryBuilder = SelectQueryBuilder<any, any> & {
-  getSchema(options?: unknown): OpenApiSchemaBundle;
-};
 
 export const createMetalContract = <
   TQuery = unknown,

@@ -6,9 +6,9 @@ import {
   Response,
   Summary,
   Tags
-} from '../core/decorators/index.js';
-import type { ContractPaged, ContractQuery, ContractResult } from '../contracts/types.js';
-import type { HttpContext } from '../http/context.js';
+} from '../../core/decorators/index.js';
+import type { ContractPaged, ContractQuery, ContractResult } from '../../contracts/types.js';
+import type { HttpContext } from '../../http/context.js';
 import type {
   CreateUserInput,
   SearchUsersInput,

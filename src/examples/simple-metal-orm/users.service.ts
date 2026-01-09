@@ -1,5 +1,5 @@
-import type { ContractPaged, ContractQuery, ContractResult } from '../contracts/types.js';
-import { HttpError } from '../http/errors.js';
+import type { ContractPaged, ContractQuery, ContractResult } from '../../contracts/types.js';
+import { HttpError } from '../../http/errors.js';
 import type { CreateUserInput, SearchUsersInput, UserSummary } from './users.contracts.js';
 import {
   CreateUserContract,

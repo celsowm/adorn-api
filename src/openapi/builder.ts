@@ -15,6 +15,12 @@ export interface OpenApiDocument {
   components?: Record<string, unknown>;
 }
 
+export type OpenApiSpecEnhancer = (spec: OpenApiDocument) => OpenApiDocument | void;
+
+export interface OpenApiSpecOptions {
+  enhance?: OpenApiSpecEnhancer | OpenApiSpecEnhancer[];
+}
+
 const isArraySchema = (schema: unknown): schema is { type?: string; items?: unknown } =>
   typeof schema === 'object' && schema !== null && 'type' in schema && (schema as { type?: string }).type === 'array';
 
@@ -119,7 +125,11 @@ const buildResponses = (
   return responses;
 };
 
-export const buildOpenApiSpec = (registry: RouteRegistry, info: OpenApiInfo): OpenApiDocument => {
+export const buildOpenApiSpec = (
+  registry: RouteRegistry,
+  info: OpenApiInfo,
+  options: OpenApiSpecOptions = {}
+): OpenApiDocument => {
   const paths: Record<string, Record<string, unknown>> = {};
 
   for (const route of registry.routes) {
@@ -144,9 +154,27 @@ export const buildOpenApiSpec = (registry: RouteRegistry, info: OpenApiInfo): Op
     paths[route.fullPath][route.method] = operation;
   }
 
-  return {
+  const spec: OpenApiDocument = {
     openapi: '3.1.0',
     info,
     paths
   };
+
+  return applyOpenApiSpecEnhancers(spec, options.enhance);
+};
+
+const applyOpenApiSpecEnhancers = (
+  spec: OpenApiDocument,
+  enhance?: OpenApiSpecEnhancer | OpenApiSpecEnhancer[]
+): OpenApiDocument => {
+  if (!enhance) return spec;
+  const enhancers = Array.isArray(enhance) ? enhance : [enhance];
+  let current = spec;
+  for (const enhancer of enhancers) {
+    const updated = enhancer(current);
+    if (updated) {
+      current = updated;
+    }
+  }
+  return current;
 };

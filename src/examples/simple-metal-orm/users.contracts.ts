@@ -7,39 +7,19 @@ import {
   col,
   entityRef,
   eq,
+  getTableDefFromEntity,
   like,
   selectFromEntity,
   type ExpressionNode
 } from 'metal-orm';
 
-import { registerContract } from '../contracts/builder.js';
-import { createMetalContract } from '../contracts/query/metal.js';
+import { registerContract } from '../../contracts/builder.js';
+import { createMetalContract } from '../../contracts/query/metal.js';
+import { defineEntitySchemaBundle } from '../../metal/entity.js';
+import { arraySchema } from '../../openapi/schema.js';
 
-export type UserStatus = 'active' | 'locked';
-
-export type UserSummary = {
-  id: number;
-  nome: string;
-  email: string;
-  status: UserStatus;
-  createdAt: string;
-};
-
-export type CreateUserInput = {
-  nome: string;
-  email: string;
-};
-
-export type SearchUsersInput = {
-  term?: string;
-  status?: UserStatus;
-};
-
-export type ListUsersQueryInput = {
-  filter?: { nome?: string; status?: UserStatus };
-  page?: number;
-  pageSize?: number;
-};
+const userStatusValues = ['active', 'locked'] as const;
+export type UserStatus = (typeof userStatusValues)[number];
 
 @Entity({ tableName: 'usuarios' })
 export class UserEntity {
@@ -59,6 +39,18 @@ export class UserEntity {
   createdAt!: string;
 }
 
+export type UserSummary = Pick<UserEntity, 'id' | 'nome' | 'email' | 'status' | 'createdAt'>;
+
+export type CreateUserInput = Pick<UserEntity, 'nome' | 'email'>;
+
+export type SearchUsersInput = { term?: string } & Partial<Pick<UserEntity, 'status'>>;
+
+export type ListUsersQueryInput = {
+  filter?: Partial<Pick<UserEntity, 'nome' | 'status'>>;
+  page?: number;
+  pageSize?: number;
+};
+
 let entitiesReady = false;
 const ensureEntities = () => {
   if (!entitiesReady) {
@@ -72,26 +64,29 @@ export const userRef = (() => {
   return entityRef(UserEntity);
 })();
 
-const userSchema = {
-  type: 'object',
-  properties: {
-    id: { type: 'integer' },
-    nome: { type: 'string' },
-    email: { type: 'string' },
-    status: { type: 'string', enum: ['active', 'locked'] },
-    createdAt: { type: 'string' }
-  },
-  required: ['id', 'nome', 'email', 'status', 'createdAt']
+export const usersTable = (() => {
+  ensureEntities();
+  const table = getTableDefFromEntity(UserEntity);
+  if (!table) {
+    throw new Error(`Entity '${UserEntity.name}' is not registered with decorators or has not been bootstrapped`);
+  }
+  return table;
+})();
+
+const userStatusSchema = {
+  type: 'string',
+  enum: userStatusValues
 };
 
-const createUserSchema = {
-  type: 'object',
-  properties: {
-    nome: { type: 'string' },
-    email: { type: 'string' }
-  },
-  required: ['nome', 'email']
-};
+const { output: userSchema, input: createUserSchema } = defineEntitySchemaBundle(UserEntity, {
+  name: 'User',
+  inputName: 'CreateUser',
+  output: { overrides: { status: userStatusSchema } },
+  input: { pick: ['nome', 'email'] }
+});
+
+const userOutputSchemas = { output: userSchema };
+const userListSchema = arraySchema(userSchema);
 
 export const buildListUsersQuery = (query: ListUsersQueryInput) => {
   ensureEntities();
@@ -135,7 +130,7 @@ export const GetUserContract = registerContract<{ id: number }, UserSummary, Use
         schema: { type: 'integer' }
       }
     ],
-    output: userSchema
+    ...userOutputSchemas
   }
 });
 
@@ -145,7 +140,7 @@ export const CreateUserContract = registerContract<CreateUserInput, UserSummary,
     mode: 'single',
     schemas: {
       input: createUserSchema,
-      output: userSchema
+      ...userOutputSchemas
     }
   }
 );
@@ -159,13 +154,10 @@ export const SearchUsersContract = registerContract<SearchUsersInput, UserSummar
         type: 'object',
         properties: {
           term: { type: 'string' },
-          status: { type: 'string', enum: ['active', 'locked'] }
+          status: userStatusSchema
         }
       },
-      output: {
-        type: 'array',
-        items: userSchema
-      }
+      output: userListSchema
     }
   }
 );
