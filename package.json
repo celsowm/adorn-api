@@ -2,6 +2,6 @@
   "name": "adorn-api",
   "version": "1.0.0",
   "dependencies": {
-    "metal-orm": "^1.0.81"
+    "metal-orm": "^1.0.87"
   }
 }
