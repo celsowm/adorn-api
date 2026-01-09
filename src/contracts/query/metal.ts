@@ -9,19 +9,23 @@ export interface MetalContractOptions {
   schemaOptions?: unknown;
 }
 
-type MetalQueryBuilder<TQuery> = SelectQueryBuilder<any, any> & {
+type AnyMetalQueryBuilder = SelectQueryBuilder<any, any> & {
   getSchema(options?: unknown): OpenApiSchemaBundle;
 };
 
-export const createMetalContract = <TQuery = unknown, TItem = unknown>(
+export const createMetalContract = <
+  TQuery = unknown,
+  TItem = unknown,
+  TQB = any
+>(
   id: string,
-  build: (query: TQuery) => MetalQueryBuilder<TQuery>,
+  build: (query: TQuery) => TQB,
   options: MetalContractOptions = {}
 ): Contract<TQuery, TItem, unknown> => {
   const resolveSchemas = (): ContractSchemas => {
     const schemaQuery = createParamProxy() as unknown as TQuery;
     const qb = build(schemaQuery);
-    const bundle = qb.getSchema(options.schemaOptions);
+    const bundle = (qb as any).getSchema(options.schemaOptions);
     return {
       output: bundle.output,
       input: bundle.input,
