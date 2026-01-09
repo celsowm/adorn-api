@@ -1,7 +1,21 @@
 {
   "name": "adorn-api",
   "version": "1.0.0",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "npm run build && concurrently -k \"tsc -p tsconfig.json -w\" \"node --watch dist/example/server.js\"",
+    "start": "node dist/example/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "type": "module",
   "dependencies": {
-    "metal-orm": "^1.0.87"
+    "express": "^5.2.1",
+    "metal-orm": "^1.0.87",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3"
   }
 }
