@@ -57,7 +57,7 @@ export type {
   OpenApiSpecEnhancer,
   OpenApiSpecOptions
 } from './openapi/builder.js';
-export { buildOpenApiSpec } from './openapi/builder.js';
+export { buildOpenApiSpec, registerOpenApiEnhancer } from './openapi/builder.js';
 export {
   mergeSchemas,
   schemaRef,
@@ -84,7 +84,8 @@ export {
   defineEntitySchemaBundle,
   getEntitySchema,
   listEntitySchemas,
-  getEntitySchemaComponents
+  getEntitySchemaComponents,
+  enhanceOpenApiWithEntitySchemas
 } from './metal/entity.js';
 export type { EntitySchemaBundleOptions, EntitySchemaSelection } from './metal/entity.js';
 export { mergeOpenApiComponents } from './metal/schema-bridge.js';

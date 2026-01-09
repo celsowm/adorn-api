@@ -71,7 +71,10 @@ export const registerOpenApiRoutes = (
   app: unknown,
   options: ExpressOpenApiOptions
 ): OpenApiRoutes => {
-  const spec = buildOpenApiSpec(options.registry, options.info, { enhance: options.enhance });
+  const spec = buildOpenApiSpec(options.registry, options.info, {
+    enhance: options.enhance,
+    useDefaultEnhancers: options.useDefaultEnhancers
+  });
   const swagger = createSwaggerUiHandler(spec, options.specPath);
   const docsPath = options.docsPath ?? '/docs';
   const get = getRouteRegistrar(app);

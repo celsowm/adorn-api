@@ -2,8 +2,6 @@ import express from 'express';
 import { fileURLToPath } from 'url';
 
 import { bootstrapExpressApp, registerOpenApiRoutes } from '../../adapters/express-app.js';
-import { getEntitySchemaComponents } from '../../metal/entity.js';
-import { mergeOpenApiComponents } from '../../metal/schema-bridge.js';
 import { PingController } from './ping.controller.js';
 import { UsersController } from './users.controller.js';
 import { initExampleDatabase } from './sqlite.js';
@@ -18,9 +16,6 @@ export const createApp = () => {
     info: {
       title: 'Adorn API Simple Metal ORM Example',
       version: '0.1.0'
-    },
-    enhance: spec => {
-      spec.components = mergeOpenApiComponents(spec.components, getEntitySchemaComponents());
     }
   });
 

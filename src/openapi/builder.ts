@@ -19,7 +19,14 @@ export type OpenApiSpecEnhancer = (spec: OpenApiDocument) => OpenApiDocument | v
 
 export interface OpenApiSpecOptions {
   enhance?: OpenApiSpecEnhancer | OpenApiSpecEnhancer[];
+  useDefaultEnhancers?: boolean;
 }
+
+const defaultEnhancers: OpenApiSpecEnhancer[] = [];
+
+export const registerOpenApiEnhancer = (enhancer: OpenApiSpecEnhancer): void => {
+  defaultEnhancers.push(enhancer);
+};
 
 const isArraySchema = (schema: unknown): schema is { type?: string; items?: unknown } =>
   typeof schema === 'object' && schema !== null && 'type' in schema && (schema as { type?: string }).type === 'array';
@@ -160,15 +167,21 @@ export const buildOpenApiSpec = (
     paths
   };
 
-  return applyOpenApiSpecEnhancers(spec, options.enhance);
+  return applyOpenApiSpecEnhancers(spec, options);
 };
 
 const applyOpenApiSpecEnhancers = (
   spec: OpenApiDocument,
-  enhance?: OpenApiSpecEnhancer | OpenApiSpecEnhancer[]
+  options: OpenApiSpecOptions = {}
 ): OpenApiDocument => {
-  if (!enhance) return spec;
-  const enhancers = Array.isArray(enhance) ? enhance : [enhance];
+  const enhancers: OpenApiSpecEnhancer[] = [];
+  if (options.useDefaultEnhancers !== false) {
+    enhancers.push(...defaultEnhancers);
+  }
+  if (options.enhance) {
+    enhancers.push(...(Array.isArray(options.enhance) ? options.enhance : [options.enhance]));
+  }
+  if (enhancers.length === 0) return spec;
   let current = spec;
   for (const enhancer of enhancers) {
     const updated = enhancer(current);

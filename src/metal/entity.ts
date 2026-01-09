@@ -1,8 +1,10 @@
 import { extractSchema, getTableDefFromEntity } from 'metal-orm';
 
+import { registerOpenApiEnhancer, type OpenApiSpecEnhancer } from '../openapi/builder.js';
 import { pickSchemaProperties, schemaRef } from '../openapi/schema.js';
 import type { Constructor } from '../util/types.js';
 import type { OpenApiSchema, SchemaOptions } from 'metal-orm';
+import { mergeOpenApiComponents } from './schema-bridge.js';
 
 const entitySchemas = new Map<string, unknown>();
 
@@ -90,3 +92,9 @@ export const listEntitySchemas = (): Array<{ name: string; schema: unknown }> =>
 export const getEntitySchemaComponents = (): Record<string, unknown> => ({
   schemas: Object.fromEntries(entitySchemas)
 });
+
+export const enhanceOpenApiWithEntitySchemas: OpenApiSpecEnhancer = spec => {
+  spec.components = mergeOpenApiComponents(spec.components, getEntitySchemaComponents());
+};
+
+registerOpenApiEnhancer(enhanceOpenApiWithEntitySchemas);

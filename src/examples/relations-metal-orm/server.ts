@@ -2,8 +2,6 @@ import express from 'express';
 import { fileURLToPath } from 'url';
 
 import { bootstrapExpressApp, registerOpenApiRoutes } from '../../adapters/express-app.js';
-import { getEntitySchemaComponents } from '../../metal/entity.js';
-import { mergeOpenApiComponents } from '../../metal/schema-bridge.js';
 import { AuthorsController } from './authors.controller.js';
 import { initExampleDatabase } from './sqlite.js';
 
@@ -17,9 +15,6 @@ export const createApp = () => {
     info: {
       title: 'Adorn API Relations Example',
       version: '0.1.0'
-    },
-    enhance: spec => {
-      spec.components = mergeOpenApiComponents(spec.components, getEntitySchemaComponents());
     }
   });
 
