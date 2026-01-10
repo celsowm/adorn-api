@@ -1,10 +1,33 @@
-import { eq, type OrmSession } from 'metal-orm';
+import { eq, selectFromEntity, type OrmSession } from 'metal-orm';
 
-import type { AuthorSummary, CreateAuthorInput } from './relations.contracts.js';
-import { buildListAuthorsQuery } from './relations.contracts.js';
+import { defineMetalQuery, type MetalQueryInput } from '../../contracts/query/metal.js';
+import { summaryKeys, type SummaryOf } from '../../util/types.js';
 import { Author, Post } from './entities.js';
 import { authorRef } from './entities.registry.js';
 import { withSession } from './sqlite.js';
+
+export const postSummaryKeys = summaryKeys<Post>()('id', 'authorId', 'title', 'body', 'createdAt');
+export type PostSummary = SummaryOf<Post, typeof postSummaryKeys>;
+
+export const authorSummaryKeys = summaryKeys<Author>()('id', 'name', 'createdAt');
+export type AuthorSummary = SummaryOf<Author, typeof authorSummaryKeys> & {
+  posts: PostSummary[];
+};
+
+export type CreatePostInput = Pick<Post, 'title' | 'body'>;
+export type CreateAuthorInput = Pick<Author, 'name'> & {
+  posts?: CreatePostInput[];
+};
+
+type ListAuthorsQueryParams = Record<string, never>;
+
+export const buildListAuthorsQuery = defineMetalQuery((query: ListAuthorsQueryParams) => {
+  return selectFromEntity(Author)
+    .select(...authorSummaryKeys)
+    .include('posts', { columns: [...postSummaryKeys] });
+});
+
+export type ListAuthorsQueryInput = MetalQueryInput<typeof buildListAuthorsQuery>;
 
 const fetchAuthorWithPosts = async (
   session: OrmSession,

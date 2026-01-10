@@ -1,35 +1,17 @@
-import { selectFromEntity, type SchemaOptions } from 'metal-orm';
-
+import type { SchemaOptions } from 'metal-orm';
 import { registerContract } from '../../contracts/builder.js';
-import { createMetalContract } from '../../contracts/query/metal.js';
-import { Author, Post } from './entities.js';
+import { createMetalContractFromQuery } from '../../contracts/query/metal.js';
 import './entities.registry.js';
-import { summaryKeys, type SummaryOf } from '../../util/types.js';
+import { buildListAuthorsQuery, type AuthorSummary, type CreateAuthorInput } from './authors.repo.js';
 
-export const postSummaryKeys = summaryKeys<Post>()('id', 'authorId', 'title', 'body', 'createdAt');
+export type { AuthorSummary, CreateAuthorInput } from './authors.repo.js';
 
-export type PostSummary = SummaryOf<Post, typeof postSummaryKeys>;
-
-export const authorSummaryKeys = summaryKeys<Author>()('id', 'name', 'createdAt');
-
-export type AuthorSummary = SummaryOf<Author, typeof authorSummaryKeys> & {
-  posts: PostSummary[];
-};
-
-export type CreatePostInput = Pick<Post, 'title' | 'body'>;
-
-export type CreateAuthorInput = Pick<Author, 'name'> & {
-  posts?: CreatePostInput[];
-};
-
-export type ListAuthorsQueryInput = Record<string, never>;
-
-const authorSchemaOptions = {
+const authorSchemaOptions: SchemaOptions = {
   mode: 'selected',
   refMode: 'components'
-} satisfies SchemaOptions;
+};
 
-const authorCreateSchemaOptions = {
+const authorCreateSchemaOptions: SchemaOptions = {
   ...authorSchemaOptions,
   input: {
     mode: 'create',
@@ -42,12 +24,6 @@ const authorCreateSchemaOptions = {
       posts: { pick: ['title', 'body'] }
     }
   }
-} satisfies SchemaOptions;
-
-export const buildListAuthorsQuery = (_query: ListAuthorsQueryInput) => {
-  return selectFromEntity(Author)
-    .select(...authorSummaryKeys)
-    .include('posts', { columns: [...postSummaryKeys] });
 };
 
 const resolveAuthorSchemas = () => {
@@ -59,14 +35,13 @@ const resolveAuthorSchemas = () => {
   };
 };
 
-export const ListAuthorsContract = createMetalContract<ListAuthorsQueryInput, AuthorSummary>(
-  'ListAuthors',
-  buildListAuthorsQuery,
-  {
-    mode: 'list',
-    schemaOptions: authorSchemaOptions
-  }
-);
+export const ListAuthorsContract = createMetalContractFromQuery<
+  typeof buildListAuthorsQuery,
+  AuthorSummary
+>('ListAuthors', buildListAuthorsQuery, {
+  mode: 'list',
+  schemaOptions: authorSchemaOptions
+});
 
 export const CreateAuthorContract = registerContract<CreateAuthorInput, AuthorSummary, AuthorSummary>(
   'CreateAuthor',

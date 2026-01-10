@@ -1,4 +1,5 @@
 import { createParamProxy } from 'metal-orm';
+import type { SelectQueryBuilder } from 'metal-orm';
 
 import { registerContract } from '../builder.js';
 import type { Contract, ContractMode, ContractSchemas } from '../types.js';
@@ -51,4 +52,24 @@ export const createMetalContract = <
     resolveSchemas,
     build
   });
+};
+
+type SelectQueryItem<TQB> = TQB extends SelectQueryBuilder<infer TItem, any> ? TItem : unknown;
+
+export type MetalQueryInput<TBuild> = TBuild extends (query: infer TQuery) => any ? TQuery : never;
+export type MetalQueryItem<TBuild> = TBuild extends (query: any) => infer TQB ? SelectQueryItem<TQB> : never;
+
+export const defineMetalQuery = <TBuild extends (query: any) => SelectQueryBuilder<any, any>>(
+  build: TBuild
+): TBuild => build;
+
+export const createMetalContractFromQuery = <
+  TBuild extends (query: any) => SelectQueryBuilder<any, any>,
+  TItem = MetalQueryItem<TBuild>
+>(
+  id: string,
+  build: TBuild,
+  options: MetalContractOptions = {}
+): Contract<MetalQueryInput<TBuild>, TItem, unknown> => {
+  return createMetalContract<MetalQueryInput<TBuild>, TItem>(id, build, options);
 };

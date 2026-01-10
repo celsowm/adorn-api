@@ -1,17 +1,51 @@
-import { and, eq, like, or, selectFromEntity, update, type ExpressionNode, type OrmSession } from 'metal-orm';
+import { and, eq, like, or, selectFromEntity, update, type ExpressionNode } from 'metal-orm';
 
-import type { ContractPaged, ContractQuery } from '../../contracts/types.js';
+import { defineMetalQuery, type MetalQueryInput } from '../../contracts/query/metal.js';
+import type { Paginated } from '../../contracts/types.js';
+import { normalizePagination } from '../../util/pagination.js';
+import { summaryKeys, type SummaryOf } from '../../util/types.js';
 import { User } from './entities.js';
-import { ListUsersContract, buildListUsersQuery, userSummaryKeys } from './users.contracts.js';
-import type { CreateUserInput, SearchUsersInput, UserSummary } from './users.contracts.js';
 import { userRef } from './entities.registry.js';
 import { withSession } from './sqlite.js';
-import { normalizePagination } from '../../util/pagination.js';
+
+export const userSummaryKeys = summaryKeys<User>()('id', 'nome', 'email', 'status', 'createdAt');
+
+export const buildListUsersQuery = defineMetalQuery((query: {
+  filter?: Partial<Pick<User, 'nome' | 'status'>>;
+  page?: number;
+  pageSize?: number;
+}) => {
+  const predicates: ExpressionNode[] = [];
+
+  if (query.filter?.status) {
+    predicates.push(eq(userRef.status, query.filter.status));
+  }
+
+  if (query.filter?.nome !== undefined) {
+    const raw = query.filter.nome;
+    const pattern = typeof raw === 'string' ? `%${raw}%` : raw;
+    predicates.push(like(userRef.nome, pattern));
+  }
+
+  let qb = selectFromEntity(User).select(...userSummaryKeys);
+
+  if (predicates.length === 1) {
+    qb = qb.where(predicates[0]);
+  } else if (predicates.length > 1) {
+    qb = qb.where(and(...predicates));
+  }
+
+  return qb;
+});
+
+export type ListUsersQueryInput = MetalQueryInput<typeof buildListUsersQuery>;
+export type UserSummary = SummaryOf<User, typeof userSummaryKeys>;
+
+export type CreateUserInput = Pick<User, 'nome' | 'email'>;
+export type SearchUsersInput = { term?: string } & Partial<Pick<User, 'status'>>;
 
 export class UsersRepository {
-  async listUsers(
-    query: ContractQuery<typeof ListUsersContract>
-  ): Promise<ContractPaged<typeof ListUsersContract>> {
+  async listUsers(query: ListUsersQueryInput): Promise<Paginated<UserSummary>> {
     return withSession(async session => {
       const { page, pageSize } = normalizePagination(
         { page: query.page, pageSize: query.pageSize },
@@ -21,7 +55,7 @@ export class UsersRepository {
       const baseQuery = buildListUsersQuery(query).orderBy(userRef.id, 'ASC');
       const result = await baseQuery.executePaged(session, { page, pageSize });
 
-      return result as unknown as ContractPaged<typeof ListUsersContract>;
+      return result;
     });
   }
 
