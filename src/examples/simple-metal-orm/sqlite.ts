@@ -9,7 +9,7 @@ import {
   type OrmSession
 } from 'metal-orm';
 
-import { usersTable } from './users.contracts.js';
+import { usersTable } from './entities.registry.js';
 
 const db = new sqlite3.Database(':memory:');
 const dialect = new SqliteDialect();

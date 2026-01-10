@@ -1,6 +1,7 @@
 import type { RequestBodyMeta, ResponseMeta, RouteRegistry } from '../core/metadata/types.js';
 import { resolveContractRef } from '../contracts/resolver.js';
 import type { ContractMode } from '../contracts/types.js';
+import { mergeOpenApiComponents } from '../metal/schema-bridge.js';
 
 export interface OpenApiInfo {
   title: string;
@@ -138,6 +139,7 @@ export const buildOpenApiSpec = (
   options: OpenApiSpecOptions = {}
 ): OpenApiDocument => {
   const paths: Record<string, Record<string, unknown>> = {};
+  let contractComponents: Record<string, unknown> | undefined;
 
   for (const route of registry.routes) {
     const contract = resolveContractRef(route.contract);
@@ -145,6 +147,9 @@ export const buildOpenApiSpec = (
     const responseSchema = buildResponseSchema(contract?.mode, contract?.schemas?.output);
     const requestBody = buildRequestBody(route.method, contract?.schemas?.input, route.requestBody);
     const responses = buildResponses(route.responses, responseSchema);
+    if (contract?.schemas?.components) {
+      contractComponents = mergeOpenApiComponents(contractComponents, contract.schemas.components);
+    }
 
     const operation: Record<string, unknown> = {
       summary: route.summary,
@@ -167,7 +172,15 @@ export const buildOpenApiSpec = (
     paths
   };
 
-  return applyOpenApiSpecEnhancers(spec, options);
+  if (contractComponents) {
+    spec.components = mergeOpenApiComponents(spec.components, contractComponents);
+  }
+
+  const enhanced = applyOpenApiSpecEnhancers(spec, options);
+  if (contractComponents && enhanced !== spec) {
+    enhanced.components = mergeOpenApiComponents(enhanced.components, contractComponents);
+  }
+  return enhanced;
 };
 
 const applyOpenApiSpecEnhancers = (

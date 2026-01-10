@@ -14,7 +14,7 @@
   "type": "module",
   "dependencies": {
     "express": "^5.2.1",
-    "metal-orm": "^1.0.87",
+    "metal-orm": "^1.0.89",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {

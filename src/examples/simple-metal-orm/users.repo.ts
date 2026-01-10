@@ -1,8 +1,10 @@
 import { and, eq, like, or, selectFromEntity, update, type ExpressionNode, type OrmSession } from 'metal-orm';
 
 import type { ContractPaged, ContractQuery } from '../../contracts/types.js';
-import { ListUsersContract, buildListUsersQuery, userRef, UserEntity } from './users.contracts.js';
+import { User } from './entities.js';
+import { ListUsersContract, buildListUsersQuery, userSummaryKeys } from './users.contracts.js';
 import type { CreateUserInput, SearchUsersInput, UserSummary } from './users.contracts.js';
+import { userRef } from './entities.registry.js';
 import { withSession } from './sqlite.js';
 import { normalizePagination } from '../../util/pagination.js';
 
@@ -25,8 +27,8 @@ export class UsersRepository {
 
   async getUserById(id: number): Promise<UserSummary | undefined> {
     return withSession(async session => {
-      const rows = await selectFromEntity(UserEntity)
-        .select('id', 'nome', 'email', 'status', 'createdAt')
+      const rows = await selectFromEntity(User)
+        .select(...userSummaryKeys)
         .where(eq(userRef.id, id))
         .limit(1)
         .execute(session);
@@ -37,7 +39,7 @@ export class UsersRepository {
   async createUser(input: CreateUserInput): Promise<UserSummary> {
     return withSession(async session => {
       const createdAt = new Date().toISOString();
-      const entity = await session.saveGraph(UserEntity, {
+      const entity = await session.saveGraph(User, {
         nome: input.nome,
         email: input.email,
         status: 'active',
@@ -61,7 +63,7 @@ export class UsersRepository {
         predicates.push(or(like(userRef.nome, term), like(userRef.email, term)));
       }
 
-      let qb = selectFromEntity(UserEntity).select('id', 'nome', 'email', 'status', 'createdAt');
+      let qb = selectFromEntity(User).select(...userSummaryKeys);
 
       if (predicates.length === 1) {
         qb = qb.where(predicates[0]);
@@ -75,13 +77,13 @@ export class UsersRepository {
 
   async lockUser(id: number): Promise<UserSummary | undefined> {
     return withSession(async session => {
-      await update(UserEntity)
+      await update(User)
         .set({ status: 'locked' })
         .where(eq(userRef.id, id))
         .execute(session);
 
-      const rows = await selectFromEntity(UserEntity)
-        .select('id', 'nome', 'email', 'status', 'createdAt')
+      const rows = await selectFromEntity(User)
+        .select(...userSummaryKeys)
         .where(eq(userRef.id, id))
         .limit(1)
         .execute(session);

@@ -92,6 +92,6 @@ export { mergeOpenApiComponents } from './metal/schema-bridge.js';
 export * from './metal/query-contract.js';
 
 export { invariant } from './util/assert.js';
-export type { AnyRecord, Constructor } from './util/types.js';
+export type { AnyRecord, Constructor, EntitySummary } from './util/types.js';
 export { normalizePagination } from './util/pagination.js';
 export type { PaginationInput, PaginationOptions } from './util/pagination.js';

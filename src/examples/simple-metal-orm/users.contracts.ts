@@ -1,13 +1,6 @@
 import {
-  Column,
-  Entity,
-  PrimaryKey,
   and,
-  bootstrapEntities,
-  col,
-  entityRef,
   eq,
-  getTableDefFromEntity,
   like,
   selectFromEntity,
   type ExpressionNode
@@ -17,68 +10,32 @@ import { registerContract } from '../../contracts/builder.js';
 import { createMetalContract } from '../../contracts/query/metal.js';
 import { defineEntitySchemaBundle } from '../../metal/entity.js';
 import { arraySchema } from '../../openapi/schema.js';
+import { User, userStatusValues } from './entities.js';
+import { userRef } from './entities.registry.js';
+import { summaryKeys, type SummaryOf } from '../../util/types.js';
 
-const userStatusValues = ['active', 'locked'] as const;
-export type UserStatus = (typeof userStatusValues)[number];
+export type { UserStatus } from './entities.js';
 
-@Entity({ tableName: 'usuarios' })
-export class UserEntity {
-  @PrimaryKey(col.autoIncrement(col.int()))
-  id!: number;
+export const userSummaryKeys = summaryKeys<User>()('id', 'nome', 'email', 'status', 'createdAt');
 
-  @Column(col.notNull(col.varchar(255)))
-  nome!: string;
+export type UserSummary = SummaryOf<User, typeof userSummaryKeys>;
 
-  @Column(col.notNull(col.varchar(255)))
-  email!: string;
+export type CreateUserInput = Pick<User, 'nome' | 'email'>;
 
-  @Column(col.notNull(col.varchar(20)))
-  status!: UserStatus;
-
-  @Column(col.notNull(col.varchar(30)))
-  createdAt!: string;
-}
-
-export type UserSummary = Pick<UserEntity, 'id' | 'nome' | 'email' | 'status' | 'createdAt'>;
-
-export type CreateUserInput = Pick<UserEntity, 'nome' | 'email'>;
-
-export type SearchUsersInput = { term?: string } & Partial<Pick<UserEntity, 'status'>>;
+export type SearchUsersInput = { term?: string } & Partial<Pick<User, 'status'>>;
 
 export type ListUsersQueryInput = {
-  filter?: Partial<Pick<UserEntity, 'nome' | 'status'>>;
+  filter?: Partial<Pick<User, 'nome' | 'status'>>;
   page?: number;
   pageSize?: number;
 };
-
-let entitiesReady = false;
-const ensureEntities = () => {
-  if (!entitiesReady) {
-    bootstrapEntities();
-    entitiesReady = true;
-  }
-};
-
-export const userRef = (() => {
-  ensureEntities();
-  return entityRef(UserEntity);
-})();
-
-export const usersTable = (() => {
-  ensureEntities();
-  const table = getTableDefFromEntity(UserEntity);
-  if (!table) {
-    throw new Error(`Entity '${UserEntity.name}' is not registered with decorators or has not been bootstrapped`);
-  }
-  return table;
-})();
 
 const userStatusSchema = {
   type: 'string',
   enum: userStatusValues
 };
 
-const { output: userSchema, input: createUserSchema } = defineEntitySchemaBundle(UserEntity, {
+const { output: userSchema, input: createUserSchema } = defineEntitySchemaBundle(User, {
   name: 'User',
   inputName: 'CreateUser',
   output: { overrides: { status: userStatusSchema } },
@@ -89,7 +46,6 @@ const userOutputSchemas = { output: userSchema };
 const userListSchema = arraySchema(userSchema);
 
 export const buildListUsersQuery = (query: ListUsersQueryInput) => {
-  ensureEntities();
   const predicates: ExpressionNode[] = [];
 
   if (query.filter?.status) {
@@ -102,7 +58,7 @@ export const buildListUsersQuery = (query: ListUsersQueryInput) => {
     predicates.push(like(userRef.nome, pattern));
   }
 
-  let qb = selectFromEntity(UserEntity).select('id', 'nome', 'email', 'status', 'createdAt');
+  let qb = selectFromEntity(User).select(...userSummaryKeys);
 
   if (predicates.length === 1) {
     qb = qb.where(predicates[0]);

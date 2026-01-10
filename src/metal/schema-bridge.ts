@@ -1,5 +1,9 @@
+import type { OpenApiComponents } from 'metal-orm';
+
+type OpenApiComponentsInput = OpenApiComponents | Record<string, unknown> | undefined;
+
 export const mergeOpenApiComponents = (
-  ...components: Array<Record<string, unknown> | undefined>
+  ...components: OpenApiComponentsInput[]
 ): Record<string, unknown> => {
   const result: Record<string, unknown> = { schemas: {} };
   for (const component of components) {

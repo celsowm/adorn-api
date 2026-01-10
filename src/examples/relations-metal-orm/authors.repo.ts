@@ -1,7 +1,9 @@
 import { eq, type OrmSession } from 'metal-orm';
 
 import type { AuthorSummary, CreateAuthorInput } from './relations.contracts.js';
-import { AuthorEntity, PostEntity, authorRef, buildListAuthorsQuery } from './relations.contracts.js';
+import { buildListAuthorsQuery } from './relations.contracts.js';
+import { Author, Post } from './entities.js';
+import { authorRef } from './entities.registry.js';
 import { withSession } from './sqlite.js';
 
 const fetchAuthorWithPosts = async (
@@ -29,14 +31,14 @@ export class AuthorsRepository {
   async createAuthor(input: CreateAuthorInput): Promise<AuthorSummary> {
     return withSession(async session => {
       const createdAt = new Date().toISOString();
-      const entity = await session.saveGraph(AuthorEntity, {
+      const entity = await session.saveGraph(Author, {
         name: input.name,
         createdAt
       });
 
       if (input.posts?.length) {
         for (const post of input.posts) {
-          await session.saveGraph(PostEntity, {
+          await session.saveGraph(Post, {
             authorId: entity.id,
             title: post.title,
             body: post.body,

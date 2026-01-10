@@ -2,10 +2,13 @@ export type ContractId = string | symbol;
 
 export type ContractMode = 'list' | 'paged' | 'single';
 
+import type { OpenApiComponents } from 'metal-orm';
+
 export interface ContractSchemas {
   parameters?: unknown[];
   output?: unknown;
   input?: unknown;
+  components?: OpenApiComponents;
 }
 
 export interface Contract<TQuery = unknown, TItem = unknown, TResult = unknown> {

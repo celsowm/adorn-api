@@ -8,7 +8,7 @@ import {
   type OrmSession
 } from 'metal-orm';
 
-import { AuthorEntity, PostEntity } from './relations.contracts.js';
+import { Author, Post } from './entities.js';
 
 const db = new sqlite3.Database(':memory:');
 const dialect = new SqliteDialect();
@@ -79,28 +79,28 @@ const createPostsTableSql = `
 const seedAuthors = async (session: OrmSession): Promise<void> => {
   const now = new Date().toISOString();
 
-  const ada = await session.saveGraph(AuthorEntity, {
+  const ada = await session.saveGraph(Author, {
     name: 'Ada Lovelace',
     createdAt: now
   });
-  await session.saveGraph(PostEntity, {
+  await session.saveGraph(Post, {
     authorId: ada.id,
     title: 'Notes on the Analytical Engine',
     body: 'First program',
     createdAt: now
   });
-  await session.saveGraph(PostEntity, {
+  await session.saveGraph(Post, {
     authorId: ada.id,
     title: 'Foundations',
     body: 'Math and logic',
     createdAt: now
   });
 
-  const grace = await session.saveGraph(AuthorEntity, {
+  const grace = await session.saveGraph(Author, {
     name: 'Grace Hopper',
     createdAt: now
   });
-  await session.saveGraph(PostEntity, {
+  await session.saveGraph(Post, {
     authorId: grace.id,
     title: 'Compilers',
     body: 'COBOL era',
