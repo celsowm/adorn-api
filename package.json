@@ -1,0 +1,5 @@
+{
+    "dependencies": {
+        "metal-orm": "^1.0.90"
+    }
+}
