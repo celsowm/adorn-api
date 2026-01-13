@@ -97,6 +97,19 @@ async function initializeDatabase() {
     );
   });
 
+  await new Promise<void>((resolve, reject) => {
+    db.run(
+      `INSERT INTO users (name, email, role, createdAt) VALUES 
+        ('John Doe', 'john@example.com', 'admin', '2025-01-01 10:00:00'),
+        ('Jane Smith', 'jane@example.com', 'user', '2025-01-02 14:30:00'),
+        ('Bob Johnson', 'bob@example.com', 'user', '2025-01-03 09:15:00')`,
+      (err) => {
+        if (err) reject(err);
+        else resolve();
+      },
+    );
+  });
+
   bootstrapEntities();
 }
 

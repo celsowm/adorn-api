@@ -7,6 +7,7 @@ export interface SwaggerUiOptions {
   jsonPath?: string;
   title?: string;
   persistAuthorization?: boolean;
+  customCss?: string;
 }
 
 export function setupSwaggerUi(
@@ -27,13 +28,14 @@ export function setupSwaggerUi(
 
   app.get(
     swaggerPath,
-    swaggerUi.setup(spec, {
+    swaggerUi.setup(null, {
+      explorer: true,
+      swaggerUrl: jsonPath,
       swaggerOptions: {
-        url: jsonPath,
         persistAuthorization: options?.persistAuthorization ?? true,
       },
       customSiteTitle: options?.title ?? spec.info.title,
-      customCss: ".swagger-ui .topbar { display: none }",
-    }),
+      customCss: options?.customCss,
+    } as any),
   );
 }
