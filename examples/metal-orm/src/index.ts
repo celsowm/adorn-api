@@ -9,6 +9,7 @@ import {
   Delete,
   ExpressAdapter,
   OpenApiGenerator,
+  setupSwaggerUi,
   Params,
   Body,
   Schema,
@@ -313,14 +314,13 @@ async function main() {
     servers: [{ url: "http://localhost:3000", description: "Local server" }],
   });
 
-  app.get("/api-docs", (_req, res) => {
-    res.json(openapi);
-  });
+  setupSwaggerUi(app, openapi);
 
   const PORT = 3000;
   app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📚 OpenAPI docs: http://localhost:${PORT}/api-docs`);
+    console.log(`📚 Swagger UI: http://localhost:${PORT}/swagger`);
+    console.log(`   OpenAPI JSON: http://localhost:${PORT}/swagger.json`);
     console.log(``);
     console.log(`Endpoints:`);
     console.log(`  GET    /users              - List all users`);
