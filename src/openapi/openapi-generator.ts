@@ -1,6 +1,8 @@
-import type { OpenApiSpec, OpenApiOptions } from '../types/openapi.js';
-import type { RouteMetadata, ParameterMetadata } from '../types/metadata.js';
-import { metadataStorage } from '../metadata/metadata-storage.js';
+import type { OpenApiSpec, OpenApiOptions } from "../types/openapi.js";
+import type { RouteMetadata, ParameterMetadata } from "../types/metadata.js";
+import { metadataStorage } from "../metadata/metadata-storage.js";
+import { dtoToOpenApiSchema, getTableDefFromEntity } from "metal-orm";
+import { SchemaModifier } from "../metal-orm-integration/schema-modifier.js";
 
 export class OpenApiGenerator {
   generateDocument(options: OpenApiOptions): OpenApiSpec {
@@ -12,7 +14,7 @@ export class OpenApiGenerator {
       const routes = metadataStorage.getRoutes(controller);
 
       routes.forEach((route) => {
-        const fullPath = `${controllerMeta?.path || ''}${route.path}`;
+        const fullPath = `${controllerMeta?.path || ""}${route.path}`;
         const normalizedPath = this.normalizePath(fullPath);
 
         if (!paths[normalizedPath]) {
@@ -25,7 +27,7 @@ export class OpenApiGenerator {
     });
 
     const spec: OpenApiSpec = {
-      openapi: '3.1.0',
+      openapi: "3.1.0",
       info: {
         title: options.info.title,
         version: options.info.version,
@@ -41,7 +43,7 @@ export class OpenApiGenerator {
   }
 
   private normalizePath(path: string): string {
-    return path.replace(/:([^/]+)/g, '{$1}');
+    return path.replace(/:([^/]+)/g, "{$1}");
   }
 
   private generateOperation(route: RouteMetadata): any {
@@ -65,34 +67,30 @@ export class OpenApiGenerator {
     const sortedParams = [...parameters].sort((a, b) => a.index - b.index);
 
     sortedParams.forEach((param) => {
-      // Body is handled via requestBody in OpenAPI
-      if (param.type === 'body') return;
+      if (param.type === "body") return;
 
-      if (param.type === 'params' || param.type === 'query') {
-        const location = param.type === 'params' ? 'path' : 'query';
+      if (param.type === "params" || param.type === "query") {
+        const location = param.type === "params" ? "path" : "query";
 
-        // If it's a schema-based object, we should ideally expand it
-        // For now, let's handle the common case of simple naming
-        if (param.schema && typeof param.schema.shape === 'object') {
+        if (param.schema && typeof param.schema.shape === "object") {
           const shape = param.schema.shape;
-          Object.keys(shape).forEach(key => {
+          Object.keys(shape).forEach((key) => {
             oaiParameters.push({
               name: key,
               in: location,
-              required: true, // Path params are always required
-              schema: { type: 'string' } // Simplified
+              required: true,
+              schema: { type: "string" },
             });
           });
         } else {
           oaiParameters.push({
-            name: param.name === 'params' ? 'id' : param.name, // Heuristic for now
+            name: param.name === "params" ? "id" : param.name,
             in: location,
             required: param.required ?? true,
-            schema: { type: 'string' },
+            schema: { type: "string" },
           });
         }
-      } else if (param.type === 'combined') {
-        // Combined is more complex, skip for now or expand if possible
+      } else if (param.type === "combined") {
       }
     });
 
@@ -102,20 +100,57 @@ export class OpenApiGenerator {
   private generateResponses(route: RouteMetadata): any {
     const responses: any = {};
 
-    if (route.response) {
-      responses[route.response.status] = {
-        description: route.response.description || 'Success',
-        content: route.response.schema
-          ? {
-            'application/json': {
-              schema: route.response.schema,
-            },
+    if (route.response || route.entity || route.schema || route.isArray) {
+      const statusCode = route.response?.status || 200;
+
+      if (route.response) {
+        responses[statusCode] = {
+          description: route.response.description || "Success",
+          content: route.response.schema
+            ? {
+                "application/json": {
+                  schema: route.response.schema,
+                },
+              }
+            : undefined,
+        };
+      } else {
+        let responseSchema: any;
+
+        if (route.entity) {
+          const tableDef = getTableDefFromEntity(route.entity);
+          if (tableDef) {
+            responseSchema = dtoToOpenApiSchema(tableDef);
           }
-          : undefined,
-      };
+        } else if (route.schema) {
+          if (route.schema instanceof SchemaModifier) {
+            responseSchema = route.schema.toOpenApi();
+          } else {
+            responseSchema = route.schema;
+          }
+        }
+
+        if (route.isArray && responseSchema) {
+          responseSchema = {
+            type: "array",
+            items: responseSchema,
+          };
+        }
+
+        responses[statusCode] = {
+          description: "Success",
+          content: responseSchema
+            ? {
+                "application/json": {
+                  schema: responseSchema,
+                },
+              }
+            : undefined,
+        };
+      }
     } else {
       responses[200] = {
-        description: 'Success',
+        description: "Success",
       };
     }
 

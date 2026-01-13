@@ -16,11 +16,16 @@ export interface RouteMetadata {
   parameters: ParameterMetadata[];
   response?: ResponseMetadata;
   schemas?: SchemaConfig;
+  entity?: any;
+  schema?: any;
+  isArray?: boolean;
+  includeRelations?: string[];
+  relationsDepth?: number;
 }
 
 export interface ParameterMetadata {
   name: string;
-  type: 'query' | 'body' | 'params' | 'combined';
+  type: "query" | "body" | "params" | "combined";
   index: number;
   schema?: any;
   required?: boolean;
@@ -33,7 +38,7 @@ export interface ResponseMetadata {
   isArray?: boolean;
 }
 
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export interface SchemaConfig {
   params?: any;
@@ -41,11 +46,7 @@ export interface SchemaConfig {
   query?: any;
 }
 
-export interface ValidatedInput<
-  P = unknown,
-  B = unknown,
-  Q = unknown
-> {
+export interface ValidatedInput<P = unknown, B = unknown, Q = unknown> {
   params: P;
   body: B;
   query: Q;

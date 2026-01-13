@@ -16,7 +16,8 @@
     "lint": "eslint src --ext .ts",
     "format": "prettier --write src tests",
     "example:basic": "cd examples/basic && npm run dev",
-    "example:metal": "cd examples/metal-orm && npm run dev"
+    "example:metal": "cd examples/metal-orm && npm run dev",
+    "example:metal:install": "cd examples/metal-orm && npm install"
   },
   "keywords": [
     "typescript",
