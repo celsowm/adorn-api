@@ -9,7 +9,7 @@ export class MetadataStorage {
   private parameterIndex = new Map<string, number>();
   private currentClassBeingDecorated: Function | null = null;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): MetadataStorage {
     if (!MetadataStorage.instance) {
@@ -63,13 +63,41 @@ export class MetadataStorage {
     return current;
   }
 
+  private pendingMiddlewares = new WeakMap<Function, Function[]>();
+  private pendingGuards = new WeakMap<Function, Function[]>();
+
+  addPendingMiddleware(method: Function, middleware: Function): void {
+    if (!this.pendingMiddlewares.has(method)) {
+      this.pendingMiddlewares.set(method, []);
+    }
+    this.pendingMiddlewares.get(method)!.push(middleware);
+  }
+
+  getPendingMiddlewares(method: Function): Function[] {
+    return this.pendingMiddlewares.get(method) || [];
+  }
+
+  addPendingGuard(method: Function, guard: Function): void {
+    if (!this.pendingGuards.has(method)) {
+      this.pendingGuards.set(method, []);
+    }
+    this.pendingGuards.get(method)!.push(guard);
+  }
+
+  getPendingGuards(method: Function): Function[] {
+    return this.pendingGuards.get(method) || [];
+  }
+
   reset(): void {
     this.controllers = new WeakMap();
+    this.pendingMiddlewares = new WeakMap();
+    this.pendingGuards = new WeakMap();
     this.controllerList = [];
     this.routes.clear();
     this.parameterIndex.clear();
     this.currentClassBeingDecorated = null;
   }
+
 
   clear(): void {
     this.reset();

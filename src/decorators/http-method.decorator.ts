@@ -8,6 +8,13 @@ const pendingRoutes = new Map<Function, RouteMetadata>();
 export function attachPendingRoutesToController(controllerClass: Function): void {
   pendingRoutes.forEach((route, method) => {
     pendingRoutes.delete(method);
+
+    const pendingMiddlewares = metadataStorage.getPendingMiddlewares(method);
+    route.middlewares.push(...pendingMiddlewares);
+
+    const pendingGuards = metadataStorage.getPendingGuards(method);
+    route.guards.push(...pendingGuards);
+
     metadataStorage.addRoute(controllerClass, route);
   });
 }

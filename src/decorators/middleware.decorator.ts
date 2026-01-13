@@ -12,15 +12,10 @@ export function Use(...middlewares: MiddlewareFunction[]) {
         controllerMeta.middlewares.push(...middlewares);
       }
     } else if (context.kind === 'method') {
-      const methodName = String(context.name);
-      const controllerClass = context.constructor;
-      const routes = metadataStorage.getRoutes(controllerClass);
-
-      const route = routes.find((r) => r.handlerName === methodName);
-
-      if (route) {
-        route.middlewares.push(...middlewares);
-      }
+      const methodFunction = target as Function;
+      middlewares.forEach((mw) => {
+        metadataStorage.addPendingMiddleware(methodFunction, mw);
+      });
     }
 
     return target as Function;
@@ -38,15 +33,10 @@ export function Guard(...guards: Function[]) {
         controllerMeta.guards.push(...guards);
       }
     } else if (context.kind === 'method') {
-      const methodName = String(context.name);
-      const controllerClass = context.constructor;
-      const routes = metadataStorage.getRoutes(controllerClass);
-
-      const route = routes.find((r) => r.handlerName === methodName);
-
-      if (route) {
-        route.guards.push(...guards);
-      }
+      const methodFunction = target as Function;
+      guards.forEach((g) => {
+        metadataStorage.addPendingGuard(methodFunction, g);
+      });
     }
 
     return target as Function;
