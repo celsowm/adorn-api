@@ -5,7 +5,7 @@ export function Use(...middlewares: MiddlewareFunction[]) {
   return function (
     target: Function | Function,
     context: ClassDecoratorContext | ClassMethodDecoratorContext
-  ): Function | void {
+  ): void {
     if (context.kind === 'class') {
       const controllerMeta = metadataStorage.getController(target as Function);
       if (controllerMeta) {
@@ -18,7 +18,7 @@ export function Use(...middlewares: MiddlewareFunction[]) {
       });
     }
 
-    return target as Function;
+
   };
 }
 
@@ -26,7 +26,7 @@ export function Guard(...guards: Function[]) {
   return function (
     target: Function | Function,
     context: ClassDecoratorContext | ClassMethodDecoratorContext
-  ): Function | void {
+  ): void {
     if (context.kind === 'class') {
       const controllerMeta = metadataStorage.getController(target as Function);
       if (controllerMeta) {
@@ -39,6 +39,6 @@ export function Guard(...guards: Function[]) {
       });
     }
 
-    return target as Function;
+
   };
 }

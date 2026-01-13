@@ -9,7 +9,7 @@ export function ValidateBody(schema: ValidationSchema) {
   return function (
     originalMethod: Function,
     context: ClassMethodDecoratorContext & { kind: 'method' }
-  ): Function | void {
+  ): void {
     if (context.kind === 'method') {
       metadataStorage.addPendingMiddleware(
         originalMethod,
@@ -25,7 +25,7 @@ export function ValidateBody(schema: ValidationSchema) {
         }
       );
 
-      return originalMethod;
+
     }
   };
 }
@@ -34,7 +34,7 @@ export function ValidateParams(schema: ValidationSchema) {
   return function (
     originalMethod: Function,
     context: ClassMethodDecoratorContext & { kind: 'method' }
-  ): Function | void {
+  ): void {
     if (context.kind === 'method') {
       metadataStorage.addPendingMiddleware(
         originalMethod,
@@ -50,7 +50,7 @@ export function ValidateParams(schema: ValidationSchema) {
         }
       );
 
-      return originalMethod;
+
     }
   };
 }

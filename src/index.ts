@@ -9,3 +9,4 @@ export { ExpressAdapter } from './core/express-adapter.js';
 export { OpenApiGenerator } from './openapi/openapi-generator.js';
 
 export * from './metal-orm-integration/index.js';
+export * from './validation/zod-adapter.js';
