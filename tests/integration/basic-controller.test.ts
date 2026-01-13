@@ -19,7 +19,7 @@ describe('Integration: Basic Controller', () => {
     @Controller('/test')
     class TestController {
       @Get('/hello')
-      hello(ctx: HttpContext) {
+      hello() {
         return { message: 'Hello World' };
       }
     }
