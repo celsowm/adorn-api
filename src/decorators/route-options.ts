@@ -1,3 +1,4 @@
+import type { z } from 'zod';
 import type { RouteMetadata } from '../types/metadata.js';
 
 export interface RouteOptions {
@@ -6,26 +7,36 @@ export interface RouteOptions {
   tags?: string[];
   middlewares?: Function[];
   guards?: Function[];
-  params?: Array<{ name: string; type: 'param' | 'query' | 'body' | 'header' }>;
+
+  // Zod schema support
+  params?: z.ZodType<any>;
+  body?: z.ZodType<any>;
+  query?: z.ZodType<any>;
 }
 
-export function enhanceRouteMetadata(route: RouteMetadata, options?: RouteOptions): RouteMetadata {
+export function enhanceRouteMetadata(
+  route: RouteMetadata,
+  options?: RouteOptions
+): RouteMetadata {
   if (!options) return route;
 
-  return {
+  const enhanced: RouteMetadata = {
     ...route,
-    summary: options.summary || route.summary,
-    description: options.description || route.description,
-    tags: options.tags || route.tags,
-    middlewares: options.middlewares || route.middlewares,
-    guards: options.guards || route.guards,
-    parameters: options.params
-      ? options.params.map((p, index) => ({
-          name: p.name,
-          type: p.type,
-          index,
-          required: p.type === 'param',
-        }))
-      : route.parameters,
+    summary: options.summary ?? route.summary,
+    description: options.description ?? route.description,
+    tags: options.tags ?? route.tags,
+    middlewares: [...route.middlewares, ...(options.middlewares ?? [])],
+    guards: [...route.guards, ...(options.guards ?? [])],
   };
+
+  // Store schemas for later processing
+  if (options.params || options.body || options.query) {
+    enhanced.schemas = {
+      params: options.params,
+      body: options.body,
+      query: options.query,
+    };
+  }
+
+  return enhanced;
 }

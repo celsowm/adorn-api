@@ -1,32 +1,80 @@
 import { z } from 'zod';
-import { ValidationSchema } from '../decorators/validation.decorator.js';
+import type { Request, Response, NextFunction } from 'express';
 
 /**
- * Adapter to use Zod schemas with Adorn-API validation decorators.
+ * Format Zod errors into readable strings
  */
-export class ZodSchemaAdapter implements ValidationSchema {
-    constructor(private schema: z.ZodType<any>) { }
+export function formatZodErrors(error: z.ZodError): string[] {
+    return error.errors.map((err) => {
+        const path = err.path.join('.');
+        return path ? `${path}: ${err.message}` : err.message;
+    });
+}
 
-    async validate(value: any): Promise<boolean> {
-        const result = await this.schema.safeParseAsync(value);
-        return result.success;
-    }
+/**
+ * Create an Express middleware that validates a specific request property using Zod
+ */
+export function createZodValidationMiddleware(
+    source: 'params' | 'body' | 'query',
+    schema: z.ZodType<any>
+) {
+    return async (req: Request, res: Response, next: NextFunction) => {
+        const data = getRequestData(req, source);
+        const result = await schema.safeParseAsync(data);
 
-    async getErrors(value: any): Promise<string[]> {
-        const result = await this.schema.safeParseAsync(value);
-        if (result.success) return [];
-        return result.error.errors.map((err) => {
-            const path = err.path.join('.');
-            return path ? `${path}: ${err.message}` : err.message;
-        });
+        if (!result.success) {
+            res.status(400).json({
+                error: 'Validation failed',
+                source,
+                errors: formatZodErrors(result.error),
+            });
+            return;
+        }
+
+        // Replace with validated/transformed data
+        setRequestData(req, source, result.data);
+        return next();
+    };
+}
+
+/**
+ * Get data from request based on source
+ */
+function getRequestData(req: Request, source: 'params' | 'body' | 'query'): any {
+    switch (source) {
+        case 'params':
+            return req.params;
+        case 'body':
+            return req.body;
+        case 'query':
+            return req.query;
+        default:
+            return undefined;
     }
 }
 
 /**
- * Creates a ValidationSchema from a Zod schema.
- * @param schema The Zod schema to use for validation
- * @returns A ValidationSchema compatible with Adorn-API decorators
+ * Set validated data back to request
  */
-export function zValidator(schema: z.ZodType<any>): ValidationSchema {
-    return new ZodSchemaAdapter(schema);
+function setRequestData(
+    req: Request,
+    source: 'params' | 'body' | 'query',
+    data: any
+): void {
+    switch (source) {
+        case 'params':
+            req.params = data;
+            break;
+        case 'body':
+            req.body = data;
+            break;
+        case 'query':
+            (req as any).query = data;
+            break;
+    }
 }
+
+/**
+ * Type helper for inferring schema types
+ */
+export type InferSchema<T> = T extends z.ZodType<infer U> ? U : never;

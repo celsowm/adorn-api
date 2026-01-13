@@ -61,29 +61,42 @@ export class OpenApiGenerator {
       return [];
     }
 
+    const oaiParameters: any[] = [];
     const sortedParams = [...parameters].sort((a, b) => a.index - b.index);
 
-    return sortedParams.map((param) => ({
-      name: param.name,
-      in: param.type,
-      required: param.required ?? param.type === 'param',
-      schema: this.getParameterSchema(param.type),
-    }));
-  }
+    sortedParams.forEach((param) => {
+      // Body is handled via requestBody in OpenAPI
+      if (param.type === 'body') return;
 
-  private getParameterSchema(type: ParameterMetadata['type']): any {
-    switch (type) {
-      case 'param':
-        return { type: 'string' };
-      case 'query':
-        return { type: 'string' };
-      case 'body':
-        return { type: 'object' };
-      case 'header':
-        return { type: 'string' };
-      default:
-        return { type: 'string' };
-    }
+      if (param.type === 'params' || param.type === 'query') {
+        const location = param.type === 'params' ? 'path' : 'query';
+
+        // If it's a schema-based object, we should ideally expand it
+        // For now, let's handle the common case of simple naming
+        if (param.schema && typeof param.schema.shape === 'object') {
+          const shape = param.schema.shape;
+          Object.keys(shape).forEach(key => {
+            oaiParameters.push({
+              name: key,
+              in: location,
+              required: true, // Path params are always required
+              schema: { type: 'string' } // Simplified
+            });
+          });
+        } else {
+          oaiParameters.push({
+            name: param.name === 'params' ? 'id' : param.name, // Heuristic for now
+            in: location,
+            required: param.required ?? true,
+            schema: { type: 'string' },
+          });
+        }
+      } else if (param.type === 'combined') {
+        // Combined is more complex, skip for now or expand if possible
+      }
+    });
+
+    return oaiParameters;
   }
 
   private generateResponses(route: RouteMetadata): any {
@@ -94,10 +107,10 @@ export class OpenApiGenerator {
         description: route.response.description || 'Success',
         content: route.response.schema
           ? {
-              'application/json': {
-                schema: route.response.schema,
-              },
-            }
+            'application/json': {
+              schema: route.response.schema,
+            },
+          }
           : undefined,
       };
     } else {

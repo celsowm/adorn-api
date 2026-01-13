@@ -1,12 +1,27 @@
+// Decorators
 export * from './decorators/index.js';
-export * from './metadata/metadata-storage.js';
+
+// Core
+export { ExpressAdapter } from './core/express-adapter.js';
+
+// Metadata
+export { metadataStorage } from './metadata/metadata-storage.js';
+
+// Types
 export * from './types/controller.js';
 export * from './types/metadata.js';
 export * from './types/openapi.js';
 export * from './types/common.js';
 
-export { ExpressAdapter } from './core/express-adapter.js';
+// OpenAPI
 export { OpenApiGenerator } from './openapi/openapi-generator.js';
 
+// Integrations
 export * from './metal-orm-integration/index.js';
-export * from './validation/zod-adapter.js';
+
+// Validation
+export {
+    createZodValidationMiddleware,
+    formatZodErrors,
+    type InferSchema,
+} from './validation/zod-adapter.js';

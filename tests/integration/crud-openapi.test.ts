@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
+import { z } from 'zod';
 import {
     Controller,
     Get,
@@ -9,6 +10,9 @@ import {
     Delete,
     ExpressAdapter,
     OpenApiGenerator,
+    Params,
+    Body,
+    Schema,
     type HttpContext
 } from '../../src/index.js';
 
@@ -29,6 +33,9 @@ describe('Integration: CRUD & OpenAPI', () => {
         app = null as any;
     });
 
+    const IdSchema = z.object({ id: z.string() });
+    const TaskBodySchema = z.object({ title: z.string() });
+
     @Controller('/tasks')
     class TaskController {
         @Get()
@@ -36,22 +43,26 @@ describe('Integration: CRUD & OpenAPI', () => {
             return tasks;
         }
 
-        @Get('/:id', { params: [{ name: 'id', type: 'param' }] })
-        getById(id: string) {
-            const task = tasks.find(t => t.id === id);
+        @Get('/:id')
+        @Params(IdSchema)
+        getById(params: z.infer<typeof IdSchema>) {
+            const task = tasks.find(t => t.id === params.id);
             return task || { error: 'Not found' };
         }
 
-        @Post('', { params: [{ name: 'body', type: 'body' }] })
-        create(body: any) {
+        @Post()
+        @Body(TaskBodySchema)
+        create(body: z.infer<typeof TaskBodySchema>) {
             const task = { id: String(tasks.length + 1), ...body };
             tasks.push(task);
             return task;
         }
 
-        @Put('/:id', { params: [{ name: 'id', type: 'param' }, { name: 'body', type: 'body' }] })
-        update(id: string, body: any) {
-            const index = tasks.findIndex(t => t.id === id);
+        @Put('/:id')
+        @Schema({ params: IdSchema, body: TaskBodySchema })
+        update(input: { params: z.infer<typeof IdSchema>, body: z.infer<typeof TaskBodySchema> }) {
+            const { params, body } = input;
+            const index = tasks.findIndex(t => t.id === params.id);
             if (index > -1) {
                 tasks[index] = { ...tasks[index], ...body };
                 return tasks[index];
@@ -59,9 +70,10 @@ describe('Integration: CRUD & OpenAPI', () => {
             return { error: 'Not found' };
         }
 
-        @Delete('/:id', { params: [{ name: 'id', type: 'param' }] })
-        delete(id: string) {
-            const index = tasks.findIndex(t => t.id === id);
+        @Delete('/:id')
+        @Params(IdSchema)
+        delete(params: z.infer<typeof IdSchema>) {
+            const index = tasks.findIndex(t => t.id === params.id);
             if (index > -1) {
                 tasks.splice(index, 1);
                 return { success: true };
@@ -138,6 +150,6 @@ describe('Integration: CRUD & OpenAPI', () => {
         expect(getByIdParams).toBeDefined();
         const firstParam = getByIdParams![0] as any;
         expect(firstParam.name).toBe('id');
-        expect(firstParam.in).toBe('param');
+        expect(firstParam.in).toBe('path');
     });
 });
