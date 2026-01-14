@@ -11,7 +11,7 @@ export class User {
   @Column(col.varchar(255))
   email!: string;
 
-  @Column(col.varchar(50))
+  @Column(col.default(col.varchar(50), "user"))
   role!: string;
 
   @Column(col.timestamp())
@@ -29,7 +29,7 @@ export class Post {
   @Column(col.text())
   content!: string;
 
-  @Column(col.boolean())
+  @Column(col.default(col.boolean(), false))
   published!: boolean;
 
   @Column(col.int())

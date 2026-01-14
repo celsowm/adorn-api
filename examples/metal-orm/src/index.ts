@@ -59,6 +59,7 @@ const sqliteClient = {
 };
 
 const executor = createSqliteExecutor(sqliteClient);
+let session: any;
 
 async function initializeDatabase() {
   await new Promise<void>((resolve, reject) => {
@@ -68,8 +69,8 @@ async function initializeDatabase() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL UNIQUE,
-        role VARCHAR(50) DEFAULT 'user',
-        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        role VARCHAR(50) NOT NULL DEFAULT 'user',
+        createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `,
       (err) => {
@@ -86,9 +87,9 @@ async function initializeDatabase() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title VARCHAR(255) NOT NULL,
         content TEXT NOT NULL,
-        published BOOLEAN DEFAULT 0,
+        published BOOLEAN NOT NULL DEFAULT 0,
         authorId INTEGER NOT NULL,
-        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (authorId) REFERENCES users(id)
       )
     `,
@@ -113,6 +114,7 @@ async function initializeDatabase() {
   });
 
   bootstrapEntities();
+  session = orm.createSession();
 }
 
 const CreateUserSchema = z.object({
@@ -172,39 +174,28 @@ class UserController {
     schema: userResponseSchema,
   })
   async getAll() {
-    const session = orm.createSession();
-    try {
-      const users = await selectFromEntity(User)
-        .select("id", "name", "email", "role", "createdAt")
-        .execute(session);
-      return users;
-    } finally {
-      await session.dispose();
-    }
+    const users = await selectFromEntity(User)
+      .select("id", "name", "email", "role", "createdAt")
+      .execute(session);
+    return users;
   }
 
   @Get("/:id")
   @Params(IdParamsSchema)
   async getById(params: z.infer<typeof IdParamsSchema>) {
-    const session = orm.createSession();
-    try {
-      const users = await selectFromEntity(User)
-        .select("id", "name", "email", "role", "createdAt")
-        .where(eq(entityRef(User).id, params.id))
-        .execute(session);
-      if (!users || users.length === 0) {
-        throw new HttpError(404, { error: "User not found" });
-      }
-      return users[0];
-    } finally {
-      await session.dispose();
+    const users = await selectFromEntity(User)
+      .select("id", "name", "email", "role", "createdAt")
+      .where(eq(entityRef(User).id, params.id))
+      .execute(session);
+    if (!users || users.length === 0) {
+      throw new HttpError(404, { error: "User not found" });
     }
+    return users[0];
   }
 
   @Create()
   @Body(CreateUserSchema)
   async create(body: z.infer<typeof CreateUserSchema>) {
-    const session = orm.createSession();
     try {
       const user = new User();
       user.name = body.name;
@@ -225,8 +216,6 @@ class UserController {
         throw new HttpError(409, { error: "Email already exists" });
       }
       throw e;
-    } finally {
-      await session.dispose();
     }
   }
 
@@ -237,46 +226,36 @@ class UserController {
     params: z.infer<typeof IdParamsSchema>,
     body: z.infer<typeof UpdateUserSchema>,
   ) {
-    const session = orm.createSession();
-    try {
-      const users = await selectFromEntity(User)
-        .select("id", "name", "email", "role", "createdAt")
-        .where(eq(entityRef(User).id, params.id))
-        .execute(session);
-      if (!users || users.length === 0) {
-        throw new HttpError(404, { error: "User not found" });
-      }
-      const user = users[0];
-      if (body.name !== undefined) user.name = body.name;
-      if (body.email !== undefined) user.email = body.email;
-      if (body.role !== undefined) user.role = body.role;
-      await session.commit();
-      return user;
-    } finally {
-      await session.dispose();
+    const users = await selectFromEntity(User)
+      .select("id", "name", "email", "role", "createdAt")
+      .where(eq(entityRef(User).id, params.id))
+      .execute(session);
+    if (!users || users.length === 0) {
+      throw new HttpError(404, { error: "User not found" });
     }
+    const user = users[0];
+    if (body.name !== undefined) user.name = body.name;
+    if (body.email !== undefined) user.email = body.email;
+    if (body.role !== undefined) user.role = body.role;
+    await session.commit();
+    return user;
   }
 
   @Delete("/:id")
   @Params(IdParamsSchema)
   async delete(params: z.infer<typeof IdParamsSchema>) {
-    const session = orm.createSession();
-    try {
-      const users = await selectFromEntity(User)
-        .select("id")
-        .where(eq(entityRef(User).id, params.id))
-        .execute(session);
-      if (!users || users.length === 0) {
-        throw new HttpError(404, { error: "User not found" });
-      }
-      await deleteFrom(User)
-        .where(eq(entityRef(User).id, params.id))
-        .execute(session);
-      await session.commit();
-      return { success: true };
-    } finally {
-      await session.dispose();
+    const users = await selectFromEntity(User)
+      .select("id")
+      .where(eq(entityRef(User).id, params.id))
+      .execute(session);
+    if (!users || users.length === 0) {
+      throw new HttpError(404, { error: "User not found" });
     }
+    await deleteFrom(User)
+      .where(eq(entityRef(User).id, params.id))
+      .execute(session);
+    await session.commit();
+    return { success: true };
   }
 }
 
@@ -287,15 +266,10 @@ class PostController {
     schema: postResponseSchema,
   })
   async getAll() {
-    const session = orm.createSession();
-    try {
-      const posts = await selectFromEntity(PostModel)
-        .select("id", "title", "content", "published", "authorId", "createdAt")
-        .execute(session);
-      return posts;
-    } finally {
-      await session.dispose();
-    }
+    const posts = await selectFromEntity(PostModel)
+      .select("id", "title", "content", "published", "authorId", "createdAt")
+      .execute(session);
+    return posts;
   }
 
   @List("/published", {
@@ -303,61 +277,46 @@ class PostController {
     schema: postResponseSchema,
   })
   async getPublished() {
-    const session = orm.createSession();
-    try {
-      const postTable = entityRef(PostModel);
-      const posts = await selectFromEntity(PostModel)
-        .select("id", "title", "content", "published", "authorId", "createdAt")
-        .where(eq(getColumn(postTable, "published"), 1))
-        .execute(session);
-      return posts;
-    } finally {
-      await session.dispose();
-    }
+    const postTable = entityRef(PostModel);
+    const posts = await selectFromEntity(PostModel)
+      .select("id", "title", "content", "published", "authorId", "createdAt")
+      .where(eq(getColumn(postTable, "published"), 1))
+      .execute(session);
+    return posts;
   }
 
   @Get("/:id")
   @Params(IdParamsSchema)
   async getById(params: z.infer<typeof IdParamsSchema>) {
-    const session = orm.createSession();
-    try {
-      const posts = await selectFromEntity(PostModel)
-        .select("id", "title", "content", "published", "authorId", "createdAt")
-        .where(eq(entityRef(PostModel).id, params.id))
-        .execute(session);
-      if (!posts || posts.length === 0) {
-        throw new HttpError(404, { error: "Post not found" });
-      }
-      return posts[0];
-    } finally {
-      await session.dispose();
+    const posts = await selectFromEntity(PostModel)
+      .select("id", "title", "content", "published", "authorId", "createdAt")
+      .where(eq(entityRef(PostModel).id, params.id))
+      .execute(session);
+    if (!posts || posts.length === 0) {
+      throw new HttpError(404, { error: "Post not found" });
     }
+    return posts[0];
   }
 
   @Create()
   @Body(CreatePostSchema)
   async create(body: z.infer<typeof CreatePostSchema>) {
-    const session = orm.createSession();
-    try {
-      const post = new PostModel();
-      post.title = body.title;
-      post.content = body.content;
-      post.published = body.published ?? false;
-      post.authorId = body.authorId;
-      post.createdAt = new Date();
-      await session.persist(post);
-      await session.commit();
-      return {
-        id: post.id,
-        title: post.title,
-        content: post.content,
-        published: post.published,
-        authorId: post.authorId,
-        createdAt: post.createdAt,
-      };
-    } finally {
-      await session.dispose();
-    }
+    const post = new PostModel();
+    post.title = body.title;
+    post.content = body.content;
+    post.published = body.published ?? false;
+    post.authorId = body.authorId;
+    post.createdAt = new Date();
+    await session.persist(post);
+    await session.commit();
+    return {
+      id: post.id,
+      title: post.title,
+      content: post.content,
+      published: post.published,
+      authorId: post.authorId,
+      createdAt: post.createdAt,
+    };
   }
 }
 
@@ -386,7 +345,7 @@ async function main() {
   setupSwaggerUi(app, openapi);
 
   const PORT = 3000;
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log(`📚 Swagger UI: http://localhost:${PORT}/swagger`);
     console.log(`   OpenAPI JSON: http://localhost:${PORT}/swagger.json`);
@@ -401,6 +360,24 @@ async function main() {
     console.log(`  GET    /posts/published    - List published posts`);
     console.log(`  GET    /posts/:id          - Get post by ID`);
     console.log(`  POST   /posts              - Create post`);
+  });
+
+  process.on("SIGINT", async () => {
+    console.log("\nShutting down...");
+    await session?.dispose();
+    server.close(() => {
+      db.close();
+      console.log("Server closed");
+    });
+  });
+
+  process.on("SIGTERM", async () => {
+    console.log("\nShutting down...");
+    await session?.dispose();
+    server.close(() => {
+      db.close();
+      console.log("Server closed");
+    });
   });
 }
 
