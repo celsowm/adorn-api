@@ -11,13 +11,14 @@ import {
   List,
   Create,
   Update,
+  HttpError,
 } from "adorn-api";
 
 @Controller("/users")
 class UserController {
   private users: any[] = [
-    { id: "1", name: "John Doe", email: "john@example.com", role: "admin" },
-    { id: "2", name: "Jane Smith", email: "jane@example.com", role: "user" },
+    { id: 1, name: "John Doe", email: "john@example.com", role: "admin" },
+    { id: 2, name: "Jane Smith", email: "jane@example.com", role: "user" },
   ];
 
   @List()
@@ -27,8 +28,12 @@ class UserController {
 
   @Get("/:id")
   async getById(params: { id: string }): Promise<any> {
-    const user = this.users.find((u) => u.id === params.id);
-    return user || { error: "User not found" };
+    const id = parseInt(params.id, 10);
+    const user = this.users.find((u) => u.id === id);
+    if (!user) {
+      throw new HttpError(404, { error: "User not found" });
+    }
+    return user;
   }
 
   @Create()
@@ -38,7 +43,7 @@ class UserController {
     role: string;
   }): Promise<any> {
     const newUser = {
-      id: String(this.users.length + 1),
+      id: this.users.length + 1,
       ...body,
     };
     this.users.push(newUser);
@@ -50,9 +55,10 @@ class UserController {
     params: { id: string },
     body: Partial<{ name: string; email: string; role: string }>,
   ): Promise<any> {
-    const index = this.users.findIndex((u) => u.id === params.id);
+    const id = parseInt(params.id, 10);
+    const index = this.users.findIndex((u) => u.id === id);
     if (index === -1) {
-      return { error: "User not found" };
+      throw new HttpError(404, { error: "User not found" });
     }
     this.users[index] = { ...this.users[index], ...body };
     return this.users[index];
@@ -60,7 +66,8 @@ class UserController {
 
   @Delete("/:id")
   async delete(params: { id: string }): Promise<{ success: boolean }> {
-    const index = this.users.findIndex((u) => u.id === params.id);
+    const id = parseInt(params.id, 10);
+    const index = this.users.findIndex((u) => u.id === id);
     if (index !== -1) {
       this.users.splice(index, 1);
     }
@@ -71,8 +78,8 @@ class UserController {
 @Controller("/products")
 class ProductController {
   private products: any[] = [
-    { id: "1", name: "Laptop", price: 999.99 },
-    { id: "2", name: "Phone", price: 599.99 },
+    { id: 1, name: "Laptop", price: 999.99 },
+    { id: 2, name: "Phone", price: 599.99 },
   ];
 
   @List()
@@ -83,7 +90,7 @@ class ProductController {
   @Create()
   async create(body: { name: string; price: number }): Promise<any> {
     const newProduct = {
-      id: String(Date.now()),
+      id: this.products.length + 1,
       ...body,
     };
     this.products.push(newProduct);
@@ -98,6 +105,7 @@ async function main() {
   const adapter = new ExpressAdapter(app);
   adapter.registerController(UserController);
   adapter.registerController(ProductController);
+  adapter.registerErrorMiddleware();
 
   const generator = new OpenApiGenerator();
   const openapi = generator.generateDocument({

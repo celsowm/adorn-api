@@ -36,7 +36,11 @@ function convertZodType(schema: z.ZodType<any>): any {
 
     case "ZodNullable":
       const inner = convertZodType(def.innerType);
-      return { ...inner, nullable: true };
+      if (inner?.type) {
+        const types = Array.isArray(inner.type) ? inner.type : [inner.type];
+        return { ...inner, type: [...new Set([...types, "null"])] };
+      }
+      return { anyOf: [inner, { type: "null" }] };
 
     case "ZodDefault":
       const defaultSchema = convertZodType(def.innerType);
@@ -140,32 +144,36 @@ function convertZodNumber(def: any): any {
   }
 
   if (hasPositive) {
-    result.minimum = 1;
-    result.type = "integer";
-    delete result.exclusiveMinimum;
+    result.exclusiveMinimum = 0;
+    if (hasInt) {
+      result.type = "integer";
+    }
     return result;
   }
 
   if (hasNegative) {
-    result.maximum = -1;
-    result.type = "integer";
-    delete result.exclusiveMaximum;
+    result.exclusiveMaximum = 0;
+    if (hasInt) {
+      result.type = "integer";
+    }
     return result;
   }
 
   if (hasMin) {
     const minCheck = def.checks.find((c: any) => c.kind === "min");
-    result.minimum = minCheck.value;
     if (minCheck && !minCheck.inclusive) {
-      result.exclusiveMinimum = true;
+      result.exclusiveMinimum = minCheck.value;
+    } else {
+      result.minimum = minCheck.value;
     }
   }
 
   if (hasMax) {
     const maxCheck = def.checks.find((c: any) => c.kind === "max");
-    result.maximum = maxCheck.value;
     if (maxCheck && !maxCheck.inclusive) {
-      result.exclusiveMaximum = true;
+      result.exclusiveMaximum = maxCheck.value;
+    } else {
+      result.maximum = maxCheck.value;
     }
   }
 
@@ -198,7 +206,7 @@ function convertZodObject(schema: z.ZodObject<any>): any {
   return result;
 }
 
-function isOptional(schema: z.ZodType<any>): boolean {
+export function isOptional(schema: z.ZodType<any>): boolean {
   if (!schema || !schema._def) return false;
   const def = schema._def as any;
   const typeName = def.typeName as string;

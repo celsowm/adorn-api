@@ -14,7 +14,7 @@ import {
   List,
   Create,
   Update,
-  Response,
+  HttpError,
 } from "adorn-api";
 import {
   Orm,
@@ -128,43 +128,40 @@ const UpdateUserSchema = z.object({
 });
 
 const IdParamsSchema = z.object({
-  id: z.coerce.number().positive(),
+  id: z.coerce.number().int().min(1),
 });
 
 const CreatePostSchema = z.object({
   title: z.string().min(1),
   content: z.string().min(1),
   published: z.boolean().optional(),
-  authorId: z.number().positive(),
+  authorId: z.coerce.number().int().min(1),
 });
 
 const userResponseSchema = {
   type: "object",
+  additionalProperties: false,
+  required: ["id", "name", "email", "role", "createdAt"],
   properties: {
-    id: { type: "number", minimum: 1 },
+    id: { type: "integer", format: "int64", minimum: 1, readOnly: true },
     name: { type: "string", minLength: 1 },
     email: { type: "string", format: "email" },
-    role: { type: "string" },
-    createdAt: { type: "string", format: "date-time" },
-  },
-};
-
-const deleteResponseSchema = {
-  type: "object",
-  properties: {
-    success: { type: "boolean" },
+    role: { type: "string", default: "user" },
+    createdAt: { type: "string", format: "date-time", readOnly: true },
   },
 };
 
 const postResponseSchema = {
   type: "object",
+  additionalProperties: false,
+  required: ["id", "title", "content", "published", "authorId", "createdAt"],
   properties: {
-    id: { type: "number", minimum: 1 },
+    id: { type: "integer", format: "int64", minimum: 1, readOnly: true },
     title: { type: "string", minLength: 1 },
     content: { type: "string", minLength: 1 },
-    published: { type: "boolean" },
-    authorId: { type: "number", minimum: 1 },
-    createdAt: { type: "string", format: "date-time" },
+    published: { type: "boolean", default: false },
+    authorId: { type: "integer", format: "int64", minimum: 1 },
+    createdAt: { type: "string", format: "date-time", readOnly: true },
   },
 };
 
@@ -188,7 +185,6 @@ class UserController {
 
   @Get("/:id")
   @Params(IdParamsSchema)
-  @Response(200, "Success", userResponseSchema)
   async getById(params: z.infer<typeof IdParamsSchema>) {
     const session = orm.createSession();
     try {
@@ -197,7 +193,7 @@ class UserController {
         .where(eq(entityRef(User).id, params.id))
         .execute(session);
       if (!users || users.length === 0) {
-        return { error: "User not found", status: 404 };
+        throw new HttpError(404, { error: "User not found" });
       }
       return users[0];
     } finally {
@@ -206,7 +202,6 @@ class UserController {
   }
 
   @Create()
-  @Response(200, "Success", userResponseSchema)
   @Body(CreateUserSchema)
   async create(body: z.infer<typeof CreateUserSchema>) {
     const session = orm.createSession();
@@ -218,7 +213,18 @@ class UserController {
       user.createdAt = new Date();
       await session.persist(user);
       await session.commit();
-      return user;
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+      };
+    } catch (e: any) {
+      if (String(e?.message ?? "").includes("UNIQUE")) {
+        throw new HttpError(409, { error: "Email already exists" });
+      }
+      throw e;
     } finally {
       await session.dispose();
     }
@@ -226,7 +232,6 @@ class UserController {
 
   @Update("/:id")
   @Params(IdParamsSchema)
-  @Response(200, "Success", userResponseSchema)
   @Body(UpdateUserSchema)
   async update(
     params: z.infer<typeof IdParamsSchema>,
@@ -239,7 +244,7 @@ class UserController {
         .where(eq(entityRef(User).id, params.id))
         .execute(session);
       if (!users || users.length === 0) {
-        return { error: "User not found", status: 404 };
+        throw new HttpError(404, { error: "User not found" });
       }
       const user = users[0];
       if (body.name !== undefined) user.name = body.name;
@@ -254,7 +259,6 @@ class UserController {
 
   @Delete("/:id")
   @Params(IdParamsSchema)
-  @Response(200, "Success", deleteResponseSchema)
   async delete(params: z.infer<typeof IdParamsSchema>) {
     const session = orm.createSession();
     try {
@@ -263,11 +267,12 @@ class UserController {
         .where(eq(entityRef(User).id, params.id))
         .execute(session);
       if (!users || users.length === 0) {
-        return { error: "User not found", status: 404 };
+        throw new HttpError(404, { error: "User not found" });
       }
       await deleteFrom(User)
         .where(eq(entityRef(User).id, params.id))
         .execute(session);
+      await session.commit();
       return { success: true };
     } finally {
       await session.dispose();
@@ -313,7 +318,6 @@ class PostController {
 
   @Get("/:id")
   @Params(IdParamsSchema)
-  @Response(200, "Success", postResponseSchema)
   async getById(params: z.infer<typeof IdParamsSchema>) {
     const session = orm.createSession();
     try {
@@ -322,7 +326,7 @@ class PostController {
         .where(eq(entityRef(PostModel).id, params.id))
         .execute(session);
       if (!posts || posts.length === 0) {
-        return { error: "Post not found", status: 404 };
+        throw new HttpError(404, { error: "Post not found" });
       }
       return posts[0];
     } finally {
@@ -331,7 +335,6 @@ class PostController {
   }
 
   @Create()
-  @Response(200, "Success", postResponseSchema)
   @Body(CreatePostSchema)
   async create(body: z.infer<typeof CreatePostSchema>) {
     const session = orm.createSession();
@@ -344,7 +347,14 @@ class PostController {
       post.createdAt = new Date();
       await session.persist(post);
       await session.commit();
-      return post;
+      return {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        published: post.published,
+        authorId: post.authorId,
+        createdAt: post.createdAt,
+      };
     } finally {
       await session.dispose();
     }
@@ -360,6 +370,7 @@ async function main() {
   const adapter = new ExpressAdapter(app);
   adapter.registerController(UserController);
   adapter.registerController(PostController);
+  adapter.registerErrorMiddleware();
 
   const generator = new OpenApiGenerator();
   const openapi = generator.generateDocument({

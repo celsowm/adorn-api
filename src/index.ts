@@ -2,7 +2,11 @@
 export * from "./decorators/index.js";
 
 // Core
-export { ExpressAdapter } from "./core/express-adapter.js";
+export {
+  ExpressAdapter,
+  HttpError,
+  isHttpError,
+} from "./core/express-adapter.js";
 
 // Metadata
 export { metadataStorage } from "./metadata/metadata-storage.js";

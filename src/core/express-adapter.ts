@@ -5,14 +5,37 @@ import {
   type NextFunction,
   type RequestHandler,
   Router,
-} from 'express';
-import type { ControllerClass } from '../types/controller.js';
-import type { RouteMetadata, ParameterMetadata } from '../types/metadata.js';
-import { metadataStorage } from '../metadata/metadata-storage.js';
-import { HttpParams, type HttpContext } from '../decorators/http-params.js';
+} from "express";
+import type { ControllerClass } from "../types/controller.js";
+import type { RouteMetadata, ParameterMetadata } from "../types/metadata.js";
+import { metadataStorage } from "../metadata/metadata-storage.js";
+import { HttpParams, type HttpContext } from "../decorators/http-params.js";
+import { isHttpError, HttpError } from "./http-error.js";
+
+export { HttpError, isHttpError };
 
 export class ExpressAdapter {
-  constructor(private app: Application) { }
+  constructor(private app: Application) {}
+
+  /**
+   * Register error handling middleware
+   */
+  registerErrorMiddleware(): void {
+    this.app.use(
+      (err: any, _req: Request, res: Response, _next: NextFunction) => {
+        if (isHttpError(err)) {
+          res.status(err.status).json(err.payload);
+          return;
+        }
+
+        console.error("Unhandled error:", err);
+        const status = err.status || err.statusCode || 500;
+        res.status(status).json({
+          error: err.message ?? "Internal Server Error",
+        });
+      },
+    );
+  }
 
   /**
    * Register a single controller
@@ -24,7 +47,7 @@ export class ExpressAdapter {
     if (!controllerMetadata) {
       throw new Error(
         `No metadata found for controller ${controllerClass.name}. ` +
-        `Make sure it's decorated with @Controller()`
+          `Make sure it's decorated with @Controller()`,
       );
     }
 
@@ -34,28 +57,25 @@ export class ExpressAdapter {
     routes.forEach((route) => {
       const middlewares = this.buildMiddlewares(
         controllerMetadata.middlewares,
-        route.middlewares
+        route.middlewares,
       );
 
-      const guards = this.buildGuards(
-        controllerMetadata.guards,
-        route.guards
-      );
+      const guards = this.buildGuards(controllerMetadata.guards, route.guards);
 
       const routeHandler = this.createRouteHandler(controllerClass, route);
       const guardedHandler = this.applyGuards(guards, routeHandler);
 
       const method = route.method.toLowerCase() as
-        | 'get'
-        | 'post'
-        | 'put'
-        | 'patch'
-        | 'delete';
+        | "get"
+        | "post"
+        | "put"
+        | "patch"
+        | "delete";
 
       router[method](
         route.path,
         ...(middlewares as RequestHandler[]),
-        guardedHandler
+        guardedHandler,
       );
     });
 
@@ -71,27 +91,27 @@ export class ExpressAdapter {
 
   private buildMiddlewares(
     controllerMiddlewares: Function[],
-    routeMiddlewares: Function[]
+    routeMiddlewares: Function[],
   ): Function[] {
     return [...controllerMiddlewares, ...routeMiddlewares];
   }
 
   private buildGuards(
     controllerGuards: Function[],
-    routeGuards: Function[]
+    routeGuards: Function[],
   ): Function[] {
     return [...controllerGuards, ...routeGuards];
   }
 
   private applyGuards(
     guards: Function[],
-    handler: RequestHandler
+    handler: RequestHandler,
   ): RequestHandler {
     return async (req: Request, res: Response, next: NextFunction) => {
       for (const guard of guards) {
         const result = await guard(req, res, next);
         if (result === false) {
-          res.status(403).json({ error: 'Forbidden' });
+          res.status(403).json({ error: "Forbidden" });
           return;
         }
       }
@@ -101,7 +121,7 @@ export class ExpressAdapter {
 
   private createRouteHandler(
     controllerClass: ControllerClass,
-    route: RouteMetadata
+    route: RouteMetadata,
   ): RequestHandler {
     return async (req: Request, res: Response, next: NextFunction) => {
       try {
@@ -118,17 +138,27 @@ export class ExpressAdapter {
         const args = this.resolveParameters(route, req, httpParams, context);
         const result = await (controller as any)[route.handlerName](...args);
 
-        // Handle response status
-        if (route.response?.status) {
-          res.status(route.response.status);
+        // Handle response status from {status, ...body} convention
+        let statusCode = route.response?.status ?? 200;
+        let body = result;
+
+        if (
+          result &&
+          typeof result === "object" &&
+          "status" in result &&
+          typeof (result as any).status === "number"
+        ) {
+          statusCode = (result as any).status;
+          const { status, ...rest } = result as any;
+          body = rest;
         }
 
         // Don't send response if already sent (streaming, etc.)
         if (!res.headersSent) {
-          if (result === undefined || result === null) {
+          if (body === undefined || body === null) {
             res.status(204).end();
           } else {
-            res.json(result);
+            res.status(statusCode).json(body);
           }
         }
       } catch (error) {
@@ -141,14 +171,14 @@ export class ExpressAdapter {
     route: RouteMetadata,
     req: Request,
     httpParams: HttpParams,
-    context: HttpContext
+    context: HttpContext,
   ): any[] {
     const args: any[] = [];
 
     // If we have defined parameters, use them
     if (route.parameters && route.parameters.length > 0) {
       const sortedParams = [...route.parameters].sort(
-        (a, b) => a.index - b.index
+        (a, b) => a.index - b.index,
       );
 
       sortedParams.forEach((param) => {
@@ -166,19 +196,19 @@ export class ExpressAdapter {
     param: ParameterMetadata,
     req: Request,
     _httpParams: HttpParams,
-    _context: HttpContext
+    _context: HttpContext,
   ): any {
     switch (param.type) {
-      case 'params':
+      case "params":
         return req.params;
 
-      case 'query':
+      case "query":
         return (req as any).query;
 
-      case 'body':
+      case "body":
         return req.body;
 
-      case 'combined':
+      case "combined":
         return {
           params: req.params,
           body: req.body,

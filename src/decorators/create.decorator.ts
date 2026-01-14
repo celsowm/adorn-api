@@ -85,6 +85,10 @@ export function Create(
       parameters: [],
       entity: parsed.options?.entity,
       schema,
+      response: {
+        status: 201,
+        description: "Created",
+      },
     };
 
     pendingCreateRoutes.set(_originalMethod, route);

@@ -3,7 +3,7 @@ import type { RouteMetadata, ParameterMetadata } from "../types/metadata.js";
 import { metadataStorage } from "../metadata/metadata-storage.js";
 import { dtoToOpenApiSchema, getTableDefFromEntity } from "metal-orm";
 import { SchemaModifier } from "../metal-orm-integration/schema-modifier.js";
-import { zodToOpenApi } from "./zod-to-openapi.js";
+import { zodToOpenApi, isOptional } from "./zod-to-openapi.js";
 
 class SchemaRegistry {
   private schemas: Map<string, any> = new Map();
@@ -121,6 +121,11 @@ export class OpenApiGenerator {
     return path.replace(/:([^/]+)/g, "{$1}");
   }
 
+  private isItemEndpoint(route: RouteMetadata): boolean {
+    const path = route.path;
+    return path.includes("{id}") || /\/:\w+/.test(path);
+  }
+
   private generateOperation(
     route: RouteMetadata,
     controllerPath?: string,
@@ -130,17 +135,26 @@ export class OpenApiGenerator {
     const path = route.path;
     const fullPath = controllerPath ? `${controllerPath}${path}` : path;
 
-    const summaries: Record<string, (path: string) => string> = {
-      get: (p) => `Get ${this.getResourceName(p, true)}`,
-      post: (p) => `Create ${this.getResourceName(p, true)}`,
-      put: (p) => `Update ${this.getResourceName(p, true)}`,
-      patch: (p) => `Patch ${this.getResourceName(p, true)}`,
-      delete: (p) => `Delete ${this.getResourceName(p, true)}`,
-    };
+    const summaries: Record<string, (path: string, isItem: boolean) => string> =
+      {
+        get: (p, isItem) =>
+          isItem
+            ? `Get ${this.getResourceName(p, true)}`
+            : `List ${this.getResourceName(p, false)}`,
+        post: (p) => `Create ${this.getResourceName(p, true)}`,
+        put: (p) => `Update ${this.getResourceName(p, true)}`,
+        patch: (p) => `Patch ${this.getResourceName(p, true)}`,
+        delete: (p) => `Delete ${this.getResourceName(p, true)}`,
+      };
 
-    const descriptions: Record<string, (path: string) => string> = {
-      get: (p) =>
-        `Retrieve ${this.getResourceName(p, true).toLowerCase()} details`,
+    const descriptions: Record<
+      string,
+      (path: string, isItem: boolean) => string
+    > = {
+      get: (p, isItem) =>
+        isItem
+          ? `Retrieve ${this.getResourceName(p, true).toLowerCase()} details`
+          : `List ${this.getResourceName(p, false).toLowerCase()}`,
       post: (p) =>
         `Create a new ${this.getResourceName(p, true).toLowerCase()}`,
       put: (p) =>
@@ -157,8 +171,12 @@ export class OpenApiGenerator {
         method,
         path,
       ),
-      summary: route.summary || summaries[method](fullPath),
-      description: route.description || descriptions[method](fullPath),
+      summary:
+        route.summary ||
+        summaries[method](fullPath, this.isItemEndpoint(route)),
+      description:
+        route.description ||
+        descriptions[method](fullPath, this.isItemEndpoint(route)),
       tags:
         route.tags && route.tags.length > 0
           ? route.tags
@@ -308,11 +326,14 @@ export class OpenApiGenerator {
         if (param.schema && typeof param.schema.shape === "object") {
           const shape = param.schema.shape;
           Object.keys(shape).forEach((key) => {
+            const fieldSchema = shape[key];
             oaiParameters.push({
               name: key,
               in: location,
-              required: true,
-              schema: zodToOpenApi(shape[key]),
+              required:
+                param.required ??
+                (location === "path" || !isOptional(fieldSchema)),
+              schema: zodToOpenApi(fieldSchema),
             });
           });
         } else {
@@ -449,14 +470,16 @@ export class OpenApiGenerator {
           },
         };
 
-        responses[404] = {
-          description: "Not Found - Resource not found",
-          content: {
-            "application/json": {
-              schema: this.schemaRegistry.getErrorSchema(),
+        if (this.isItemEndpoint(route)) {
+          responses[404] = {
+            description: "Not Found - Resource not found",
+            content: {
+              "application/json": {
+                schema: this.schemaRegistry.getErrorSchema(),
+              },
             },
-          },
-        };
+          };
+        }
 
         responses[500] = {
           description: "Internal Server Error",
@@ -490,17 +513,6 @@ export class OpenApiGenerator {
   }
 
   private ensureRequiredFields(schema: any): any {
-    if (!schema || typeof schema !== "object") {
-      return schema;
-    }
-
-    if (schema.type === "object" && schema.properties && !schema.required) {
-      const propertyNames = Object.keys(schema.properties);
-      if (propertyNames.length > 0) {
-        schema = { ...schema, required: propertyNames };
-      }
-    }
-
     return schema;
   }
 }
