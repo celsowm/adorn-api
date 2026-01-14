@@ -15,6 +15,7 @@ import {
   Create,
   Update,
   HttpError,
+  EntitySchemaBuilder,
 } from "adorn-api";
 import {
   Orm,
@@ -117,211 +118,168 @@ async function initializeDatabase() {
   session = orm.createSession();
 }
 
-const CreateUserSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-  role: z.string().optional(),
-});
-
-const UpdateUserSchema = z.object({
-  name: z.string().min(1).optional(),
-  email: z.string().email().optional(),
-  role: z.string().optional(),
-});
-
-const IdParamsSchema = z.object({
-  id: z.coerce.number().int().min(1),
-});
-
-const CreatePostSchema = z.object({
-  title: z.string().min(1),
-  content: z.string().min(1),
-  published: z.boolean().optional(),
-  authorId: z.coerce.number().int().min(1),
-});
-
-const userResponseSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["id", "name", "email", "role", "createdAt"],
-  properties: {
-    id: { type: "integer", format: "int64", minimum: 1, readOnly: true },
-    name: { type: "string", minLength: 1 },
-    email: { type: "string", format: "email" },
-    role: { type: "string", default: "user" },
-    createdAt: { type: "string", format: "date-time", readOnly: true },
-  },
-};
-
-const postResponseSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["id", "title", "content", "published", "authorId", "createdAt"],
-  properties: {
-    id: { type: "integer", format: "int64", minimum: 1, readOnly: true },
-    title: { type: "string", minLength: 1 },
-    content: { type: "string", minLength: 1 },
-    published: { type: "boolean", default: false },
-    authorId: { type: "integer", format: "int64", minimum: 1 },
-    createdAt: { type: "string", format: "date-time", readOnly: true },
-  },
-};
-
-@Controller("/users")
-class UserController {
-  @List({
-    entity: User,
-    schema: userResponseSchema,
-  })
-  async getAll() {
-    const users = await selectFromEntity(User)
-      .select("id", "name", "email", "role", "createdAt")
-      .execute(session);
-    return users;
-  }
-
-  @Get("/:id")
-  @Params(IdParamsSchema)
-  async getById(params: z.infer<typeof IdParamsSchema>) {
-    const users = await selectFromEntity(User)
-      .select("id", "name", "email", "role", "createdAt")
-      .where(eq(entityRef(User).id, params.id))
-      .execute(session);
-    if (!users || users.length === 0) {
-      throw new HttpError(404, { error: "User not found" });
-    }
-    return users[0];
-  }
-
-  @Create()
-  @Body(CreateUserSchema)
-  async create(body: z.infer<typeof CreateUserSchema>) {
-    try {
-      const user = new User();
-      user.name = body.name;
-      user.email = body.email;
-      user.role = body.role ?? "user";
-      user.createdAt = new Date();
-      await session.persist(user);
-      await session.commit();
-      return {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        createdAt: user.createdAt,
-      };
-    } catch (e: any) {
-      if (String(e?.message ?? "").includes("UNIQUE")) {
-        throw new HttpError(409, { error: "Email already exists" });
-      }
-      throw e;
-    }
-  }
-
-  @Update("/:id")
-  @Params(IdParamsSchema)
-  @Body(UpdateUserSchema)
-  async update(
-    params: z.infer<typeof IdParamsSchema>,
-    body: z.infer<typeof UpdateUserSchema>,
-  ) {
-    const users = await selectFromEntity(User)
-      .select("id", "name", "email", "role", "createdAt")
-      .where(eq(entityRef(User).id, params.id))
-      .execute(session);
-    if (!users || users.length === 0) {
-      throw new HttpError(404, { error: "User not found" });
-    }
-    const user = users[0];
-    if (body.name !== undefined) user.name = body.name;
-    if (body.email !== undefined) user.email = body.email;
-    if (body.role !== undefined) user.role = body.role;
-    await session.commit();
-    return user;
-  }
-
-  @Delete("/:id")
-  @Params(IdParamsSchema)
-  async delete(params: z.infer<typeof IdParamsSchema>) {
-    const users = await selectFromEntity(User)
-      .select("id")
-      .where(eq(entityRef(User).id, params.id))
-      .execute(session);
-    if (!users || users.length === 0) {
-      throw new HttpError(404, { error: "User not found" });
-    }
-    await deleteFrom(User)
-      .where(eq(entityRef(User).id, params.id))
-      .execute(session);
-    await session.commit();
-    return { success: true };
-  }
-}
-
-@Controller("/posts")
-class PostController {
-  @List({
-    entity: PostModel,
-    schema: postResponseSchema,
-  })
-  async getAll() {
-    const posts = await selectFromEntity(PostModel)
-      .select("id", "title", "content", "published", "authorId", "createdAt")
-      .execute(session);
-    return posts;
-  }
-
-  @List("/published", {
-    entity: PostModel,
-    schema: postResponseSchema,
-  })
-  async getPublished() {
-    const postTable = entityRef(PostModel);
-    const posts = await selectFromEntity(PostModel)
-      .select("id", "title", "content", "published", "authorId", "createdAt")
-      .where(eq(getColumn(postTable, "published"), 1))
-      .execute(session);
-    return posts;
-  }
-
-  @Get("/:id")
-  @Params(IdParamsSchema)
-  async getById(params: z.infer<typeof IdParamsSchema>) {
-    const posts = await selectFromEntity(PostModel)
-      .select("id", "title", "content", "published", "authorId", "createdAt")
-      .where(eq(entityRef(PostModel).id, params.id))
-      .execute(session);
-    if (!posts || posts.length === 0) {
-      throw new HttpError(404, { error: "Post not found" });
-    }
-    return posts[0];
-  }
-
-  @Create()
-  @Body(CreatePostSchema)
-  async create(body: z.infer<typeof CreatePostSchema>) {
-    const post = new PostModel();
-    post.title = body.title;
-    post.content = body.content;
-    post.published = body.published ?? false;
-    post.authorId = body.authorId;
-    post.createdAt = new Date();
-    await session.persist(post);
-    await session.commit();
-    return {
-      id: post.id,
-      title: post.title,
-      content: post.content,
-      published: post.published,
-      authorId: post.authorId,
-      createdAt: post.createdAt,
-    };
-  }
-}
-
 async function main() {
   await initializeDatabase();
+
+  const CreateUserSchema = EntitySchemaBuilder.create(User);
+  const UpdateUserSchema = EntitySchemaBuilder.update(User);
+  const IdParamsSchema = EntitySchemaBuilder.idParams(User);
+  const CreatePostSchema = EntitySchemaBuilder.create(PostModel);
+  const userResponseSchema = EntitySchemaBuilder.response(User);
+  const postResponseSchema = EntitySchemaBuilder.response(PostModel);
+
+  @Controller("/users")
+  class UserController {
+    @List({
+      entity: User,
+      schema: userResponseSchema,
+    })
+    async getAll() {
+      const users = await selectFromEntity(User)
+        .select("id", "name", "email", "role", "createdAt")
+        .execute(session);
+      return users;
+    }
+
+    @Get("/:id")
+    @Params(IdParamsSchema)
+    async getById(params: z.infer<typeof IdParamsSchema>) {
+      const users = await selectFromEntity(User)
+        .select("id", "name", "email", "role", "createdAt")
+        .where(eq(entityRef(User).id, params.id))
+        .execute(session);
+      if (!users || users.length === 0) {
+        throw new HttpError(404, { error: "User not found" });
+      }
+      return users[0];
+    }
+
+    @Create()
+    @Body(CreateUserSchema)
+    async create(body: z.infer<typeof CreateUserSchema>) {
+      try {
+        const user = new User();
+        user.name = body.name;
+        user.email = body.email;
+        user.role = body.role ?? "user";
+        user.createdAt = new Date();
+        await session.persist(user);
+        await session.commit();
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          createdAt: user.createdAt,
+        };
+      } catch (e: any) {
+        if (String(e?.message ?? "").includes("UNIQUE")) {
+          throw new HttpError(409, { error: "Email already exists" });
+        }
+        throw e;
+      }
+    }
+
+    @Update("/:id")
+    @Params(IdParamsSchema)
+    @Body(UpdateUserSchema)
+    async update(
+      params: z.infer<typeof IdParamsSchema>,
+      body: z.infer<typeof UpdateUserSchema>,
+    ) {
+      const users = await selectFromEntity(User)
+        .select("id", "name", "email", "role", "createdAt")
+        .where(eq(entityRef(User).id, params.id))
+        .execute(session);
+      if (!users || users.length === 0) {
+        throw new HttpError(404, { error: "User not found" });
+      }
+      const user = users[0];
+      if (body.name !== undefined) user.name = body.name;
+      if (body.email !== undefined) user.email = body.email;
+      if (body.role !== undefined) user.role = body.role;
+      await session.commit();
+      return user;
+    }
+
+    @Delete("/:id")
+    @Params(IdParamsSchema)
+    async delete(params: z.infer<typeof IdParamsSchema>) {
+      const users = await selectFromEntity(User)
+        .select("id")
+        .where(eq(entityRef(User).id, params.id))
+        .execute(session);
+      if (!users || users.length === 0) {
+        throw new HttpError(404, { error: "User not found" });
+      }
+      await deleteFrom(User)
+        .where(eq(entityRef(User).id, params.id))
+        .execute(session);
+      await session.commit();
+      return { success: true };
+    }
+  }
+
+  @Controller("/posts")
+  class PostController {
+    @List({
+      entity: PostModel,
+      schema: postResponseSchema,
+    })
+    async getAll() {
+      const posts = await selectFromEntity(PostModel)
+        .select("id", "title", "content", "published", "authorId", "createdAt")
+        .execute(session);
+      return posts;
+    }
+
+    @List("/published", {
+      entity: PostModel,
+      schema: postResponseSchema,
+    })
+    async getPublished() {
+      const postTable = entityRef(PostModel);
+      const posts = await selectFromEntity(PostModel)
+        .select("id", "title", "content", "published", "authorId", "createdAt")
+        .where(eq(getColumn(postTable, "published"), 1))
+        .execute(session);
+      return posts;
+    }
+
+    @Get("/:id")
+    @Params(IdParamsSchema)
+    async getById(params: z.infer<typeof IdParamsSchema>) {
+      const posts = await selectFromEntity(PostModel)
+        .select("id", "title", "content", "published", "authorId", "createdAt")
+        .where(eq(entityRef(PostModel).id, params.id))
+        .execute(session);
+      if (!posts || posts.length === 0) {
+        throw new HttpError(404, { error: "Post not found" });
+      }
+      return posts[0];
+    }
+
+    @Create()
+    @Body(CreatePostSchema)
+    async create(body: z.infer<typeof CreatePostSchema>) {
+      const post = new PostModel();
+      post.title = body.title;
+      post.content = body.content;
+      post.published = body.published ?? false;
+      post.authorId = body.authorId;
+      post.createdAt = new Date();
+      await session.persist(post);
+      await session.commit();
+      return {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        published: post.published,
+        authorId: post.authorId,
+        createdAt: post.createdAt,
+      };
+    }
+  }
 
   const app = express();
   app.use(express.json());
