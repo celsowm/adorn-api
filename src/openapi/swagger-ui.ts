@@ -18,17 +18,16 @@ export function setupSwaggerUi(
   const swaggerPath = options?.swaggerPath ?? "/swagger";
   const jsonPath = options?.jsonPath ?? "/swagger.json";
 
-  app.use(jsonPath, (_req, res, next) => {
+  app.get(jsonPath, (_req, res) => {
     res.setHeader("Content-Type", "application/json");
     res.json(spec);
-    next();
   });
 
   app.use(swaggerPath, swaggerUi.serve);
 
   app.get(
     swaggerPath,
-    swaggerUi.setup(null, {
+    swaggerUi.setup(undefined as any, {
       explorer: true,
       swaggerUrl: jsonPath,
       swaggerOptions: {

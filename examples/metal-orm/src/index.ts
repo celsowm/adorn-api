@@ -1,18 +1,20 @@
+import "reflect-metadata";
 import express from "express";
 import Database from "sqlite3";
 import { z } from "zod";
 import {
   Controller,
   Get,
-  Post,
-  Put,
   Delete,
   ExpressAdapter,
   OpenApiGenerator,
   setupSwaggerUi,
   Params,
   Body,
-  Schema,
+  List,
+  Create,
+  Update,
+  Response,
 } from "adorn-api";
 import {
   Orm,
@@ -136,9 +138,42 @@ const CreatePostSchema = z.object({
   authorId: z.number().positive(),
 });
 
+const userResponseSchema = {
+  type: "object",
+  properties: {
+    id: { type: "number", minimum: 1 },
+    name: { type: "string", minLength: 1 },
+    email: { type: "string", format: "email" },
+    role: { type: "string" },
+    createdAt: { type: "string", format: "date-time" },
+  },
+};
+
+const deleteResponseSchema = {
+  type: "object",
+  properties: {
+    success: { type: "boolean" },
+  },
+};
+
+const postResponseSchema = {
+  type: "object",
+  properties: {
+    id: { type: "number", minimum: 1 },
+    title: { type: "string", minLength: 1 },
+    content: { type: "string", minLength: 1 },
+    published: { type: "boolean" },
+    authorId: { type: "number", minimum: 1 },
+    createdAt: { type: "string", format: "date-time" },
+  },
+};
+
 @Controller("/users")
 class UserController {
-  @Get()
+  @List({
+    entity: User,
+    schema: userResponseSchema,
+  })
   async getAll() {
     const session = orm.createSession();
     try {
@@ -153,6 +188,7 @@ class UserController {
 
   @Get("/:id")
   @Params(IdParamsSchema)
+  @Response(200, "Success", userResponseSchema)
   async getById(params: z.infer<typeof IdParamsSchema>) {
     const session = orm.createSession();
     try {
@@ -169,7 +205,8 @@ class UserController {
     }
   }
 
-  @Post()
+  @Create()
+  @Response(200, "Success", userResponseSchema)
   @Body(CreateUserSchema)
   async create(body: z.infer<typeof CreateUserSchema>) {
     const session = orm.createSession();
@@ -187,28 +224,27 @@ class UserController {
     }
   }
 
-  @Put("/:id")
-  @Schema({
-    params: IdParamsSchema,
-    body: UpdateUserSchema,
-  })
-  async update(input: {
-    params: z.infer<typeof IdParamsSchema>;
-    body: z.infer<typeof UpdateUserSchema>;
-  }) {
+  @Update("/:id")
+  @Params(IdParamsSchema)
+  @Response(200, "Success", userResponseSchema)
+  @Body(UpdateUserSchema)
+  async update(
+    params: z.infer<typeof IdParamsSchema>,
+    body: z.infer<typeof UpdateUserSchema>,
+  ) {
     const session = orm.createSession();
     try {
       const users = await selectFromEntity(User)
         .select("id", "name", "email", "role", "createdAt")
-        .where(eq(entityRef(User).id, input.params.id))
+        .where(eq(entityRef(User).id, params.id))
         .execute(session);
       if (!users || users.length === 0) {
         return { error: "User not found", status: 404 };
       }
       const user = users[0];
-      if (input.body.name !== undefined) user.name = input.body.name;
-      if (input.body.email !== undefined) user.email = input.body.email;
-      if (input.body.role !== undefined) user.role = input.body.role;
+      if (body.name !== undefined) user.name = body.name;
+      if (body.email !== undefined) user.email = body.email;
+      if (body.role !== undefined) user.role = body.role;
       await session.commit();
       return user;
     } finally {
@@ -218,6 +254,7 @@ class UserController {
 
   @Delete("/:id")
   @Params(IdParamsSchema)
+  @Response(200, "Success", deleteResponseSchema)
   async delete(params: z.infer<typeof IdParamsSchema>) {
     const session = orm.createSession();
     try {
@@ -240,7 +277,10 @@ class UserController {
 
 @Controller("/posts")
 class PostController {
-  @Get()
+  @List({
+    entity: PostModel,
+    schema: postResponseSchema,
+  })
   async getAll() {
     const session = orm.createSession();
     try {
@@ -253,7 +293,10 @@ class PostController {
     }
   }
 
-  @Get("/published")
+  @List("/published", {
+    entity: PostModel,
+    schema: postResponseSchema,
+  })
   async getPublished() {
     const session = orm.createSession();
     try {
@@ -270,6 +313,7 @@ class PostController {
 
   @Get("/:id")
   @Params(IdParamsSchema)
+  @Response(200, "Success", postResponseSchema)
   async getById(params: z.infer<typeof IdParamsSchema>) {
     const session = orm.createSession();
     try {
@@ -286,7 +330,8 @@ class PostController {
     }
   }
 
-  @Post()
+  @Create()
+  @Response(200, "Success", postResponseSchema)
   @Body(CreatePostSchema)
   async create(body: z.infer<typeof CreatePostSchema>) {
     const session = orm.createSession();

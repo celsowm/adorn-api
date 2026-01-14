@@ -5,18 +5,12 @@ export class SchemaModifier {
 
   constructor(public readonly original: any) {
     if (typeof this.original === "function") {
-      const entity = (this.original as any)();
-      const tableDef = getTableDefFromEntity(entity);
+      const tableDef = getTableDefFromEntity(this.original);
       if (tableDef) {
         this.base = dtoToOpenApiSchema(tableDef);
       }
     } else if (typeof this.original === "object") {
       this.base = this.original;
-    } else {
-      const tableDef = getTableDefFromEntity(this.original);
-      if (tableDef) {
-        this.base = dtoToOpenApiSchema(tableDef);
-      }
     }
   }
 

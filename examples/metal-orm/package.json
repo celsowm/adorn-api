@@ -10,6 +10,7 @@
     "adorn-api": "file:../..",
     "express": "^4.18.2",
     "metal-orm": "^1.0.91",
+    "reflect-metadata": "^0.2.2",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
