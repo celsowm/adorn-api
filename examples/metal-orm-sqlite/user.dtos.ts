@@ -1,5 +1,8 @@
 import { Dto, Errors, Field, OmitDto, PartialDto, PickDto, t } from "../../src";
 
+export const DEFAULT_PAGE_SIZE = 25;
+export const MAX_PAGE_SIZE = 100;
+
 @Dto({ description: "User returned by the API." })
 export class UserDto {
   @Field(t.integer({ description: "User id." }))
@@ -15,17 +18,20 @@ export class UserDto {
   createdAt!: string;
 }
 
-export interface CreateUserDto extends Omit<UserDto, "id" | "createdAt"> {}
+const USER_MUTATION_KEYS = ["id", "createdAt"] as const satisfies Array<keyof UserDto>;
+type UserMutationDto = Omit<UserDto, (typeof USER_MUTATION_KEYS)[number]>;
 
-@OmitDto(UserDto, ["id", "createdAt"])
+export interface CreateUserDto extends UserMutationDto {}
+
+@OmitDto(UserDto, USER_MUTATION_KEYS)
 export class CreateUserDto {}
 
-export interface ReplaceUserDto extends Omit<UserDto, "id" | "createdAt"> {}
+export interface ReplaceUserDto extends UserMutationDto {}
 
-@OmitDto(UserDto, ["id", "createdAt"])
+@OmitDto(UserDto, USER_MUTATION_KEYS)
 export class ReplaceUserDto {}
 
-export interface UpdateUserDto extends Partial<ReplaceUserDto> {}
+export interface UpdateUserDto extends Partial<UserMutationDto> {}
 
 @PartialDto(ReplaceUserDto)
 export class UpdateUserDto {}
@@ -37,10 +43,14 @@ export class UserParamsDto {}
 
 @Dto()
 export class UserQueryDto {
-  @Field(t.optional(t.integer({ minimum: 1 })))
+  @Field(t.optional(t.integer({ minimum: 1, default: 1 })))
   page?: number;
 
-  @Field(t.optional(t.integer({ minimum: 1, maximum: 100 })))
+  @Field(
+    t.optional(
+      t.integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE })
+    )
+  )
   pageSize?: number;
 
   @Field(t.optional(t.string({ minLength: 1 })))

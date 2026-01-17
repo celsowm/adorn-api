@@ -19,6 +19,8 @@ import { entityRef, selectFromEntity } from "metal-orm";
 import { createSession } from "./db";
 import {
   CreateUserDto,
+  DEFAULT_PAGE_SIZE,
+  MAX_PAGE_SIZE,
   ReplaceUserDto,
   UpdateUserDto,
   UserDto,
@@ -37,8 +39,6 @@ function parseUserId(value: string): number {
   return id;
 }
 
-const DEFAULT_PAGE_SIZE = 25;
-const MAX_PAGE_SIZE = 100;
 const userRef = entityRef(User);
 
 type UserFilter = SimpleWhereInput<typeof User, "name" | "email">;
