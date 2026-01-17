@@ -13,7 +13,6 @@ import {
   Get,
   Post,
   Returns,
-  buildOpenApi,
   createExpressApp,
   t
 } from "./src";
@@ -50,8 +49,12 @@ class UserController {
 }
 
 const app = createExpressApp({ controllers: [UserController] });
-app.get("/openapi.json", (_req, res) => {
-  res.json(buildOpenApi({ info: { title: "Adorn API", version: "1.0.0" } }));
+const app = createExpressApp({
+  controllers: [UserController],
+  openApi: {
+    info: { title: "Adorn API", version: "1.0.0" },
+    docs: true
+  }
 });
 app.listen(3000);
 ```
@@ -75,3 +78,5 @@ npm run example -- openapi
 - Uses the TC39 stage-3 decorator semantics (TypeScript 5+).
 - DTO schemas are defined without zod; use `t` helpers and `@Field`.
 - OpenAPI 3.1 JSON Schema dialect is emitted for Swagger UI.
+- When `openApi` is enabled, the spec is served at `/openapi.json` by default.
+- When `openApi.docs` is enabled, Swagger UI is available at `/docs`.

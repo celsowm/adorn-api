@@ -7,7 +7,6 @@ import {
   Params,
   Post,
   Returns,
-  buildOpenApi,
   createExpressApp,
   t,
   type RequestContext
@@ -65,17 +64,15 @@ class UserController {
   }
 }
 
-const app = createExpressApp({ controllers: [UserController] });
-
-app.get("/openapi.json", (_req, res) => {
-  res.json(
-    buildOpenApi({
-      info: {
-        title: "Adorn API",
-        version: "1.0.0"
-      }
-    })
-  );
+const app = createExpressApp({
+  controllers: [UserController],
+  openApi: {
+    info: {
+      title: "Adorn API",
+      version: "1.0.0"
+    },
+    docs: true
+  }
 });
 
 app.listen(3000, () => {

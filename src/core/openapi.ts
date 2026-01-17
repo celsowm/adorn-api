@@ -75,7 +75,7 @@ export function buildOpenApi(options: OpenApiOptions): OpenApiDocument {
 
   return {
     openapi: "3.1.0",
-    jsonSchemaDialect: "https://json-schema.org/draft/2020-12/schema",
+    jsonSchemaDialect: "https://spec.openapis.org/oas/3.1/dialect/base",
     info: options.info,
     servers: options.servers,
     paths,
