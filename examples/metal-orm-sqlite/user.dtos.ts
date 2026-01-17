@@ -37,11 +37,41 @@ export class UserParamsDto {}
 
 @Dto()
 export class UserQueryDto {
-  @Field(t.optional(t.integer({ minimum: 0 })))
-  offset?: number;
+  @Field(t.optional(t.integer({ minimum: 1 })))
+  page?: number;
 
   @Field(t.optional(t.integer({ minimum: 1, maximum: 100 })))
-  limit?: number;
+  pageSize?: number;
+
+  @Field(t.optional(t.string({ minLength: 1 })))
+  nameContains?: string;
+
+  @Field(t.optional(t.string({ minLength: 1 })))
+  emailContains?: string;
+}
+
+@Dto({ description: "Paged user list response." })
+export class UserPagedResponseDto {
+  @Field(t.array(t.ref(UserDto)))
+  items!: UserDto[];
+
+  @Field(t.integer({ minimum: 0 }))
+  totalItems!: number;
+
+  @Field(t.integer({ minimum: 1 }))
+  page!: number;
+
+  @Field(t.integer({ minimum: 1 }))
+  pageSize!: number;
+
+  @Field(t.integer({ minimum: 1 }))
+  totalPages!: number;
+
+  @Field(t.boolean())
+  hasNextPage!: boolean;
+
+  @Field(t.boolean())
+  hasPrevPage!: boolean;
 }
 
 @Dto()

@@ -14,6 +14,8 @@ import {
   t,
   type RequestContext
 } from "../../src";
+import { applyFilter, toPagedResponse } from "metal-orm";
+import type { SimpleWhereInput } from "metal-orm";
 import {
   entityRef,
   eq,
@@ -28,6 +30,7 @@ import {
   UserDto,
   UserErrors,
   UserParamsDto,
+  UserPagedResponseDto,
   UserQueryDto
 } from "./user.dtos";
 import { User } from "./user.entity";
@@ -40,27 +43,49 @@ function parseUserId(value: string): number {
   return id;
 }
 
+const DEFAULT_PAGE_SIZE = 25;
+const MAX_PAGE_SIZE = 100;
+
+type UserFilter = SimpleWhereInput<typeof User, "name" | "email">;
+
+function buildUserFilter(query?: UserQueryDto): UserFilter | undefined {
+  if (!query) {
+    return undefined;
+  }
+  const filter: UserFilter = {};
+  if (query.nameContains) {
+    filter.name = { contains: query.nameContains };
+  }
+  if (query.emailContains) {
+    filter.email = { contains: query.emailContains };
+  }
+  return Object.keys(filter).length ? filter : undefined;
+}
+
 @Controller("/users")
 export class UserController {
   @Get("/")
   @Query(UserQueryDto)
-  @Returns(t.array(t.ref(UserDto)))
+  @Returns(UserPagedResponseDto)
   async list(ctx: RequestContext<unknown, UserQueryDto>) {
-    const offset =
-      coerce.integer(ctx.query?.offset, { min: 0, clamp: true }) ?? 0;
-    const limit =
-      coerce.integer(ctx.query?.limit, { min: 1, max: 100, clamp: true });
+    const page =
+      coerce.integer(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
+    const pageSize =
+      coerce.integer(ctx.query?.pageSize, {
+        min: 1,
+        max: MAX_PAGE_SIZE,
+        clamp: true
+      }) ?? DEFAULT_PAGE_SIZE;
     const session = createSession();
     try {
       const U = entityRef(User);
-      const query = selectFromEntity(User).orderBy(U.id, "ASC");
-      if (offset > 0) {
-        query.offset(offset);
+      let query = selectFromEntity(User).orderBy(U.id, "ASC");
+      const filters = buildUserFilter(ctx.query);
+      if (filters) {
+        query = applyFilter(query, User, filters);
       }
-      if (limit !== undefined) {
-        query.limit(limit);
-      }
-      return await query.execute(session);
+      const paged = await query.executePaged(session, { page, pageSize });
+      return toPagedResponse(paged);
     } finally {
       await session.dispose();
     }
