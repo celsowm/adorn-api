@@ -2,7 +2,12 @@ import express, { type Request, type Response, type NextFunction } from "express
 import type { Constructor } from "../core/types";
 import { getControllerMeta } from "../core/metadata";
 
-export interface RequestContext<TBody = unknown, TQuery = unknown, TParams = unknown, THeaders = unknown> {
+export interface RequestContext<
+  TBody = unknown,
+  TQuery extends Record<string, unknown> | undefined = Record<string, unknown>,
+  TParams extends Record<string, string | undefined> | undefined = Record<string, string | undefined>,
+  THeaders extends Record<string, string | string[] | undefined> | undefined = Record<string, string | string[] | undefined>
+> {
   req: Request;
   res: Response;
   body: TBody;

@@ -10,6 +10,7 @@ import {
   type FieldMeta,
   type InputMeta,
   type ResponseMeta,
+  type RouteMeta,
   type RouteMetaInput
 } from "./metadata";
 
@@ -220,7 +221,7 @@ function getRoute(metadata: DecoratorMetadata, name: string | symbol): RouteMeta
   return route;
 }
 
-function finalizeRoute(route: RouteMetaInput): RouteMetaInput {
+function finalizeRoute(route: RouteMetaInput): RouteMeta {
   if (!route.httpMethod) {
     throw new Error(`Missing HTTP method decorator on route "${String(route.handlerName)}".`);
   }
@@ -230,7 +231,12 @@ function finalizeRoute(route: RouteMetaInput): RouteMetaInput {
   if (!route.responses.length) {
     route.responses.push({ status: 200, description: "OK" });
   }
-  return route;
+  return {
+    ...route,
+    httpMethod: route.httpMethod,
+    path: route.path,
+    responses: route.responses
+  };
 }
 
 function normalizePath(path: string): string {
