@@ -21,13 +21,18 @@ const USER_DTO_OVERRIDES = {
   createdAt: t.dateTime({ description: "Creation timestamp." })
 };
 
-export interface UserDto extends User {}
+export interface UserDto extends Omit<User, "posts"> {}
 
 @MetalDto(User, {
   description: "User returned by the API.",
   overrides: USER_DTO_OVERRIDES
 })
-export class UserDto {}
+export class UserDto {
+  declare id: number;
+  declare name: string;
+  declare email?: string | null;
+  declare createdAt: string;
+}
 
 const USER_MUTATION_KEYS: Array<keyof UserDto> = ["id", "createdAt"];
 type UserMutationDto = Omit<UserDto, (typeof USER_MUTATION_KEYS)[number]>;
@@ -35,22 +40,33 @@ type UserMutationDto = Omit<UserDto, (typeof USER_MUTATION_KEYS)[number]>;
 export interface CreateUserDto extends UserMutationDto {}
 
 @OmitDto(UserDto, USER_MUTATION_KEYS)
-export class CreateUserDto {}
+export class CreateUserDto {
+  declare name: string;
+  declare email?: string | null;
+}
 
 export interface ReplaceUserDto extends UserMutationDto {}
 
 @OmitDto(UserDto, USER_MUTATION_KEYS)
-export class ReplaceUserDto {}
+export class ReplaceUserDto {
+  declare name: string;
+  declare email?: string | null;
+}
 
 export interface UpdateUserDto extends Partial<UserMutationDto> {}
 
 @PartialDto(ReplaceUserDto)
-export class UpdateUserDto {}
+export class UpdateUserDto {
+  declare name?: string;
+  declare email?: string | null;
+}
 
 export interface UserParamsDto extends Pick<UserDto, "id"> {}
 
 @PickDto(UserDto, ["id"])
-export class UserParamsDto {}
+export class UserParamsDto {
+  declare id: number;
+}
 
 @Dto()
 class PagedQueryDto {
@@ -75,7 +91,12 @@ class UserFilterQueryDto {
 }
 
 @MergeDto([PagedQueryDto, UserFilterQueryDto])
-export class UserQueryDto {}
+export class UserQueryDto {
+  declare page?: number;
+  declare pageSize?: number;
+  declare nameContains?: string;
+  declare emailContains?: string;
+}
 
 @Dto()
 class UserListItemsDto {

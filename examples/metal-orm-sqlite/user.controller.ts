@@ -11,6 +11,7 @@ import {
   Query,
   Returns,
   coerce,
+  t,
   type RequestContext
 } from "../../src";
 import { applyFilter, toPagedResponse } from "metal-orm";
@@ -29,6 +30,7 @@ import {
   UserPagedResponseDto,
   UserQueryDto
 } from "./user.dtos";
+import { CreateUserPostDto, PostDto } from "./post.dtos";
 import { User } from "./user.entity";
 
 function parseUserId(value: string): number {
@@ -161,6 +163,39 @@ export class UserController {
       }
       await session.commit();
       return entity as UserDto;
+    });
+  }
+
+  @Get("/:id/posts")
+  @Params(UserParamsDto)
+  @Returns(t.array(t.ref(PostDto)))
+  @UserErrors
+  async listPosts(ctx: RequestContext<unknown, undefined, { id: string }>) {
+    const id = parseUserId(ctx.params.id);
+    return withSession(async (session) => {
+      const user = await getUserOrThrow(session, id);
+      return (await user.posts.load()) as PostDto[];
+    });
+  }
+
+  @Post("/:id/posts")
+  @Params(UserParamsDto)
+  @Body(CreateUserPostDto)
+  @Returns({ status: 201, schema: PostDto })
+  @UserErrors
+  async createPost(
+    ctx: RequestContext<CreateUserPostDto, undefined, { id: string }>
+  ) {
+    const id = parseUserId(ctx.params.id);
+    return withSession(async (session) => {
+      const user = await getUserOrThrow(session, id);
+      const post = user.posts.add({
+        title: ctx.body.title,
+        body: ctx.body.body ?? null,
+        createdAt: new Date().toISOString()
+      });
+      await session.commit();
+      return post as PostDto;
     });
   }
 

@@ -1,4 +1,6 @@
-import { Column, Entity, PrimaryKey, col } from "metal-orm";
+import { Column, Entity, HasMany, PrimaryKey, col } from "metal-orm";
+import type { HasManyCollection } from "metal-orm";
+import { Post } from "./post.entity";
 
 @Entity({ tableName: "users" })
 export class User {
@@ -13,4 +15,7 @@ export class User {
 
   @Column(col.notNull(col.text()))
   createdAt!: string;
+
+  @HasMany({ target: () => Post, foreignKey: "userId" })
+  posts!: HasManyCollection<Post>;
 }

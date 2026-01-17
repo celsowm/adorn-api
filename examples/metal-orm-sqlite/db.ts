@@ -48,9 +48,14 @@ function createSqliteClient(database: sqlite3.Database): SqliteClientLike {
 
 export async function initializeDatabase() {
   db = new sqlite3.Database(":memory:");
+  await execSql(db, "pragma foreign_keys = ON");
   await execSql(
     db,
     "create table users (id integer primary key autoincrement, name text not null, email text, createdAt text not null)"
+  );
+  await execSql(
+    db,
+    "create table posts (id integer primary key autoincrement, title text not null, body text, userId integer not null, createdAt text not null, foreign key(userId) references users(id))"
   );
 
   const executor = createSqliteExecutor(createSqliteClient(db));
