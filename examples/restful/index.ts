@@ -3,10 +3,15 @@ import {
   Controller,
   Delete,
   Dto,
+  Errors,
   Field,
   Get,
+  HttpError,
+  OmitDto,
   Params,
   Patch,
+  PartialDto,
+  PickDto,
   Post,
   Put,
   Query,
@@ -54,38 +59,31 @@ class TaskDto {
   createdAt!: string;
 }
 
-@Dto()
-class CreateTaskDto {
-  @Field(t.string({ minLength: 1 }))
-  title!: string;
-
-  @Field(t.optional(t.boolean()))
+interface CreateTaskDto extends Omit<TaskDto, "id" | "createdAt" | "completed"> {
   completed?: boolean;
 }
 
-@Dto()
-class ReplaceTaskDto {
-  @Field(t.string({ minLength: 1 }))
-  title!: string;
+@OmitDto(TaskDto, ["id", "createdAt"], {
+  overrides: {
+    completed: { optional: true }
+  }
+})
+class CreateTaskDto {}
 
-  @Field(t.boolean())
-  completed!: boolean;
-}
+interface ReplaceTaskDto extends Omit<TaskDto, "id" | "createdAt"> {}
 
-@Dto()
-class UpdateTaskDto {
-  @Field(t.optional(t.string({ minLength: 1 })))
-  title?: string;
+@OmitDto(TaskDto, ["id", "createdAt"])
+class ReplaceTaskDto {}
 
-  @Field(t.optional(t.boolean()))
-  completed?: boolean;
-}
+interface UpdateTaskDto extends Partial<ReplaceTaskDto> {}
 
-@Dto()
-class TaskParamsDto {
-  @Field(t.integer())
-  id!: number;
-}
+@PartialDto(ReplaceTaskDto)
+class UpdateTaskDto {}
+
+interface TaskParamsDto extends Pick<TaskDto, "id"> {}
+
+@PickDto(TaskDto, ["id"])
+class TaskParamsDto {}
 
 @Dto()
 class TaskQueryDto {
@@ -104,6 +102,11 @@ class ErrorDto {
   @Field(t.string())
   message!: string;
 }
+
+const TaskErrors = Errors(ErrorDto, [
+  { status: 400, description: "Invalid id." },
+  { status: 404, description: "Not found." }
+]);
 
 function normalizeSingle(value: unknown): string | undefined {
   if (Array.isArray(value)) {
@@ -173,18 +176,15 @@ class TaskController {
   @Get("/:id")
   @Params(TaskParamsDto)
   @Returns(TaskDto)
-  @Returns({ status: 400, schema: ErrorDto, description: "Invalid id." })
-  @Returns({ status: 404, schema: ErrorDto, description: "Not found." })
+  @TaskErrors
   getOne(ctx: RequestContext<unknown, undefined, { id: string }>) {
     const id = parseId(ctx.params.id);
     if (id === undefined) {
-      ctx.res.status(400).json({ message: "Invalid task id." });
-      return;
+      throw new HttpError(400, "Invalid task id.");
     }
     const task = tasks.find((entry) => entry.id === id);
     if (!task) {
-      ctx.res.status(404).json({ message: "Task not found." });
-      return;
+      throw new HttpError(404, "Task not found.");
     }
     return task;
   }
@@ -207,18 +207,15 @@ class TaskController {
   @Params(TaskParamsDto)
   @Body(ReplaceTaskDto)
   @Returns(TaskDto)
-  @Returns({ status: 400, schema: ErrorDto, description: "Invalid id." })
-  @Returns({ status: 404, schema: ErrorDto, description: "Not found." })
+  @TaskErrors
   replace(ctx: RequestContext<ReplaceTaskDto, undefined, { id: string }>) {
     const id = parseId(ctx.params.id);
     if (id === undefined) {
-      ctx.res.status(400).json({ message: "Invalid task id." });
-      return;
+      throw new HttpError(400, "Invalid task id.");
     }
     const index = tasks.findIndex((entry) => entry.id === id);
     if (index === -1) {
-      ctx.res.status(404).json({ message: "Task not found." });
-      return;
+      throw new HttpError(404, "Task not found.");
     }
     const updated: TaskRecord = {
       id,
@@ -234,18 +231,15 @@ class TaskController {
   @Params(TaskParamsDto)
   @Body(UpdateTaskDto)
   @Returns(TaskDto)
-  @Returns({ status: 400, schema: ErrorDto, description: "Invalid id." })
-  @Returns({ status: 404, schema: ErrorDto, description: "Not found." })
+  @TaskErrors
   update(ctx: RequestContext<UpdateTaskDto, undefined, { id: string }>) {
     const id = parseId(ctx.params.id);
     if (id === undefined) {
-      ctx.res.status(400).json({ message: "Invalid task id." });
-      return;
+      throw new HttpError(400, "Invalid task id.");
     }
     const task = tasks.find((entry) => entry.id === id);
     if (!task) {
-      ctx.res.status(404).json({ message: "Task not found." });
-      return;
+      throw new HttpError(404, "Task not found.");
     }
     if (ctx.body.title !== undefined) {
       task.title = ctx.body.title;
@@ -259,18 +253,15 @@ class TaskController {
   @Delete("/:id")
   @Params(TaskParamsDto)
   @Returns({ status: 204, description: "Deleted." })
-  @Returns({ status: 400, schema: ErrorDto, description: "Invalid id." })
-  @Returns({ status: 404, schema: ErrorDto, description: "Not found." })
+  @TaskErrors
   remove(ctx: RequestContext<unknown, undefined, { id: string }>) {
     const id = parseId(ctx.params.id);
     if (id === undefined) {
-      ctx.res.status(400).json({ message: "Invalid task id." });
-      return;
+      throw new HttpError(400, "Invalid task id.");
     }
     const index = tasks.findIndex((entry) => entry.id === id);
     if (index === -1) {
-      ctx.res.status(404).json({ message: "Task not found." });
-      return;
+      throw new HttpError(404, "Task not found.");
     }
     tasks.splice(index, 1);
   }

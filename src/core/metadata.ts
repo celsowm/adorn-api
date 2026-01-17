@@ -26,6 +26,7 @@ export interface ResponseMeta {
   schema?: SchemaSource;
   description?: string;
   contentType?: string;
+  error?: boolean;
 }
 
 export interface RouteMeta {

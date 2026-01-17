@@ -2,6 +2,7 @@ import express, { type Request, type Response, type NextFunction } from "express
 import { buildOpenApi, type OpenApiInfo, type OpenApiServer } from "../core/openapi";
 import type { Constructor } from "../core/types";
 import { getControllerMeta } from "../core/metadata";
+import { HttpError, isHttpError } from "../core/errors";
 
 export interface RequestContext<
   TBody = unknown,
@@ -81,6 +82,10 @@ export function attachControllers(app: express.Express, controllers: Constructor
           }
           res.status(defaultStatus(route)).json(result);
         } catch (error) {
+          if (isHttpError(error)) {
+            sendHttpError(res, error);
+            return;
+          }
           next(error);
         }
       });
@@ -159,8 +164,14 @@ function buildSwaggerUiHtml(options: {
 </html>`;
 }
 
-function defaultStatus(route: { responses?: Array<{ status: number }> }): number {
-  return route.responses?.[0]?.status ?? 200;
+function defaultStatus(route: {
+  responses?: Array<{ status: number; error?: boolean }>;
+}): number {
+  const responses = route.responses ?? [];
+  const success = responses.find(
+    (response) => !response.error && response.status < 400
+  );
+  return success?.status ?? 200;
 }
 
 function joinPaths(basePath: string, routePath: string): string {
@@ -181,4 +192,21 @@ function joinPaths(basePath: string, routePath: string): string {
 function normalizePath(path: string | undefined, fallback: string): string {
   const value = path && path.trim().length ? path.trim() : fallback;
   return value.startsWith("/") ? value : `/${value}`;
+}
+
+function sendHttpError(res: Response, error: HttpError): void {
+  if (res.headersSent) {
+    return;
+  }
+  if (error.headers) {
+    for (const [key, value] of Object.entries(error.headers)) {
+      res.setHeader(key, value);
+    }
+  }
+  const body = error.body ?? { message: error.message };
+  if (body === undefined) {
+    res.status(error.status).end();
+    return;
+  }
+  res.status(error.status).json(body);
 }

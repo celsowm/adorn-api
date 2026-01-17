@@ -2,6 +2,7 @@ import type { SchemaNode, SchemaSource } from "./schema";
 import type { Constructor, DtoConstructor, HttpMethod } from "./types";
 import {
   getAdornMetadata,
+  getDtoMeta,
   registerController,
   registerDto,
   type ControllerMeta,
@@ -19,6 +20,18 @@ export interface DtoOptions {
   description?: string;
   additionalProperties?: boolean;
 }
+
+export interface DtoComposeOptions extends DtoOptions {
+  overrides?: Record<string, FieldOverride>;
+}
+
+export interface FieldOverrideOptions {
+  schema?: SchemaNode;
+  optional?: boolean;
+  description?: string;
+}
+
+export type FieldOverride = SchemaNode | FieldOverrideOptions;
 
 export interface FieldOptions {
   schema: SchemaNode;
@@ -50,6 +63,11 @@ export interface ReturnsOptions {
   contentType?: string;
 }
 
+export interface ErrorResponseOptions
+  extends Omit<ReturnsOptions, "schema" | "status"> {
+  status: number;
+}
+
 export function Dto(options: DtoOptions = {}) {
   return (value: Function, context: ClassDecoratorContext): void => {
     const meta = getAdornMetadata(context.metadata as DecoratorMetadata);
@@ -61,6 +79,53 @@ export function Dto(options: DtoOptions = {}) {
       additionalProperties: options.additionalProperties
     };
     registerDto(value as DtoConstructor, dtoMeta);
+  };
+}
+
+export function PickDto(
+  dto: DtoConstructor,
+  keys: string[],
+  options: DtoComposeOptions = {}
+) {
+  return (value: Function, _context: ClassDecoratorContext): void => {
+    const dtoMeta = getDtoMetaOrThrow(dto);
+    const fields = pickFields(dtoMeta.fields, keys);
+    const mergedFields = applyOverrides(fields, options.overrides);
+    registerDto(value as DtoConstructor, buildDerivedMeta(value, dtoMeta, mergedFields, options));
+  };
+}
+
+export function OmitDto(
+  dto: DtoConstructor,
+  keys: string[],
+  options: DtoComposeOptions = {}
+) {
+  return (value: Function, _context: ClassDecoratorContext): void => {
+    const dtoMeta = getDtoMetaOrThrow(dto);
+    const fields = omitFields(dtoMeta.fields, keys);
+    const mergedFields = applyOverrides(fields, options.overrides);
+    registerDto(value as DtoConstructor, buildDerivedMeta(value, dtoMeta, mergedFields, options));
+  };
+}
+
+export function PartialDto(dto: DtoConstructor, options: DtoComposeOptions = {}) {
+  return (value: Function, _context: ClassDecoratorContext): void => {
+    const dtoMeta = getDtoMetaOrThrow(dto);
+    const fields = makeFieldsPartial(dtoMeta.fields);
+    const mergedFields = applyOverrides(fields, options.overrides);
+    registerDto(value as DtoConstructor, buildDerivedMeta(value, dtoMeta, mergedFields, options));
+  };
+}
+
+export function MergeDto(dtos: DtoConstructor[], options: DtoComposeOptions = {}) {
+  return (value: Function, _context: ClassDecoratorContext): void => {
+    if (!dtos.length) {
+      throw new Error("MergeDto requires at least one DTO.");
+    }
+    const metas = dtos.map(getDtoMetaOrThrow);
+    const fields = mergeFields(metas.map((meta) => meta.fields));
+    const mergedFields = applyOverrides(fields, options.overrides);
+    registerDto(value as DtoConstructor, buildDerivedMeta(value, metas[0], mergedFields, options));
   };
 }
 
@@ -156,6 +221,37 @@ export function Returns(
     const route = getRoute(context.metadata as DecoratorMetadata, context.name);
     const response = normalizeReturns(schemaOrOptions, options);
     route.responses.push(response);
+  };
+}
+
+export function ReturnsError(
+  schemaOrOptions: SchemaSource | ReturnsOptions = {},
+  options: Omit<ReturnsOptions, "schema"> = {}
+) {
+  return (_value: unknown, context: ClassMethodDecoratorContext): void => {
+    const route = getRoute(context.metadata as DecoratorMetadata, context.name);
+    const response = normalizeReturns(schemaOrOptions, options);
+    response.status = response.status >= 400 ? response.status : 400;
+    response.error = true;
+    route.responses.push(response);
+  };
+}
+
+export function Errors(schema: SchemaSource, responses: ErrorResponseOptions[]) {
+  return (_value: unknown, context: ClassMethodDecoratorContext): void => {
+    if (!responses.length) {
+      throw new Error("Errors decorator requires at least one response.");
+    }
+    const route = getRoute(context.metadata as DecoratorMetadata, context.name);
+    for (const response of responses) {
+      route.responses.push({
+        status: response.status,
+        schema,
+        description: response.description,
+        contentType: response.contentType,
+        error: true
+      });
+    }
   };
 }
 
@@ -255,4 +351,127 @@ function isSchemaNode(value: unknown): value is SchemaNode {
 
 function isDtoConstructor(value: unknown): value is DtoConstructor {
   return typeof value === "function";
+}
+
+function getDtoMetaOrThrow(dto: DtoConstructor): DtoMeta {
+  const dtoMeta = getDtoMeta(dto);
+  if (!dtoMeta) {
+    throw new Error(`DTO "${dto.name}" is missing @Dto decorator.`);
+  }
+  return dtoMeta;
+}
+
+function buildDerivedMeta(
+  value: Function,
+  baseMeta: DtoMeta,
+  fields: Record<string, FieldMeta>,
+  options: DtoComposeOptions
+): DtoMeta {
+  const name = options.name ?? value.name;
+  return {
+    name,
+    description: options.description ?? baseMeta.description,
+    fields,
+    additionalProperties: options.additionalProperties ?? baseMeta.additionalProperties
+  };
+}
+
+function pickFields(fields: Record<string, FieldMeta>, keys: string[]): Record<string, FieldMeta> {
+  const output: Record<string, FieldMeta> = {};
+  const seen = new Set<string>();
+  for (const key of keys) {
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    const field = fields[key];
+    if (!field) {
+      throw new Error(`DTO field "${key}" does not exist.`);
+    }
+    output[key] = cloneField(field);
+  }
+  return output;
+}
+
+function omitFields(fields: Record<string, FieldMeta>, keys: string[]): Record<string, FieldMeta> {
+  const omitSet = new Set(keys);
+  for (const key of omitSet) {
+    if (!fields[key]) {
+      throw new Error(`DTO field "${key}" does not exist.`);
+    }
+  }
+  const output: Record<string, FieldMeta> = {};
+  for (const [name, field] of Object.entries(fields)) {
+    if (!omitSet.has(name)) {
+      output[name] = cloneField(field);
+    }
+  }
+  return output;
+}
+
+function makeFieldsPartial(fields: Record<string, FieldMeta>): Record<string, FieldMeta> {
+  const output: Record<string, FieldMeta> = {};
+  for (const [name, field] of Object.entries(fields)) {
+    output[name] = { ...cloneField(field), optional: true };
+  }
+  return output;
+}
+
+function mergeFields(
+  sources: Array<Record<string, FieldMeta>>
+): Record<string, FieldMeta> {
+  const output: Record<string, FieldMeta> = {};
+  for (const fields of sources) {
+    for (const [name, field] of Object.entries(fields)) {
+      output[name] = cloneField(field);
+    }
+  }
+  return output;
+}
+
+function applyOverrides(
+  fields: Record<string, FieldMeta>,
+  overrides: Record<string, FieldOverride> | undefined
+): Record<string, FieldMeta> {
+  if (!overrides) {
+    return fields;
+  }
+  for (const [name, override] of Object.entries(overrides)) {
+    const field = fields[name];
+    if (!field) {
+      throw new Error(`DTO field "${name}" does not exist.`);
+    }
+    fields[name] = normalizeOverride(field, override);
+  }
+  return fields;
+}
+
+function normalizeOverride(field: FieldMeta, override: FieldOverride): FieldMeta {
+  if (isSchemaNode(override)) {
+    return {
+      schema: override,
+      optional:
+        override.optional ?? field.optional ?? field.schema.optional,
+      description: field.description
+    };
+  }
+  const schema = override.schema ?? field.schema;
+  const optional =
+    override.optional ??
+    schema.optional ??
+    field.optional ??
+    field.schema.optional;
+  return {
+    schema,
+    optional,
+    description: override.description ?? field.description
+  };
+}
+
+function cloneField(field: FieldMeta): FieldMeta {
+  return {
+    schema: field.schema,
+    optional: field.optional,
+    description: field.description
+  };
 }

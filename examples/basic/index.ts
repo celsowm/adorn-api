@@ -4,7 +4,9 @@ import {
   Dto,
   Field,
   Get,
+  OmitDto,
   Params,
+  PickDto,
   Post,
   Returns,
   createExpressApp,
@@ -24,20 +26,15 @@ class UserDto {
   nickname?: string;
 }
 
-@Dto()
-class CreateUserDto {
-  @Field(t.string({ minLength: 1 }))
-  name!: string;
+interface CreateUserDto extends Omit<UserDto, "id"> {}
 
-  @Field(t.optional(t.string()))
-  nickname?: string;
-}
+@OmitDto(UserDto, ["id"])
+class CreateUserDto {}
 
-@Dto()
-class UserParamsDto {
-  @Field(t.uuid())
-  id!: string;
-}
+interface UserParamsDto extends Pick<UserDto, "id"> {}
+
+@PickDto(UserDto, ["id"])
+class UserParamsDto {}
 
 @Controller("/users")
 class UserController {
