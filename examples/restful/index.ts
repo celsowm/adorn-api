@@ -16,6 +16,7 @@ import {
   Put,
   Query,
   Returns,
+  coerce,
   createExpressApp,
   t,
   type RequestContext
@@ -108,63 +109,17 @@ const TaskErrors = Errors(ErrorDto, [
   { status: 404, description: "Not found." }
 ]);
 
-function normalizeSingle(value: unknown): string | undefined {
-  if (Array.isArray(value)) {
-    const first = value[0];
-    if (first === undefined || first === null) {
-      return undefined;
-    }
-    return typeof first === "string" ? first : String(first);
-  }
-  if (value === undefined || value === null) {
-    return undefined;
-  }
-  return typeof value === "string" ? value : String(value);
-}
-
-function parseNumber(value: unknown): number | undefined {
-  const text = normalizeSingle(value);
-  if (!text) {
-    return undefined;
-  }
-  const parsed = Number(text);
-  if (!Number.isFinite(parsed)) {
-    return undefined;
-  }
-  return parsed;
-}
-
-function parseBoolean(value: unknown): boolean | undefined {
-  const text = normalizeSingle(value);
-  if (text === undefined) {
-    return undefined;
-  }
-  if (text === "true" || text === "1") {
-    return true;
-  }
-  if (text === "false" || text === "0") {
-    return false;
-  }
-  return undefined;
-}
-
-function parseId(value: unknown): number | undefined {
-  const parsed = parseNumber(value);
-  if (parsed === undefined || !Number.isInteger(parsed)) {
-    return undefined;
-  }
-  return parsed;
-}
-
 @Controller("/tasks")
 class TaskController {
   @Get("/")
   @Query(TaskQueryDto)
   @Returns(t.array(t.ref(TaskDto)))
   list(ctx: RequestContext<unknown, TaskQueryDto>) {
-    const offset = Math.max(0, parseNumber(ctx.query?.offset) ?? 0);
-    const limit = Math.min(100, Math.max(1, parseNumber(ctx.query?.limit) ?? 25));
-    const completed = parseBoolean(ctx.query?.completed);
+    const offset =
+      coerce.integer(ctx.query?.offset, { min: 0, clamp: true }) ?? 0;
+    const limit =
+      coerce.integer(ctx.query?.limit, { min: 1, max: 100, clamp: true }) ?? 25;
+    const completed = coerce.boolean(ctx.query?.completed);
 
     let result = tasks;
     if (completed !== undefined) {
@@ -178,7 +133,7 @@ class TaskController {
   @Returns(TaskDto)
   @TaskErrors
   getOne(ctx: RequestContext<unknown, undefined, { id: string }>) {
-    const id = parseId(ctx.params.id);
+    const id = coerce.id(ctx.params.id);
     if (id === undefined) {
       throw new HttpError(400, "Invalid task id.");
     }
@@ -209,7 +164,7 @@ class TaskController {
   @Returns(TaskDto)
   @TaskErrors
   replace(ctx: RequestContext<ReplaceTaskDto, undefined, { id: string }>) {
-    const id = parseId(ctx.params.id);
+    const id = coerce.id(ctx.params.id);
     if (id === undefined) {
       throw new HttpError(400, "Invalid task id.");
     }
@@ -233,7 +188,7 @@ class TaskController {
   @Returns(TaskDto)
   @TaskErrors
   update(ctx: RequestContext<UpdateTaskDto, undefined, { id: string }>) {
-    const id = parseId(ctx.params.id);
+    const id = coerce.id(ctx.params.id);
     if (id === undefined) {
       throw new HttpError(400, "Invalid task id.");
     }
@@ -255,7 +210,7 @@ class TaskController {
   @Returns({ status: 204, description: "Deleted." })
   @TaskErrors
   remove(ctx: RequestContext<unknown, undefined, { id: string }>) {
-    const id = parseId(ctx.params.id);
+    const id = coerce.id(ctx.params.id);
     if (id === undefined) {
       throw new HttpError(400, "Invalid task id.");
     }

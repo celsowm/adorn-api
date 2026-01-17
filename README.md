@@ -73,6 +73,17 @@ Run a specific example:
 npm run example -- openapi
 ```
 
+## Helpers
+
+Coercion helpers keep request parsing consistent:
+
+```ts
+import { coerce } from "./src";
+
+const id = coerce.id(ctx.params.id);
+const limit = coerce.integer(ctx.query.limit, { min: 1, max: 100, clamp: true }) ?? 25;
+```
+
 ## Notes
 
 - Uses the TC39 stage-3 decorator semantics (TypeScript 5+).
