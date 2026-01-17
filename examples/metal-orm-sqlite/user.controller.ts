@@ -11,17 +11,11 @@ import {
   Query,
   Returns,
   coerce,
-  t,
   type RequestContext
 } from "../../src";
 import { applyFilter, toPagedResponse } from "metal-orm";
 import type { SimpleWhereInput } from "metal-orm";
-import {
-  entityRef,
-  eq,
-  getTableDefFromEntity,
-  selectFromEntity
-} from "metal-orm";
+import { entityRef, selectFromEntity } from "metal-orm";
 import { createSession } from "./db";
 import {
   CreateUserDto,
@@ -45,8 +39,27 @@ function parseUserId(value: string): number {
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
+const userRef = entityRef(User);
 
 type UserFilter = SimpleWhereInput<typeof User, "name" | "email">;
+type OrmSession = ReturnType<typeof createSession>;
+
+async function withSession<T>(handler: (session: OrmSession) => Promise<T>) {
+  const session = createSession();
+  try {
+    return await handler(session);
+  } finally {
+    await session.dispose();
+  }
+}
+
+async function getUserOrThrow(session: OrmSession, id: number): Promise<User> {
+  const user = await session.find(User, id);
+  if (!user) {
+    throw new HttpError(404, "User not found.");
+  }
+  return user;
+}
 
 function buildUserFilter(query?: UserQueryDto): UserFilter | undefined {
   if (!query) {
@@ -76,19 +89,16 @@ export class UserController {
         max: MAX_PAGE_SIZE,
         clamp: true
       }) ?? DEFAULT_PAGE_SIZE;
-    const session = createSession();
-    try {
-      const U = entityRef(User);
-      let query = selectFromEntity(User).orderBy(U.id, "ASC");
+    return withSession(async (session) => {
       const filters = buildUserFilter(ctx.query);
-      if (filters) {
-        query = applyFilter(query, User, filters);
-      }
+      const query = applyFilter(
+        selectFromEntity(User).orderBy(userRef.id, "ASC"),
+        User,
+        filters
+      );
       const paged = await query.executePaged(session, { page, pageSize });
       return toPagedResponse(paged);
-    } finally {
-      await session.dispose();
-    }
+    });
   }
 
   @Get("/:id")
@@ -97,41 +107,25 @@ export class UserController {
   @UserErrors
   async getOne(ctx: RequestContext<unknown, undefined, { id: string }>) {
     const id = parseUserId(ctx.params.id);
-    const session = createSession();
-    try {
-      const U = entityRef(User);
-      const [user] = await selectFromEntity(User)
-        .where(eq(U.id, id))
-        .execute(session);
-      if (!user) {
-        throw new HttpError(404, "User not found.");
-      }
+    return withSession(async (session) => {
+      const user = await getUserOrThrow(session, id);
       return user as UserDto;
-    } finally {
-      await session.dispose();
-    }
+    });
   }
 
   @Post("/")
   @Body(CreateUserDto)
   @Returns({ status: 201, schema: UserDto })
   async create(ctx: RequestContext<CreateUserDto>) {
-    const session = createSession();
-    try {
-      const userTable = getTableDefFromEntity(User);
-      if (!userTable) {
-        throw new Error("User table not initialized");
-      }
+    return withSession(async (session) => {
       const user = new User();
       user.name = ctx.body.name;
       user.email = ctx.body.email ?? null;
       user.createdAt = new Date().toISOString();
-      session.trackNew(userTable, user);
+      await session.persist(user);
       await session.commit();
       return user as UserDto;
-    } finally {
-      await session.dispose();
-    }
+    });
   }
 
   @Put("/:id")
@@ -141,23 +135,13 @@ export class UserController {
   @UserErrors
   async replace(ctx: RequestContext<ReplaceUserDto, undefined, { id: string }>) {
     const id = parseUserId(ctx.params.id);
-    const session = createSession();
-    try {
-      const U = entityRef(User);
-      const [user] = await selectFromEntity(User)
-        .where(eq(U.id, id))
-        .execute(session);
-      if (!user) {
-        throw new HttpError(404, "User not found.");
-      }
-      const entity = user as User;
+    return withSession(async (session) => {
+      const entity = await getUserOrThrow(session, id);
       entity.name = ctx.body.name;
       entity.email = ctx.body.email ?? null;
       await session.commit();
       return entity as UserDto;
-    } finally {
-      await session.dispose();
-    }
+    });
   }
 
   @Patch("/:id")
@@ -167,16 +151,8 @@ export class UserController {
   @UserErrors
   async update(ctx: RequestContext<UpdateUserDto, undefined, { id: string }>) {
     const id = parseUserId(ctx.params.id);
-    const session = createSession();
-    try {
-      const U = entityRef(User);
-      const [user] = await selectFromEntity(User)
-        .where(eq(U.id, id))
-        .execute(session);
-      if (!user) {
-        throw new HttpError(404, "User not found.");
-      }
-      const entity = user as User;
+    return withSession(async (session) => {
+      const entity = await getUserOrThrow(session, id);
       if (ctx.body.name !== undefined) {
         entity.name = ctx.body.name;
       }
@@ -185,9 +161,7 @@ export class UserController {
       }
       await session.commit();
       return entity as UserDto;
-    } finally {
-      await session.dispose();
-    }
+    });
   }
 
   @Delete("/:id")
@@ -196,19 +170,10 @@ export class UserController {
   @UserErrors
   async remove(ctx: RequestContext<unknown, undefined, { id: string }>) {
     const id = parseUserId(ctx.params.id);
-    const session = createSession();
-    try {
-      const U = entityRef(User);
-      const [user] = await selectFromEntity(User)
-        .where(eq(U.id, id))
-        .execute(session);
-      if (!user) {
-        throw new HttpError(404, "User not found.");
-      }
-      session.markRemoved(user);
+    return withSession(async (session) => {
+      const user = await getUserOrThrow(session, id);
+      await session.remove(user);
       await session.commit();
-    } finally {
-      await session.dispose();
-    }
+    });
   }
 }
