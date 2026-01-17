@@ -1,4 +1,4 @@
-import type { ColumnDef } from "metal-orm";
+import type { ColumnDef, OrmSession } from "metal-orm";
 import {
   columnTypeToOpenApiFormat,
   columnTypeToOpenApiType,
@@ -9,6 +9,9 @@ import type { SchemaNode } from "../core/schema";
 import { t } from "../core/schema";
 import type { DtoConstructor } from "../core/types";
 import { registerDto, type FieldMeta } from "../core/metadata";
+import { HttpError } from "../core/errors";
+import { coerce } from "../core/coerce";
+import { Dto, Field, MergeDto } from "../core/decorators";
 
 export type MetalDtoMode = "response" | "create" | "update";
 
@@ -189,4 +192,199 @@ function normalizeOverride(field: FieldMeta, override: FieldOverride): FieldMeta
 
 function isSchemaNode(value: unknown): value is SchemaNode {
   return !!value && typeof value === "object" && "kind" in (value as SchemaNode);
+}
+
+export interface PaginationConfig {
+  defaultPageSize?: number;
+  maxPageSize?: number;
+}
+
+export interface PaginationOptions {
+  min?: number;
+  max?: number;
+  clamp?: boolean;
+}
+
+export interface ParsedPagination {
+  page: number;
+  pageSize: number;
+}
+
+export type CreateSessionFn = () => OrmSession;
+
+export async function withSession<T>(
+  createSession: CreateSessionFn,
+  handler: (session: OrmSession) => Promise<T>
+): Promise<T> {
+  const session = createSession();
+  try {
+    return await handler(session);
+  } finally {
+    await session.dispose();
+  }
+}
+
+export function parsePagination(
+  query: Record<string, unknown>,
+  config: PaginationConfig = {}
+): ParsedPagination {
+  const { defaultPageSize = 25, maxPageSize = 100 } = config;
+
+  const page = coerce.integer(query.page as string | number, {
+    min: 1,
+    clamp: true
+  }) ?? 1;
+
+  const pageSize = coerce.integer(query.pageSize as string | number, {
+    min: 1,
+    max: maxPageSize,
+    clamp: true
+  }) ?? defaultPageSize;
+
+  return { page, pageSize };
+}
+
+export function parseIdOrThrow(value: string | number, entityName: string): number {
+  const id = coerce.id(value);
+  if (id === undefined) {
+    throw new HttpError(400, `Invalid ${entityName} id.`);
+  }
+  return id;
+}
+
+export interface FilterFieldMapping {
+  [queryKey: string]: string;
+}
+
+export interface FilterMapping {
+  field: string;
+  operator: "equals" | "contains" | "startsWith" | "endsWith" | "gt" | "gte" | "lt" | "lte";
+}
+
+export interface ParseFilterOptions<T> {
+  query?: Record<string, unknown>;
+  fieldMappings?: Record<string, FilterMapping>;
+}
+
+export type Filter<T, K extends keyof T> = {
+  [P in K]?: {
+    equals?: T[P];
+    contains?: T[P];
+    startsWith?: T[P];
+    endsWith?: T[P];
+    gt?: T[P];
+    gte?: T[P];
+    lt?: T[P];
+    lte?: T[P];
+  };
+};
+
+export function parseFilter<T, K extends keyof T>(
+  query: Record<string, unknown> | undefined,
+  mappings: Record<string, { field: K; operator: "equals" | "contains" | "startsWith" | "endsWith" | "gt" | "gte" | "lt" | "lte" }>
+): Filter<T, K> | undefined {
+  if (!query) {
+    return undefined;
+  }
+
+  const filter: Filter<T, K> = {};
+
+  for (const [queryKey, value] of Object.entries(query)) {
+    const mapping = mappings[queryKey];
+    if (!mapping || value === undefined || value === null || value === "") {
+      continue;
+    }
+
+    const { field, operator } = mapping;
+    if (!filter[field]) {
+      filter[field] = {};
+    }
+    filter[field]![operator] = value as T[K];
+  }
+
+  return Object.keys(filter).length ? filter : undefined;
+}
+
+export function createFilterMappings<T extends Record<string, unknown>>(
+  entity: T,
+  fields: Array<{ queryKey: string; field: keyof T; operator?: "equals" | "contains" | "startsWith" | "endsWith" }>
+): Record<string, { field: keyof T; operator: "equals" | "contains" | "startsWith" | "endsWith" }> {
+  const mappings: Record<string, { field: keyof T; operator: "equals" | "contains" | "startsWith" | "endsWith" }> = {};
+
+  for (const { queryKey, field, operator = "equals" } of fields) {
+    mappings[queryKey] = { field, operator };
+  }
+
+  return mappings;
+}
+
+export interface PagedQueryDtoOptions {
+  defaultPageSize?: number;
+  maxPageSize?: number;
+}
+
+export function createPagedQueryDtoClass(
+  options: PagedQueryDtoOptions = {}
+): DtoConstructor {
+  const { defaultPageSize = 25, maxPageSize = 100 } = options;
+
+  @Dto()
+  class PagedQueryDto {
+    @Field(t.optional(t.integer({ minimum: 1, default: 1 })))
+    page?: number;
+
+    @Field(
+      t.optional(
+        t.integer({ minimum: 1, maximum: maxPageSize, default: defaultPageSize })
+      )
+    )
+    pageSize?: number;
+  }
+
+  return PagedQueryDto;
+}
+
+export interface PagedResponseDtoOptions {
+  itemDto: DtoConstructor;
+  description?: string;
+}
+
+export function createPagedResponseDtoClass(
+  options: PagedResponseDtoOptions
+): DtoConstructor {
+  const { itemDto, description } = options;
+
+  @Dto()
+  class ListItemsDto {
+    @Field(t.array(t.ref(itemDto)))
+    items!: unknown[];
+  }
+
+  @Dto()
+  class PagedResponseMetaDto {
+    @Field(t.integer({ minimum: 0 }))
+    totalItems!: number;
+
+    @Field(t.integer({ minimum: 1 }))
+    page!: number;
+
+    @Field(t.integer({ minimum: 1 }))
+    pageSize!: number;
+
+    @Field(t.integer({ minimum: 1 }))
+    totalPages!: number;
+
+    @Field(t.boolean())
+    hasNextPage!: boolean;
+
+    @Field(t.boolean())
+    hasPrevPage!: boolean;
+  }
+
+  @MergeDto([ListItemsDto, PagedResponseMetaDto], {
+    description: description ?? "Paged response."
+  })
+  class PagedResponseDto {}
+
+  return PagedResponseDto;
 }

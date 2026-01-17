@@ -84,6 +84,42 @@ const id = coerce.id(ctx.params.id);
 const limit = coerce.integer(ctx.query.limit, { min: 1, max: 100, clamp: true }) ?? 25;
 ```
 
+Metal-ORM helpers reduce boilerplate:
+
+```ts
+import {
+  withSession,
+  parseIdOrThrow,
+  parsePagination,
+  parseFilter,
+  createPagedQueryDtoClass,
+  createPagedResponseDtoClass
+} from "./src/adapter/metal-orm";
+
+// Session management with automatic cleanup
+return withSession(createSession, async (session) => {
+  const user = await session.find(User, id);
+  return user;
+});
+
+// Parse and validate ID
+const id = parseIdOrThrow(ctx.params.id, "user");
+
+// Parse pagination with defaults
+const { page, pageSize } = parsePagination(ctx.query ?? {});
+
+// Build filters from query parameters
+const filters = parseFilter<User, "name">(ctx.query, {
+  nameContains: { field: "name" as const, operator: "contains" as const }
+});
+
+// Generate pagination DTOs
+const PagedQueryDto = createPagedQueryDtoClass({ maxPageSize: 100 });
+const UserPagedResponseDto = createPagedResponseDtoClass({ itemDto: UserDto });
+```
+
+See [METAL_ORM_HELPERS.md](./METAL_ORM_HELPERS.md) for detailed documentation.
+
 ## Notes
 
 - Uses the TC39 stage-3 decorator semantics (TypeScript 5+).
