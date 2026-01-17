@@ -4,4 +4,5 @@ export * from "./core/openapi";
 export * from "./core/errors";
 export * from "./core/coerce";
 export * from "./adapter/express";
+export * from "./adapter/metal-orm";
 export * from "./core/types";

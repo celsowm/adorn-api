@@ -1,24 +1,35 @@
-import { Dto, Errors, Field, OmitDto, PartialDto, PickDto, t } from "../../src";
+import {
+  Dto,
+  Errors,
+  Field,
+  MergeDto,
+  MetalDto,
+  OmitDto,
+  PartialDto,
+  PickDto,
+  t
+} from "../../src";
+import { User } from "./user.entity";
 
 export const DEFAULT_PAGE_SIZE = 25;
 export const MAX_PAGE_SIZE = 100;
 
-@Dto({ description: "User returned by the API." })
-export class UserDto {
-  @Field(t.integer({ description: "User id." }))
-  id!: number;
+const USER_DTO_OVERRIDES = {
+  id: t.integer({ description: "User id." }),
+  name: t.string({ minLength: 1 }),
+  email: t.nullable(t.string({ format: "email" })),
+  createdAt: t.dateTime({ description: "Creation timestamp." })
+};
 
-  @Field(t.string({ minLength: 1 }))
-  name!: string;
+export interface UserDto extends User {}
 
-  @Field(t.optional(t.nullable(t.string({ format: "email" }))))
-  email?: string | null;
+@MetalDto(User, {
+  description: "User returned by the API.",
+  overrides: USER_DTO_OVERRIDES
+})
+export class UserDto {}
 
-  @Field(t.dateTime({ description: "Creation timestamp." }))
-  createdAt!: string;
-}
-
-const USER_MUTATION_KEYS = ["id", "createdAt"] as const satisfies Array<keyof UserDto>;
+const USER_MUTATION_KEYS: Array<keyof UserDto> = ["id", "createdAt"];
 type UserMutationDto = Omit<UserDto, (typeof USER_MUTATION_KEYS)[number]>;
 
 export interface CreateUserDto extends UserMutationDto {}
@@ -42,7 +53,7 @@ export interface UserParamsDto extends Pick<UserDto, "id"> {}
 export class UserParamsDto {}
 
 @Dto()
-export class UserQueryDto {
+class PagedQueryDto {
   @Field(t.optional(t.integer({ minimum: 1, default: 1 })))
   page?: number;
 
@@ -52,7 +63,10 @@ export class UserQueryDto {
     )
   )
   pageSize?: number;
+}
 
+@Dto()
+class UserFilterQueryDto {
   @Field(t.optional(t.string({ minLength: 1 })))
   nameContains?: string;
 
@@ -60,11 +74,17 @@ export class UserQueryDto {
   emailContains?: string;
 }
 
-@Dto({ description: "Paged user list response." })
-export class UserPagedResponseDto {
+@MergeDto([PagedQueryDto, UserFilterQueryDto])
+export class UserQueryDto {}
+
+@Dto()
+class UserListItemsDto {
   @Field(t.array(t.ref(UserDto)))
   items!: UserDto[];
+}
 
+@Dto()
+class PagedResponseMetaDto {
   @Field(t.integer({ minimum: 0 }))
   totalItems!: number;
 
@@ -83,6 +103,11 @@ export class UserPagedResponseDto {
   @Field(t.boolean())
   hasPrevPage!: boolean;
 }
+
+@MergeDto([UserListItemsDto, PagedResponseMetaDto], {
+  description: "Paged user list response."
+})
+export class UserPagedResponseDto {}
 
 @Dto()
 class ErrorDto {
