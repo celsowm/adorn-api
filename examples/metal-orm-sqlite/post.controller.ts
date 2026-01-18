@@ -10,7 +10,6 @@ import {
   Put,
   Query,
   Returns,
-  coerce,
   type RequestContext
 } from "../../src";
 import { applyFilter, toPagedResponse } from "metal-orm";
@@ -32,8 +31,28 @@ import {
 import { Post as PostEntity } from "./post.entity";
 import { User } from "./user.entity";
 
-function parsePostId(value: string): number {
-  const id = coerce.id(value);
+type IntegerOptions = {
+  min?: number;
+  max?: number;
+  clamp?: boolean;
+};
+
+function parseInteger(value: unknown, options: IntegerOptions = {}): number | undefined {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return undefined;
+  }
+  let result = value;
+  if (options.min !== undefined && result < options.min) {
+    return options.clamp ? options.min : undefined;
+  }
+  if (options.max !== undefined && result > options.max) {
+    return options.clamp ? options.max : undefined;
+  }
+  return result;
+}
+
+function requirePostId(value: unknown): number {
+  const id = parseInteger(value, { min: 1 });
   if (id === undefined) {
     throw new HttpError(400, "Invalid post id.");
   }
@@ -91,9 +110,9 @@ export class PostController {
   @Returns(PostPagedResponseDto)
   async list(ctx: RequestContext<unknown, PostQueryDto>) {
     const page =
-      coerce.integer(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
+      parseInteger(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
     const pageSize =
-      coerce.integer(ctx.query?.pageSize, {
+      parseInteger(ctx.query?.pageSize, {
         min: 1,
         max: MAX_PAGE_SIZE,
         clamp: true
@@ -114,8 +133,8 @@ export class PostController {
   @Params(PostParamsDto)
   @Returns(PostDto)
   @PostErrors
-  async getOne(ctx: RequestContext<unknown, undefined, { id: string }>) {
-    const id = parsePostId(ctx.params.id);
+  async getOne(ctx: RequestContext<unknown, undefined, PostParamsDto>) {
+    const id = requirePostId(ctx.params.id);
     return withSession(async (session) => {
       const post = await getPostOrThrow(session, id);
       return post as PostDto;
@@ -144,8 +163,8 @@ export class PostController {
   @Body(ReplacePostDto)
   @Returns(PostDto)
   @PostErrors
-  async replace(ctx: RequestContext<ReplacePostDto, undefined, { id: string }>) {
-    const id = parsePostId(ctx.params.id);
+  async replace(ctx: RequestContext<ReplacePostDto, undefined, PostParamsDto>) {
+    const id = requirePostId(ctx.params.id);
     return withSession(async (session) => {
       const entity = await getPostOrThrow(session, id);
       await getUserOrThrow(session, ctx.body.userId);
@@ -162,8 +181,8 @@ export class PostController {
   @Body(UpdatePostDto)
   @Returns(PostDto)
   @PostErrors
-  async update(ctx: RequestContext<UpdatePostDto, undefined, { id: string }>) {
-    const id = parsePostId(ctx.params.id);
+  async update(ctx: RequestContext<UpdatePostDto, undefined, PostParamsDto>) {
+    const id = requirePostId(ctx.params.id);
     return withSession(async (session) => {
       const entity = await getPostOrThrow(session, id);
       if (ctx.body.title !== undefined) {
@@ -185,8 +204,8 @@ export class PostController {
   @Params(PostParamsDto)
   @Returns({ status: 204 })
   @PostErrors
-  async remove(ctx: RequestContext<unknown, undefined, { id: string }>) {
-    const id = parsePostId(ctx.params.id);
+  async remove(ctx: RequestContext<unknown, undefined, PostParamsDto>) {
+    const id = requirePostId(ctx.params.id);
     return withSession(async (session) => {
       const post = await getPostOrThrow(session, id);
       await session.remove(post);

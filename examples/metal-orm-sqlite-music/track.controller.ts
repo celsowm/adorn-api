@@ -10,7 +10,6 @@ import {
   Put,
   Query,
   Returns,
-  coerce,
   type RequestContext
 } from "../../src";
 import { applyFilter, toPagedResponse } from "metal-orm";
@@ -32,8 +31,28 @@ import {
 import { Track as TrackEntity } from "./track.entity";
 import { Album } from "./album.entity";
 
-function parseTrackId(value: string): number {
-  const id = coerce.id(value);
+type IntegerOptions = {
+  min?: number;
+  max?: number;
+  clamp?: boolean;
+};
+
+function parseInteger(value: unknown, options: IntegerOptions = {}): number | undefined {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return undefined;
+  }
+  let result = value;
+  if (options.min !== undefined && result < options.min) {
+    return options.clamp ? options.min : undefined;
+  }
+  if (options.max !== undefined && result > options.max) {
+    return options.clamp ? options.max : undefined;
+  }
+  return result;
+}
+
+function requireTrackId(value: unknown): number {
+  const id = parseInteger(value, { min: 1 });
   if (id === undefined) {
     throw new HttpError(400, "Invalid track id.");
   }
@@ -91,9 +110,9 @@ export class TrackController {
   @Returns(TrackPagedResponseDto)
   async list(ctx: RequestContext<unknown, TrackQueryDto>) {
     const page =
-      coerce.integer(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
+      parseInteger(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
     const pageSize =
-      coerce.integer(ctx.query?.pageSize, {
+      parseInteger(ctx.query?.pageSize, {
         min: 1,
         max: MAX_PAGE_SIZE,
         clamp: true
@@ -114,8 +133,8 @@ export class TrackController {
   @Params(TrackParamsDto)
   @Returns(TrackDto)
   @TrackErrors
-  async getOne(ctx: RequestContext<unknown, undefined, { id: string }>) {
-    const id = parseTrackId(ctx.params.id);
+  async getOne(ctx: RequestContext<unknown, undefined, TrackParamsDto>) {
+    const id = requireTrackId(ctx.params.id);
     return withSession(async (session) => {
       const track = await getTrackOrThrow(session, id);
       return track as TrackDto;
@@ -145,8 +164,8 @@ export class TrackController {
   @Body(ReplaceTrackDto)
   @Returns(TrackDto)
   @TrackErrors
-  async replace(ctx: RequestContext<ReplaceTrackDto, undefined, { id: string }>) {
-    const id = parseTrackId(ctx.params.id);
+  async replace(ctx: RequestContext<ReplaceTrackDto, undefined, TrackParamsDto>) {
+    const id = requireTrackId(ctx.params.id);
     return withSession(async (session) => {
       const entity = await getTrackOrThrow(session, id);
       await getAlbumOrThrow(session, ctx.body.albumId);
@@ -164,8 +183,8 @@ export class TrackController {
   @Body(UpdateTrackDto)
   @Returns(TrackDto)
   @TrackErrors
-  async update(ctx: RequestContext<UpdateTrackDto, undefined, { id: string }>) {
-    const id = parseTrackId(ctx.params.id);
+  async update(ctx: RequestContext<UpdateTrackDto, undefined, TrackParamsDto>) {
+    const id = requireTrackId(ctx.params.id);
     return withSession(async (session) => {
       const entity = await getTrackOrThrow(session, id);
       if (ctx.body.title !== undefined) {
@@ -190,8 +209,8 @@ export class TrackController {
   @Params(TrackParamsDto)
   @Returns({ status: 204 })
   @TrackErrors
-  async remove(ctx: RequestContext<unknown, undefined, { id: string }>) {
-    const id = parseTrackId(ctx.params.id);
+  async remove(ctx: RequestContext<unknown, undefined, TrackParamsDto>) {
+    const id = requireTrackId(ctx.params.id);
     return withSession(async (session) => {
       const track = await getTrackOrThrow(session, id);
       await session.remove(track);

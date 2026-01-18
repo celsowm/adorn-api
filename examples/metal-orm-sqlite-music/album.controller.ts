@@ -10,7 +10,6 @@ import {
   Put,
   Query,
   Returns,
-  coerce,
   t,
   type RequestContext
 } from "../../src";
@@ -35,12 +34,32 @@ import { TrackDto } from "./track.dtos";
 import { Album as AlbumEntity } from "./album.entity";
 import { Artist } from "./artist.entity";
 
-function parseAlbumId(value: string): string {
-  const id = coerce.id(value);
+type IntegerOptions = {
+  min?: number;
+  max?: number;
+  clamp?: boolean;
+};
+
+function parseInteger(value: unknown, options: IntegerOptions = {}): number | undefined {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return undefined;
+  }
+  let result = value;
+  if (options.min !== undefined && result < options.min) {
+    return options.clamp ? options.min : undefined;
+  }
+  if (options.max !== undefined && result > options.max) {
+    return options.clamp ? options.max : undefined;
+  }
+  return result;
+}
+
+function requireAlbumId(value: unknown): number {
+  const id = parseInteger(value, { min: 1 });
   if (id === undefined) {
     throw new HttpError(400, "Invalid album id.");
   }
-  return value;
+  return id;
 }
 
 const albumRef = entityRef(AlbumEntity);
@@ -97,9 +116,9 @@ export class AlbumController {
   @Returns(AlbumPagedResponseDto)
   async list(ctx: RequestContext<unknown, AlbumQueryDto>) {
     const page =
-      coerce.integer(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
+      parseInteger(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
     const pageSize =
-      coerce.integer(ctx.query?.pageSize, {
+      parseInteger(ctx.query?.pageSize, {
         min: 1,
         max: MAX_PAGE_SIZE,
         clamp: true
@@ -120,8 +139,8 @@ export class AlbumController {
   @Params(AlbumParamsDto)
   @Returns(AlbumDto)
   @AlbumErrors
-  async getOne(ctx: RequestContext<unknown, undefined, { id: string }>) {
-    const id = parseInt(parseAlbumId(ctx.params.id), 10);
+  async getOne(ctx: RequestContext<unknown, undefined, AlbumParamsDto>) {
+    const id = requireAlbumId(ctx.params.id);
     return withSession(async (session) => {
       const album = await getAlbumOrThrow(session, id);
       return album as AlbumDto;
@@ -150,8 +169,8 @@ export class AlbumController {
   @Body(ReplaceAlbumDto)
   @Returns(AlbumDto)
   @AlbumErrors
-  async replace(ctx: RequestContext<ReplaceAlbumDto, undefined, { id: string }>) {
-    const id = parseInt(parseAlbumId(ctx.params.id), 10);
+  async replace(ctx: RequestContext<ReplaceAlbumDto, undefined, AlbumParamsDto>) {
+    const id = requireAlbumId(ctx.params.id);
     return withSession(async (session) => {
       const entity = await getAlbumOrThrow(session, id);
       await getArtistOrThrow(session, ctx.body.artistId);
@@ -168,8 +187,8 @@ export class AlbumController {
   @Body(UpdateAlbumDto)
   @Returns(AlbumDto)
   @AlbumErrors
-  async update(ctx: RequestContext<UpdateAlbumDto, undefined, { id: string }>) {
-    const id = parseInt(parseAlbumId(ctx.params.id), 10);
+  async update(ctx: RequestContext<UpdateAlbumDto, undefined, AlbumParamsDto>) {
+    const id = requireAlbumId(ctx.params.id);
     return withSession(async (session) => {
       const entity = await getAlbumOrThrow(session, id);
       if (ctx.body.title !== undefined) {
@@ -191,8 +210,8 @@ export class AlbumController {
   @Params(AlbumParamsDto)
   @Returns(t.array(t.ref(TrackDto)))
   @AlbumErrors
-  async listTracks(ctx: RequestContext<unknown, undefined, { id: string }>) {
-    const id = parseInt(parseAlbumId(ctx.params.id), 10);
+  async listTracks(ctx: RequestContext<unknown, undefined, AlbumParamsDto>) {
+    const id = requireAlbumId(ctx.params.id);
     return withSession(async (session) => {
       const album = await getAlbumOrThrow(session, id);
       return (await album.tracks.load()) as TrackDto[];
@@ -205,9 +224,9 @@ export class AlbumController {
   @Returns({ status: 201, schema: TrackDto })
   @AlbumErrors
   async createTrack(
-    ctx: RequestContext<CreateAlbumTrackDto, undefined, { id: string }>
+    ctx: RequestContext<CreateAlbumTrackDto, undefined, AlbumParamsDto>
   ) {
-    const id = parseInt(parseAlbumId(ctx.params.id), 10);
+    const id = requireAlbumId(ctx.params.id);
     return withSession(async (session) => {
       const album = await getAlbumOrThrow(session, id);
       const track = album.tracks.add({
@@ -225,8 +244,8 @@ export class AlbumController {
   @Params(AlbumParamsDto)
   @Returns({ status: 204 })
   @AlbumErrors
-  async remove(ctx: RequestContext<unknown, undefined, { id: string }>) {
-    const id = parseInt(parseAlbumId(ctx.params.id), 10);
+  async remove(ctx: RequestContext<unknown, undefined, AlbumParamsDto>) {
+    const id = requireAlbumId(ctx.params.id);
     return withSession(async (session) => {
       const album = await getAlbumOrThrow(session, id);
       await session.remove(album);

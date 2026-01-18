@@ -10,7 +10,6 @@ import {
   Put,
   Query,
   Returns,
-  coerce,
   t,
   type RequestContext
 } from "../../src";
@@ -34,8 +33,28 @@ import {
 import { CreateArtistAlbumDto } from "./album.dtos";
 import { Artist } from "./artist.entity";
 
-function parseArtistId(value: string): number {
-  const id = coerce.id(value);
+type IntegerOptions = {
+  min?: number;
+  max?: number;
+  clamp?: boolean;
+};
+
+function parseInteger(value: unknown, options: IntegerOptions = {}): number | undefined {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return undefined;
+  }
+  let result = value;
+  if (options.min !== undefined && result < options.min) {
+    return options.clamp ? options.min : undefined;
+  }
+  if (options.max !== undefined && result > options.max) {
+    return options.clamp ? options.max : undefined;
+  }
+  return result;
+}
+
+function requireArtistId(value: unknown): number {
+  const id = parseInteger(value, { min: 1 });
   if (id === undefined) {
     throw new HttpError(400, "Invalid artist id.");
   }
@@ -85,9 +104,9 @@ export class ArtistController {
   @Returns(ArtistPagedResponseDto)
   async list(ctx: RequestContext<unknown, ArtistQueryDto>) {
     const page =
-      coerce.integer(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
+      parseInteger(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
     const pageSize =
-      coerce.integer(ctx.query?.pageSize, {
+      parseInteger(ctx.query?.pageSize, {
         min: 1,
         max: MAX_PAGE_SIZE,
         clamp: true
@@ -108,8 +127,8 @@ export class ArtistController {
   @Params(ArtistParamsDto)
   @Returns(ArtistDto)
   @ArtistErrors
-  async getOne(ctx: RequestContext<unknown, undefined, { id: string }>) {
-    const id = parseArtistId(ctx.params.id);
+  async getOne(ctx: RequestContext<unknown, undefined, ArtistParamsDto>) {
+    const id = requireArtistId(ctx.params.id);
     return withSession(async (session) => {
       const artist = await getArtistOrThrow(session, id);
       return artist as ArtistDto;
@@ -138,8 +157,8 @@ export class ArtistController {
   @Body(ReplaceArtistDto)
   @Returns(ArtistDto)
   @ArtistErrors
-  async replace(ctx: RequestContext<ReplaceArtistDto, undefined, { id: string }>) {
-    const id = parseArtistId(ctx.params.id);
+  async replace(ctx: RequestContext<ReplaceArtistDto, undefined, ArtistParamsDto>) {
+    const id = requireArtistId(ctx.params.id);
     return withSession(async (session) => {
       const entity = await getArtistOrThrow(session, id);
       entity.name = ctx.body.name;
@@ -156,8 +175,8 @@ export class ArtistController {
   @Body(UpdateArtistDto)
   @Returns(ArtistDto)
   @ArtistErrors
-  async update(ctx: RequestContext<UpdateArtistDto, undefined, { id: string }>) {
-    const id = parseArtistId(ctx.params.id);
+  async update(ctx: RequestContext<UpdateArtistDto, undefined, ArtistParamsDto>) {
+    const id = requireArtistId(ctx.params.id);
     return withSession(async (session) => {
       const entity = await getArtistOrThrow(session, id);
       if (ctx.body.name !== undefined) {
@@ -181,8 +200,8 @@ export class ArtistController {
   @Params(ArtistParamsDto)
   @Returns(t.array(t.ref(AlbumDto)))
   @ArtistErrors
-  async listAlbums(ctx: RequestContext<unknown, undefined, { id: string }>) {
-    const id = parseArtistId(ctx.params.id);
+  async listAlbums(ctx: RequestContext<unknown, undefined, ArtistParamsDto>) {
+    const id = requireArtistId(ctx.params.id);
     return withSession(async (session) => {
       const artist = await getArtistOrThrow(session, id);
       return (await artist.albums.load()) as AlbumDto[];
@@ -195,9 +214,9 @@ export class ArtistController {
   @Returns({ status: 201, schema: AlbumDto })
   @ArtistErrors
   async createAlbum(
-    ctx: RequestContext<CreateArtistAlbumDto, undefined, { id: string }>
+    ctx: RequestContext<CreateArtistAlbumDto, undefined, ArtistParamsDto>
   ) {
-    const id = parseArtistId(ctx.params.id);
+    const id = requireArtistId(ctx.params.id);
     return withSession(async (session) => {
       const artist = await getArtistOrThrow(session, id);
       const album = artist.albums.add({
@@ -214,8 +233,8 @@ export class ArtistController {
   @Params(ArtistParamsDto)
   @Returns({ status: 204 })
   @ArtistErrors
-  async remove(ctx: RequestContext<unknown, undefined, { id: string }>) {
-    const id = parseArtistId(ctx.params.id);
+  async remove(ctx: RequestContext<unknown, undefined, ArtistParamsDto>) {
+    const id = requireArtistId(ctx.params.id);
     return withSession(async (session) => {
       const artist = await getArtistOrThrow(session, id);
       await session.remove(artist);

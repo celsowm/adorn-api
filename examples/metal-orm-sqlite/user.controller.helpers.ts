@@ -25,7 +25,6 @@ import { applyFilter, toPagedResponse, selectFromEntity, entityRef } from "metal
 import { createSession } from "./db";
 import {
   withSession,
-  parseIdOrThrow,
   parsePagination,
   parseFilter,
   createPagedQueryDtoClass,
@@ -141,6 +140,34 @@ const USER_FILTER_MAPPINGS = {
   emailContains: { field: "email" as const, operator: "contains" as const }
 };
 
+type IntegerOptions = {
+  min?: number;
+  max?: number;
+  clamp?: boolean;
+};
+
+function parseInteger(value: unknown, options: IntegerOptions = {}): number | undefined {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return undefined;
+  }
+  let result = value;
+  if (options.min !== undefined && result < options.min) {
+    return options.clamp ? options.min : undefined;
+  }
+  if (options.max !== undefined && result > options.max) {
+    return options.clamp ? options.max : undefined;
+  }
+  return result;
+}
+
+function requireUserId(value: unknown): number {
+  const id = parseInteger(value, { min: 1 });
+  if (id === undefined) {
+    throw new HttpError(400, "Invalid user id.");
+  }
+  return id;
+}
+
 async function getUserOrThrow(session: any, id: number): Promise<User> {
   const user = await session.find(User, id);
   if (!user) {
@@ -176,9 +203,9 @@ export class UserController {
   @Params(UserParamsDto)
   @Returns(UserDto)
   @UserErrors
-  async getOne(ctx: RequestContext<unknown, undefined, { id: string }>) {
+  async getOne(ctx: RequestContext<unknown, undefined, UserParamsDto>) {
     return withSession(createSession, async (session) => {
-      const id = parseIdOrThrow(ctx.params.id, "user");
+      const id = requireUserId(ctx.params.id);
       const user = await getUserOrThrow(session, id);
       return user as UserDto;
     });
@@ -204,9 +231,9 @@ export class UserController {
   @Body(ReplaceUserDto)
   @Returns(UserDto)
   @UserErrors
-  async replace(ctx: RequestContext<ReplaceUserDto, undefined, { id: string }>) {
+  async replace(ctx: RequestContext<ReplaceUserDto, undefined, UserParamsDto>) {
     return withSession(createSession, async (session) => {
-      const id = parseIdOrThrow(ctx.params.id, "user");
+      const id = requireUserId(ctx.params.id);
       const entity = await getUserOrThrow(session, id);
       entity.name = ctx.body.name;
       entity.email = ctx.body.email ?? null;
@@ -220,9 +247,9 @@ export class UserController {
   @Body(UpdateUserDto)
   @Returns(UserDto)
   @UserErrors
-  async update(ctx: RequestContext<UpdateUserDto, undefined, { id: string }>) {
+  async update(ctx: RequestContext<UpdateUserDto, undefined, UserParamsDto>) {
     return withSession(createSession, async (session) => {
-      const id = parseIdOrThrow(ctx.params.id, "user");
+      const id = requireUserId(ctx.params.id);
       const entity = await getUserOrThrow(session, id);
       if (ctx.body.name !== undefined) {
         entity.name = ctx.body.name;
@@ -239,9 +266,9 @@ export class UserController {
   @Params(UserParamsDto)
   @Returns(t.array(t.ref(PostDto)))
   @UserErrors
-  async listPosts(ctx: RequestContext<unknown, undefined, { id: string }>) {
+  async listPosts(ctx: RequestContext<unknown, undefined, UserParamsDto>) {
     return withSession(createSession, async (session) => {
-      const id = parseIdOrThrow(ctx.params.id, "user");
+      const id = requireUserId(ctx.params.id);
       const user = await getUserOrThrow(session, id);
       return (await user.posts.load()) as PostDto[];
     });
@@ -256,10 +283,10 @@ export class UserController {
   @Returns({ status: 201, schema: PostDto })
   @UserErrors
   async createPost(
-    ctx: RequestContext<{ title: string; body?: string | null }, undefined, { id: string }>
+    ctx: RequestContext<{ title: string; body?: string | null }, undefined, UserParamsDto>
   ) {
     return withSession(createSession, async (session) => {
-      const id = parseIdOrThrow(ctx.params.id, "user");
+      const id = requireUserId(ctx.params.id);
       const user = await getUserOrThrow(session, id);
       const post = user.posts.add({
         title: ctx.body.title,
@@ -275,9 +302,9 @@ export class UserController {
   @Params(UserParamsDto)
   @Returns({ status: 204 })
   @UserErrors
-  async remove(ctx: RequestContext<unknown, undefined, { id: string }>) {
+  async remove(ctx: RequestContext<unknown, undefined, UserParamsDto>) {
     return withSession(createSession, async (session) => {
-      const id = parseIdOrThrow(ctx.params.id, "user");
+      const id = requireUserId(ctx.params.id);
       const user = await getUserOrThrow(session, id);
       await session.remove(user);
       await session.commit();
