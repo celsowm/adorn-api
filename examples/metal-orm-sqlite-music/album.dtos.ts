@@ -4,9 +4,9 @@ import {
   Field,
   MergeDto,
   MetalDto,
-  OmitDto,
-  PartialDto,
-  PickDto,
+  createMetalCrudDtos,
+  createPagedQueryDtoClass,
+  createPagedResponseDtoClass,
   t
 } from "../../src";
 import { Album } from "./album.entity";
@@ -23,83 +23,55 @@ const ALBUM_DTO_OVERRIDES = {
   createdAt: t.dateTime({ description: "Creation timestamp." })
 };
 
+const albumCrud = createMetalCrudDtos(Album, {
+  overrides: ALBUM_DTO_OVERRIDES,
+  response: { description: "Album returned by the API." },
+  mutationExclude: ["id", "createdAt"]
+});
+
 export interface AlbumDto extends Omit<Album, "artist" | "tracks"> {}
 
-@MetalDto(Album, {
-  description: "Album returned by the API.",
-  overrides: ALBUM_DTO_OVERRIDES
-})
-export class AlbumDto {
-  declare id: number;
-  declare title: string;
-  declare releaseYear?: number | null;
-  declare artistId: number;
-  declare createdAt: string;
-}
+@albumCrud.response
+export class AlbumDto {}
 
-const ALBUM_MUTATION_KEYS: Array<keyof AlbumDto> = ["id", "createdAt"];
-type AlbumMutationDto = Omit<AlbumDto, (typeof ALBUM_MUTATION_KEYS)[number]>;
+type AlbumMutationDto = Omit<AlbumDto, "id" | "createdAt">;
 
 export interface CreateAlbumDto extends AlbumMutationDto {}
 
-@OmitDto(AlbumDto, ALBUM_MUTATION_KEYS)
-export class CreateAlbumDto {
-  declare title: string;
-  declare releaseYear?: number | null;
-  declare artistId: number;
-}
+@albumCrud.create
+export class CreateAlbumDto {}
 
 export interface ReplaceAlbumDto extends AlbumMutationDto {}
 
-@OmitDto(AlbumDto, ALBUM_MUTATION_KEYS)
-export class ReplaceAlbumDto {
-  declare title: string;
-  declare releaseYear?: number | null;
-  declare artistId: number;
-}
+@albumCrud.replace
+export class ReplaceAlbumDto {}
 
 export interface UpdateAlbumDto extends Partial<AlbumMutationDto> {}
 
-@PartialDto(ReplaceAlbumDto)
-export class UpdateAlbumDto {
-  declare title?: string;
-  declare releaseYear?: number | null;
-  declare artistId?: number;
-}
+@albumCrud.update
+export class UpdateAlbumDto {}
 
 export interface AlbumParamsDto extends Pick<AlbumDto, "id"> {}
 
-@PickDto(AlbumDto, ["id"])
-export class AlbumParamsDto {
-  declare id: number;
-}
+@albumCrud.params
+export class AlbumParamsDto {}
 
-const ARTIST_ALBUM_MUTATION_KEYS: Array<keyof AlbumDto> = [
-  ...ALBUM_MUTATION_KEYS,
-  "artistId"
-];
-type ArtistAlbumMutationDto = Omit<AlbumDto, (typeof ARTIST_ALBUM_MUTATION_KEYS)[number]>;
+type ArtistAlbumMutationDto = Omit<AlbumDto, "id" | "createdAt" | "artistId">;
 
 export interface CreateArtistAlbumDto extends ArtistAlbumMutationDto {}
 
-@OmitDto(AlbumDto, ARTIST_ALBUM_MUTATION_KEYS)
-export class CreateArtistAlbumDto {
-  declare title: string;
-  declare releaseYear?: number | null;
-}
+@MetalDto(Album, {
+  mode: "create",
+  overrides: ALBUM_DTO_OVERRIDES,
+  exclude: ["id", "createdAt", "artistId"]
+})
+export class CreateArtistAlbumDto {}
 
-@Dto()
-class PagedQueryDto {
-  @Field(t.optional(t.integer({ minimum: 1, default: 1 })))
-  page?: number;
-
-  @Field(
-    t.optional(
-      t.integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE })
-    )
-  )
-  pageSize?: number;
-}
+const PagedQueryDto = createPagedQueryDtoClass({
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  maxPageSize: MAX_PAGE_SIZE,
+  name: "AlbumPagedQueryDto"
+});
 
 @Dto()
 class AlbumFilterQueryDto {
@@ -122,37 +94,11 @@ export class AlbumQueryDto {
   declare artistId?: number;
 }
 
-@Dto()
-class AlbumListItemsDto {
-  @Field(t.array(t.ref(AlbumDto)))
-  items!: AlbumDto[];
-}
-
-@Dto()
-class PagedResponseMetaDto {
-  @Field(t.integer({ minimum: 0 }))
-  totalItems!: number;
-
-  @Field(t.integer({ minimum: 1 }))
-  page!: number;
-
-  @Field(t.integer({ minimum: 1 }))
-  pageSize!: number;
-
-  @Field(t.integer({ minimum: 1 }))
-  totalPages!: number;
-
-  @Field(t.boolean())
-  hasNextPage!: boolean;
-
-  @Field(t.boolean())
-  hasPrevPage!: boolean;
-}
-
-@MergeDto([AlbumListItemsDto, PagedResponseMetaDto], {
+export const AlbumPagedResponseDto = createPagedResponseDtoClass({
+  name: "AlbumPagedResponseDto",
+  itemDto: AlbumDto,
   description: "Paged album list response."
-})
-export class AlbumPagedResponseDto {}
+});
 
 @Dto()
 class ErrorDto {

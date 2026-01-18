@@ -94,7 +94,8 @@ const MAX_PAGE_SIZE = 100;
 
 const PagedQueryDto = createPagedQueryDtoClass({
   defaultPageSize: DEFAULT_PAGE_SIZE,
-  maxPageSize: MAX_PAGE_SIZE
+  maxPageSize: MAX_PAGE_SIZE,
+  name: "UserPagedQueryDto"
 });
 
 @Dto()
@@ -116,7 +117,8 @@ export class UserQueryDto {
 
 const UserWithPostsPagedResponseDto = createPagedResponseDtoClass({
   itemDto: UserWithPostsDto,
-  description: "Paged user list response with posts."
+  description: "Paged user list response with posts.",
+  name: "UserWithPostsPagedResponseDto"
 });
 
 @Dto()

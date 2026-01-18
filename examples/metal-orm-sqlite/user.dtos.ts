@@ -3,10 +3,9 @@ import {
   Errors,
   Field,
   MergeDto,
-  MetalDto,
-  OmitDto,
-  PartialDto,
-  PickDto,
+  createMetalCrudDtos,
+  createPagedQueryDtoClass,
+  createPagedResponseDtoClass,
   t
 } from "../../src";
 import { User } from "./user.entity";
@@ -22,18 +21,16 @@ const USER_DTO_OVERRIDES = {
   createdAt: t.dateTime({ description: "Creation timestamp." })
 };
 
+const userCrud = createMetalCrudDtos(User, {
+  overrides: USER_DTO_OVERRIDES,
+  response: { description: "User returned by the API." },
+  mutationExclude: ["id", "createdAt"]
+});
+
 export interface UserDto extends Omit<User, "posts"> {}
 
-@MetalDto(User, {
-  description: "User returned by the API.",
-  overrides: USER_DTO_OVERRIDES
-})
-export class UserDto {
-  declare id: number;
-  declare name: string;
-  declare email?: string | null;
-  declare createdAt: string;
-}
+@userCrud.response
+export class UserDto {}
 
 export interface UserWithPostsDto extends UserDto {
   posts: PostDto[];
@@ -50,52 +47,33 @@ class UserPostsDto {
 })
 export class UserWithPostsDto {}
 
-const USER_MUTATION_KEYS: Array<keyof UserDto> = ["id", "createdAt"];
-type UserMutationDto = Omit<UserDto, (typeof USER_MUTATION_KEYS)[number]>;
+type UserMutationDto = Omit<UserDto, "id" | "createdAt">;
 
 export interface CreateUserDto extends UserMutationDto {}
 
-@OmitDto(UserDto, USER_MUTATION_KEYS)
-export class CreateUserDto {
-  declare name: string;
-  declare email?: string | null;
-}
+@userCrud.create
+export class CreateUserDto {}
 
 export interface ReplaceUserDto extends UserMutationDto {}
 
-@OmitDto(UserDto, USER_MUTATION_KEYS)
-export class ReplaceUserDto {
-  declare name: string;
-  declare email?: string | null;
-}
+@userCrud.replace
+export class ReplaceUserDto {}
 
 export interface UpdateUserDto extends Partial<UserMutationDto> {}
 
-@PartialDto(ReplaceUserDto)
-export class UpdateUserDto {
-  declare name?: string;
-  declare email?: string | null;
-}
+@userCrud.update
+export class UpdateUserDto {}
 
 export interface UserParamsDto extends Pick<UserDto, "id"> {}
 
-@PickDto(UserDto, ["id"])
-export class UserParamsDto {
-  declare id: number;
-}
+@userCrud.params
+export class UserParamsDto {}
 
-@Dto()
-class PagedQueryDto {
-  @Field(t.optional(t.integer({ minimum: 1, default: 1 })))
-  page?: number;
-
-  @Field(
-    t.optional(
-      t.integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE })
-    )
-  )
-  pageSize?: number;
-}
+const PagedQueryDto = createPagedQueryDtoClass({
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  maxPageSize: MAX_PAGE_SIZE,
+  name: "UserPagedQueryDto"
+});
 
 @Dto()
 class UserFilterQueryDto {
@@ -114,48 +92,17 @@ export class UserQueryDto {
   declare emailContains?: string;
 }
 
-@Dto()
-class UserListItemsDto {
-  @Field(t.array(t.ref(UserDto)))
-  items!: UserDto[];
-}
-
-@Dto()
-class PagedResponseMetaDto {
-  @Field(t.integer({ minimum: 0 }))
-  totalItems!: number;
-
-  @Field(t.integer({ minimum: 1 }))
-  page!: number;
-
-  @Field(t.integer({ minimum: 1 }))
-  pageSize!: number;
-
-  @Field(t.integer({ minimum: 1 }))
-  totalPages!: number;
-
-  @Field(t.boolean())
-  hasNextPage!: boolean;
-
-  @Field(t.boolean())
-  hasPrevPage!: boolean;
-}
-
-@MergeDto([UserListItemsDto, PagedResponseMetaDto], {
+export const UserPagedResponseDto = createPagedResponseDtoClass({
+  name: "UserPagedResponseDto",
+  itemDto: UserDto,
   description: "Paged user list response."
-})
-export class UserPagedResponseDto {}
+});
 
-@Dto()
-class UserWithPostsListItemsDto {
-  @Field(t.array(t.ref(UserWithPostsDto)))
-  items!: UserWithPostsDto[];
-}
-
-@MergeDto([UserWithPostsListItemsDto, PagedResponseMetaDto], {
+export const UserWithPostsPagedResponseDto = createPagedResponseDtoClass({
+  name: "UserWithPostsPagedResponseDto",
+  itemDto: UserWithPostsDto,
   description: "Paged user list response with posts."
-})
-export class UserWithPostsPagedResponseDto {}
+});
 
 @Dto()
 class ErrorDto {

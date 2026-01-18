@@ -3,10 +3,9 @@ import {
   Errors,
   Field,
   MergeDto,
-  MetalDto,
-  OmitDto,
-  PartialDto,
-  PickDto,
+  createMetalCrudDtos,
+  createPagedQueryDtoClass,
+  createPagedResponseDtoClass,
   t
 } from "../../src";
 import { Artist } from "./artist.entity";
@@ -24,73 +23,44 @@ const ARTIST_DTO_OVERRIDES = {
   createdAt: t.dateTime({ description: "Creation timestamp." })
 };
 
+const artistCrud = createMetalCrudDtos(Artist, {
+  overrides: ARTIST_DTO_OVERRIDES,
+  response: { description: "Artist returned by the API." },
+  mutationExclude: ["id", "createdAt"]
+});
+
 export interface ArtistDto extends Omit<Artist, "albums"> {}
 
-@MetalDto(Artist, {
-  description: "Artist returned by the API.",
-  overrides: ARTIST_DTO_OVERRIDES
-})
-export class ArtistDto {
-  declare id: number;
-  declare name: string;
-  declare genre?: string | null;
-  declare country?: string | null;
-  declare formedYear?: number | null;
-  declare createdAt: string;
-}
+@artistCrud.response
+export class ArtistDto {}
 
-const ARTIST_MUTATION_KEYS: Array<keyof ArtistDto> = ["id", "createdAt"];
-type ArtistMutationDto = Omit<ArtistDto, (typeof ARTIST_MUTATION_KEYS)[number]>;
+type ArtistMutationDto = Omit<ArtistDto, "id" | "createdAt">;
 
 export interface CreateArtistDto extends ArtistMutationDto {}
 
-@OmitDto(ArtistDto, ARTIST_MUTATION_KEYS)
-export class CreateArtistDto {
-  declare name: string;
-  declare genre?: string | null;
-  declare country?: string | null;
-  declare formedYear?: number | null;
-}
+@artistCrud.create
+export class CreateArtistDto {}
 
 export interface ReplaceArtistDto extends ArtistMutationDto {}
 
-@OmitDto(ArtistDto, ARTIST_MUTATION_KEYS)
-export class ReplaceArtistDto {
-  declare name: string;
-  declare genre?: string | null;
-  declare country?: string | null;
-  declare formedYear?: number | null;
-}
+@artistCrud.replace
+export class ReplaceArtistDto {}
 
 export interface UpdateArtistDto extends Partial<ArtistMutationDto> {}
 
-@PartialDto(ReplaceArtistDto)
-export class UpdateArtistDto {
-  declare name?: string;
-  declare genre?: string | null;
-  declare country?: string | null;
-  declare formedYear?: number | null;
-}
+@artistCrud.update
+export class UpdateArtistDto {}
 
 export interface ArtistParamsDto extends Pick<ArtistDto, "id"> {}
 
-@PickDto(ArtistDto, ["id"])
-export class ArtistParamsDto {
-  declare id: number;
-}
+@artistCrud.params
+export class ArtistParamsDto {}
 
-@Dto()
-class PagedQueryDto {
-  @Field(t.optional(t.integer({ minimum: 1, default: 1 })))
-  page?: number;
-
-  @Field(
-    t.optional(
-      t.integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE })
-    )
-  )
-  pageSize?: number;
-}
+const PagedQueryDto = createPagedQueryDtoClass({
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  maxPageSize: MAX_PAGE_SIZE,
+  name: "ArtistPagedQueryDto"
+});
 
 @Dto()
 class ArtistFilterQueryDto {
@@ -109,37 +79,11 @@ export class ArtistQueryDto {
   declare genreContains?: string;
 }
 
-@Dto()
-class ArtistListItemsDto {
-  @Field(t.array(t.ref(ArtistDto)))
-  items!: ArtistDto[];
-}
-
-@Dto()
-class PagedResponseMetaDto {
-  @Field(t.integer({ minimum: 0 }))
-  totalItems!: number;
-
-  @Field(t.integer({ minimum: 1 }))
-  page!: number;
-
-  @Field(t.integer({ minimum: 1 }))
-  pageSize!: number;
-
-  @Field(t.integer({ minimum: 1 }))
-  totalPages!: number;
-
-  @Field(t.boolean())
-  hasNextPage!: boolean;
-
-  @Field(t.boolean())
-  hasPrevPage!: boolean;
-}
-
-@MergeDto([ArtistListItemsDto, PagedResponseMetaDto], {
+export const ArtistPagedResponseDto = createPagedResponseDtoClass({
+  name: "ArtistPagedResponseDto",
+  itemDto: ArtistDto,
   description: "Paged artist list response."
-})
-export class ArtistPagedResponseDto {}
+});
 
 @Dto()
 class ErrorDto {

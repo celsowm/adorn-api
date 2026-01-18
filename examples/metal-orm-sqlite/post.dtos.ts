@@ -4,9 +4,9 @@ import {
   Field,
   MergeDto,
   MetalDto,
-  OmitDto,
-  PartialDto,
-  PickDto,
+  createMetalCrudDtos,
+  createPagedQueryDtoClass,
+  createPagedResponseDtoClass,
   t
 } from "../../src";
 import { Post } from "./post.entity";
@@ -22,83 +22,55 @@ const POST_DTO_OVERRIDES = {
   createdAt: t.dateTime({ description: "Creation timestamp." })
 };
 
+const postCrud = createMetalCrudDtos(Post, {
+  overrides: POST_DTO_OVERRIDES,
+  response: { description: "Post returned by the API." },
+  mutationExclude: ["id", "createdAt"]
+});
+
 export interface PostDto extends Omit<Post, "user"> {}
 
-@MetalDto(Post, {
-  description: "Post returned by the API.",
-  overrides: POST_DTO_OVERRIDES
-})
-export class PostDto {
-  declare id: number;
-  declare title: string;
-  declare body?: string | null;
-  declare userId: number;
-  declare createdAt: string;
-}
+@postCrud.response
+export class PostDto {}
 
-const POST_MUTATION_KEYS: Array<keyof PostDto> = ["id", "createdAt"];
-type PostMutationDto = Omit<PostDto, (typeof POST_MUTATION_KEYS)[number]>;
+type PostMutationDto = Omit<PostDto, "id" | "createdAt">;
 
 export interface CreatePostDto extends PostMutationDto {}
 
-@OmitDto(PostDto, POST_MUTATION_KEYS)
-export class CreatePostDto {
-  declare title: string;
-  declare body?: string | null;
-  declare userId: number;
-}
+@postCrud.create
+export class CreatePostDto {}
 
 export interface ReplacePostDto extends PostMutationDto {}
 
-@OmitDto(PostDto, POST_MUTATION_KEYS)
-export class ReplacePostDto {
-  declare title: string;
-  declare body?: string | null;
-  declare userId: number;
-}
+@postCrud.replace
+export class ReplacePostDto {}
 
 export interface UpdatePostDto extends Partial<PostMutationDto> {}
 
-@PartialDto(ReplacePostDto)
-export class UpdatePostDto {
-  declare title?: string;
-  declare body?: string | null;
-  declare userId?: number;
-}
+@postCrud.update
+export class UpdatePostDto {}
 
 export interface PostParamsDto extends Pick<PostDto, "id"> {}
 
-@PickDto(PostDto, ["id"])
-export class PostParamsDto {
-  declare id: number;
-}
+@postCrud.params
+export class PostParamsDto {}
 
-const USER_POST_MUTATION_KEYS: Array<keyof PostDto> = [
-  ...POST_MUTATION_KEYS,
-  "userId"
-];
-type UserPostMutationDto = Omit<PostDto, (typeof USER_POST_MUTATION_KEYS)[number]>;
+type UserPostMutationDto = Omit<PostDto, "id" | "createdAt" | "userId">;
 
 export interface CreateUserPostDto extends UserPostMutationDto {}
 
-@OmitDto(PostDto, USER_POST_MUTATION_KEYS)
-export class CreateUserPostDto {
-  declare title: string;
-  declare body?: string | null;
-}
+@MetalDto(Post, {
+  mode: "create",
+  overrides: POST_DTO_OVERRIDES,
+  exclude: ["id", "createdAt", "userId"]
+})
+export class CreateUserPostDto {}
 
-@Dto()
-class PagedQueryDto {
-  @Field(t.optional(t.integer({ minimum: 1, default: 1 })))
-  page?: number;
-
-  @Field(
-    t.optional(
-      t.integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE })
-    )
-  )
-  pageSize?: number;
-}
+const PagedQueryDto = createPagedQueryDtoClass({
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  maxPageSize: MAX_PAGE_SIZE,
+  name: "PostPagedQueryDto"
+});
 
 @Dto()
 class PostFilterQueryDto {
@@ -117,37 +89,11 @@ export class PostQueryDto {
   declare userId?: number;
 }
 
-@Dto()
-class PostListItemsDto {
-  @Field(t.array(t.ref(PostDto)))
-  items!: PostDto[];
-}
-
-@Dto()
-class PagedResponseMetaDto {
-  @Field(t.integer({ minimum: 0 }))
-  totalItems!: number;
-
-  @Field(t.integer({ minimum: 1 }))
-  page!: number;
-
-  @Field(t.integer({ minimum: 1 }))
-  pageSize!: number;
-
-  @Field(t.integer({ minimum: 1 }))
-  totalPages!: number;
-
-  @Field(t.boolean())
-  hasNextPage!: boolean;
-
-  @Field(t.boolean())
-  hasPrevPage!: boolean;
-}
-
-@MergeDto([PostListItemsDto, PagedResponseMetaDto], {
+export const PostPagedResponseDto = createPagedResponseDtoClass({
+  name: "PostPagedResponseDto",
+  itemDto: PostDto,
   description: "Paged post list response."
-})
-export class PostPagedResponseDto {}
+});
 
 @Dto()
 class ErrorDto {

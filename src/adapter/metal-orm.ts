@@ -321,6 +321,7 @@ export function createFilterMappings<T extends Record<string, unknown>>(
 export interface PagedQueryDtoOptions {
   defaultPageSize?: number;
   maxPageSize?: number;
+  name?: string;
 }
 
 export function createPagedQueryDtoClass(
@@ -328,7 +329,7 @@ export function createPagedQueryDtoClass(
 ): DtoConstructor {
   const { defaultPageSize = 25, maxPageSize = 100 } = options;
 
-  @Dto()
+  @Dto({ name: options.name })
   class PagedQueryDto {
     @Field(t.optional(t.integer({ minimum: 1, default: 1 })))
     page?: number;
@@ -347,12 +348,13 @@ export function createPagedQueryDtoClass(
 export interface PagedResponseDtoOptions {
   itemDto: DtoConstructor;
   description?: string;
+  name?: string;
 }
 
 export function createPagedResponseDtoClass(
   options: PagedResponseDtoOptions
 ): DtoConstructor {
-  const { itemDto, description } = options;
+  const { itemDto, description, name } = options;
 
   @Dto()
   class ListItemsDto {
@@ -382,9 +384,96 @@ export function createPagedResponseDtoClass(
   }
 
   @MergeDto([ListItemsDto, PagedResponseMetaDto], {
-    description: description ?? "Paged response."
+    description: description ?? "Paged response.",
+    name
   })
   class PagedResponseDto {}
 
   return PagedResponseDto;
+}
+
+export interface MetalCrudDtoOptions {
+  overrides?: Record<string, FieldOverride>;
+  response?: MetalDtoOptions;
+  create?: MetalDtoOptions;
+  replace?: MetalDtoOptions;
+  update?: MetalDtoOptions;
+  params?: MetalDtoOptions;
+  mutationExclude?: string[];
+  paramsInclude?: string[];
+}
+
+export interface MetalCrudDtoDecorators {
+  response: ReturnType<typeof MetalDto>;
+  create: ReturnType<typeof MetalDto>;
+  replace: ReturnType<typeof MetalDto>;
+  update: ReturnType<typeof MetalDto>;
+  params: ReturnType<typeof MetalDto>;
+}
+
+export function createMetalCrudDtos(
+  target: MetalDtoTarget,
+  options: MetalCrudDtoOptions = {}
+): MetalCrudDtoDecorators {
+  const mutationExclude = options.mutationExclude;
+
+  const response = buildCrudOptions(options.response, options.overrides);
+  const create = buildCrudOptions(options.create, options.overrides, {
+    mode: "create",
+    exclude: mergeStringArrays(mutationExclude, options.create?.exclude)
+  });
+  const replace = buildCrudOptions(options.replace, options.overrides, {
+    mode: "create",
+    exclude: mergeStringArrays(mutationExclude, options.replace?.exclude)
+  });
+  const update = buildCrudOptions(options.update, options.overrides, {
+    mode: "update",
+    exclude: mergeStringArrays(mutationExclude, options.update?.exclude)
+  });
+
+  const params = buildCrudOptions(options.params, options.overrides);
+  params.include = params.include ?? options.paramsInclude ?? ["id"];
+
+  return {
+    response: MetalDto(target, response),
+    create: MetalDto(target, create),
+    replace: MetalDto(target, replace),
+    update: MetalDto(target, update),
+    params: MetalDto(target, params)
+  };
+}
+
+function mergeOverrides(
+  base?: Record<string, FieldOverride>,
+  override?: Record<string, FieldOverride>
+): Record<string, FieldOverride> | undefined {
+  if (!base && !override) {
+    return undefined;
+  }
+  return { ...(base ?? {}), ...(override ?? {}) };
+}
+
+function mergeStringArrays(
+  ...entries: Array<string[] | undefined>
+): string[] | undefined {
+  const merged = new Set<string>();
+  for (const entry of entries) {
+    for (const value of entry ?? []) {
+      merged.add(value);
+    }
+  }
+  return merged.size ? Array.from(merged) : undefined;
+}
+
+function buildCrudOptions(
+  base: MetalDtoOptions | undefined,
+  overrides: Record<string, FieldOverride> | undefined,
+  extra: Partial<MetalDtoOptions> = {}
+): MetalDtoOptions {
+  const mergedOverrides = mergeOverrides(overrides, base?.overrides);
+  const output: MetalDtoOptions = { ...base, ...extra };
+  if (mergedOverrides) {
+    output.overrides = mergedOverrides;
+  }
+  return output;
 }

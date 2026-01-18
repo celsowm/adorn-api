@@ -4,9 +4,9 @@ import {
   Field,
   MergeDto,
   MetalDto,
-  OmitDto,
-  PartialDto,
-  PickDto,
+  createMetalCrudDtos,
+  createPagedQueryDtoClass,
+  createPagedResponseDtoClass,
   t
 } from "../../src";
 import { Track } from "./track.entity";
@@ -23,88 +23,55 @@ const TRACK_DTO_OVERRIDES = {
   createdAt: t.dateTime({ description: "Creation timestamp." })
 };
 
+const trackCrud = createMetalCrudDtos(Track, {
+  overrides: TRACK_DTO_OVERRIDES,
+  response: { description: "Track returned by the API." },
+  mutationExclude: ["id", "createdAt"]
+});
+
 export interface TrackDto extends Omit<Track, "album"> {}
 
-@MetalDto(Track, {
-  description: "Track returned by the API.",
-  overrides: TRACK_DTO_OVERRIDES
-})
-export class TrackDto {
-  declare id: number;
-  declare title: string;
-  declare durationSeconds?: number | null;
-  declare trackNumber?: number | null;
-  declare albumId: number;
-  declare createdAt: string;
-}
+@trackCrud.response
+export class TrackDto {}
 
-const TRACK_MUTATION_KEYS: Array<keyof TrackDto> = ["id", "createdAt"];
-type TrackMutationDto = Omit<TrackDto, (typeof TRACK_MUTATION_KEYS)[number]>;
+type TrackMutationDto = Omit<TrackDto, "id" | "createdAt">;
 
 export interface CreateTrackDto extends TrackMutationDto {}
 
-@OmitDto(TrackDto, TRACK_MUTATION_KEYS)
-export class CreateTrackDto {
-  declare title: string;
-  declare durationSeconds?: number | null;
-  declare trackNumber?: number | null;
-  declare albumId: number;
-}
+@trackCrud.create
+export class CreateTrackDto {}
 
 export interface ReplaceTrackDto extends TrackMutationDto {}
 
-@OmitDto(TrackDto, TRACK_MUTATION_KEYS)
-export class ReplaceTrackDto {
-  declare title: string;
-  declare durationSeconds?: number | null;
-  declare trackNumber?: number | null;
-  declare albumId: number;
-}
+@trackCrud.replace
+export class ReplaceTrackDto {}
 
 export interface UpdateTrackDto extends Partial<TrackMutationDto> {}
 
-@PartialDto(ReplaceTrackDto)
-export class UpdateTrackDto {
-  declare title?: string;
-  declare durationSeconds?: number | null;
-  declare trackNumber?: number | null;
-  declare albumId?: number;
-}
+@trackCrud.update
+export class UpdateTrackDto {}
 
 export interface TrackParamsDto extends Pick<TrackDto, "id"> {}
 
-@PickDto(TrackDto, ["id"])
-export class TrackParamsDto {
-  declare id: number;
-}
+@trackCrud.params
+export class TrackParamsDto {}
 
-const ALBUM_TRACK_MUTATION_KEYS: Array<keyof TrackDto> = [
-  ...TRACK_MUTATION_KEYS,
-  "albumId"
-];
-type AlbumTrackMutationDto = Omit<TrackDto, (typeof ALBUM_TRACK_MUTATION_KEYS)[number]>;
+type AlbumTrackMutationDto = Omit<TrackDto, "id" | "createdAt" | "albumId">;
 
 export interface CreateAlbumTrackDto extends AlbumTrackMutationDto {}
 
-@OmitDto(TrackDto, ALBUM_TRACK_MUTATION_KEYS)
-export class CreateAlbumTrackDto {
-  declare title: string;
-  declare durationSeconds?: number | null;
-  declare trackNumber?: number | null;
-}
+@MetalDto(Track, {
+  mode: "create",
+  overrides: TRACK_DTO_OVERRIDES,
+  exclude: ["id", "createdAt", "albumId"]
+})
+export class CreateAlbumTrackDto {}
 
-@Dto()
-class PagedQueryDto {
-  @Field(t.optional(t.integer({ minimum: 1, default: 1 })))
-  page?: number;
-
-  @Field(
-    t.optional(
-      t.integer({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE })
-    )
-  )
-  pageSize?: number;
-}
+const PagedQueryDto = createPagedQueryDtoClass({
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  maxPageSize: MAX_PAGE_SIZE,
+  name: "TrackPagedQueryDto"
+});
 
 @Dto()
 class TrackFilterQueryDto {
@@ -123,37 +90,11 @@ export class TrackQueryDto {
   declare albumId?: number;
 }
 
-@Dto()
-class TrackListItemsDto {
-  @Field(t.array(t.ref(TrackDto)))
-  items!: TrackDto[];
-}
-
-@Dto()
-class PagedResponseMetaDto {
-  @Field(t.integer({ minimum: 0 }))
-  totalItems!: number;
-
-  @Field(t.integer({ minimum: 1 }))
-  page!: number;
-
-  @Field(t.integer({ minimum: 1 }))
-  pageSize!: number;
-
-  @Field(t.integer({ minimum: 1 }))
-  totalPages!: number;
-
-  @Field(t.boolean())
-  hasNextPage!: boolean;
-
-  @Field(t.boolean())
-  hasPrevPage!: boolean;
-}
-
-@MergeDto([TrackListItemsDto, PagedResponseMetaDto], {
+export const TrackPagedResponseDto = createPagedResponseDtoClass({
+  name: "TrackPagedResponseDto",
+  itemDto: TrackDto,
   description: "Paged track list response."
-})
-export class TrackPagedResponseDto {}
+});
 
 @Dto()
 class ErrorDto {

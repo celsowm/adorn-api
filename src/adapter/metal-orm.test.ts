@@ -6,10 +6,12 @@ import {
   createFilterMappings,
   withSession,
   createPagedQueryDtoClass,
-  createPagedResponseDtoClass
+  createPagedResponseDtoClass,
+  createMetalCrudDtos
 } from "./metal-orm";
 import { HttpError } from "../core/errors";
-import { Orm } from "metal-orm";
+import { Orm, Column, Entity, PrimaryKey, col } from "metal-orm";
+import { getDtoMeta } from "../core/metadata";
 
 describe("metal-orm helpers", () => {
   describe("parsePagination", () => {
@@ -201,6 +203,14 @@ describe("metal-orm helpers", () => {
       });
       expect(PagedQueryDto.name).toBe("PagedQueryDto");
     });
+
+    it("uses custom name when provided", () => {
+      const PagedQueryDto = createPagedQueryDtoClass({
+        name: "UserPagedQueryDto"
+      });
+      const meta = getDtoMeta(PagedQueryDto);
+      expect(meta?.name).toBe("UserPagedQueryDto");
+    });
   });
 
   describe("createPagedResponseDtoClass", () => {
@@ -213,6 +223,60 @@ describe("metal-orm helpers", () => {
       });
 
       expect(PagedResponseDto.name).toBe("PagedResponseDto");
+    });
+
+    it("uses custom name when provided", () => {
+      class ItemDto {}
+
+      const PagedResponseDto = createPagedResponseDtoClass({
+        itemDto: ItemDto as any,
+        name: "UserPagedResponseDto"
+      });
+
+      const meta = getDtoMeta(PagedResponseDto);
+      expect(meta?.name).toBe("UserPagedResponseDto");
+    });
+  });
+
+  describe("createMetalCrudDtos", () => {
+    @Entity({ tableName: "crud_dto_entities" })
+    class CrudDtoEntity {
+      @PrimaryKey(col.autoIncrement(col.int()))
+      id!: number;
+
+      @Column(col.notNull(col.text()))
+      name!: string;
+
+      @Column(col.text())
+      nickname?: string | null;
+    }
+
+    it("creates CRUD DTO decorators with defaults", () => {
+      const crud = createMetalCrudDtos(CrudDtoEntity, {
+        mutationExclude: ["id"]
+      });
+
+      @crud.response
+      class CrudDto {}
+
+      @crud.create
+      class CreateCrudDto {}
+
+      @crud.update
+      class UpdateCrudDto {}
+
+      @crud.params
+      class CrudParamsDto {}
+
+      const responseMeta = getDtoMeta(CrudDto);
+      const createMeta = getDtoMeta(CreateCrudDto);
+      const updateMeta = getDtoMeta(UpdateCrudDto);
+      const paramsMeta = getDtoMeta(CrudParamsDto);
+
+      expect(responseMeta?.fields.id).toBeDefined();
+      expect(createMeta?.fields.id).toBeUndefined();
+      expect(updateMeta?.fields.name?.optional).toBe(true);
+      expect(Object.keys(paramsMeta?.fields ?? {})).toEqual(["id"]);
     });
   });
 });
