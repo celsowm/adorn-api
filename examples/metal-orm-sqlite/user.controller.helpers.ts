@@ -161,14 +161,13 @@ export class UserController {
       const query = applyFilter(
         selectFromEntity(User)
           .orderBy(userRef.id, "ASC")
-          .includeLazy("posts", {
+          .include("posts", {
             columns: ["id", "title", "body", "userId", "createdAt"]
           }),
         User,
         filters
       );
       const paged = await query.executePaged(session, { page, pageSize });
-      await Promise.all(paged.items.map((user) => user.posts.load()));
       return toPagedResponse(paged);
     });
   }
