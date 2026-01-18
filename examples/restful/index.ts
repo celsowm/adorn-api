@@ -1,8 +1,9 @@
 import { createApp } from "./app";
+import { startExampleServer } from "../utils/start-server";
 
 const app = createApp();
 
-app.listen(3000, () => {
-  console.log("Tasks API running on http://localhost:3000");
-  console.log("Swagger UI available at http://localhost:3000/docs");
+startExampleServer(app, {
+  name: "Tasks API",
+  extraLogs: [(port) => `Swagger UI available at http://localhost:${port}/docs`]
 });

@@ -2,6 +2,7 @@ import { createExpressApp } from "../../src";
 import { initializeDatabase } from "./db";
 import { PostController } from "./post.controller";
 import { UserController } from "./user.controller";
+import { startExampleServer } from "../utils/start-server";
 
 export async function start() {
   await initializeDatabase();
@@ -13,7 +14,5 @@ export async function start() {
       docs: true
     }
   });
-  app.listen(3000, () => {
-    console.log("SQLite + MetalORM REST example running on http://localhost:3000");
-  });
+  startExampleServer(app, { name: "SQLite + MetalORM REST example" });
 }

@@ -3,6 +3,7 @@ import { initializeDatabase } from "./db";
 import { AlbumController } from "./album.controller";
 import { ArtistController } from "./artist.controller";
 import { TrackController } from "./track.controller";
+import { startExampleServer } from "../utils/start-server";
 
 export async function start() {
   await initializeDatabase();
@@ -14,7 +15,5 @@ export async function start() {
       docs: true
     }
   });
-  app.listen(3000, () => {
-    console.log("Music Library API running on http://localhost:3000");
-  });
+  startExampleServer(app, { name: "Music Library API" });
 }

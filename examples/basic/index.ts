@@ -1,7 +1,6 @@
 import { createApp } from "./app";
+import { startExampleServer } from "../utils/start-server";
 
 const app = createApp();
 
-app.listen(3000, () => {
-  console.log("Adorn API running on http://localhost:3000");
-});
+startExampleServer(app, { name: "Adorn API" });

@@ -59,7 +59,7 @@ function buildFields(
     fields[name] = buildFieldMeta(col, mode);
   }
 
-  return applyOverrides(fields, options.overrides);
+  return applyOverrides(fields, options.overrides, columns);
 }
 
 function buildFieldMeta(col: ColumnDef, mode: MetalDtoMode): FieldMeta {
@@ -157,15 +157,20 @@ function getEnumValues(col: ColumnDef): string[] | undefined {
 
 function applyOverrides(
   fields: Record<string, FieldMeta>,
-  overrides?: Record<string, FieldOverride>
+  overrides: Record<string, FieldOverride> | undefined,
+  columns: Record<string, ColumnDef>
 ): Record<string, FieldMeta> {
   if (!overrides) {
     return fields;
   }
   const output: Record<string, FieldMeta> = { ...fields };
+  const availableColumns = new Set(Object.keys(columns));
   for (const [name, override] of Object.entries(overrides)) {
     const field = output[name];
     if (!field) {
+      if (availableColumns.has(name)) {
+        continue;
+      }
       throw new Error(`DTO field "${name}" does not exist.`);
     }
     output[name] = normalizeOverride(field, override);
