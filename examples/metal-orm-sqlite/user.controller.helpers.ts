@@ -54,6 +54,17 @@ export class UserDto {
   declare createdAt: string;
 }
 
+@Dto()
+class UserPostsDto {
+  @Field(t.array(t.ref(PostDto)))
+  posts!: PostDto[];
+}
+
+@MergeDto([UserDto, UserPostsDto], {
+  description: "User returned by the API with posts."
+})
+class UserWithPostsDto {}
+
 const USER_MUTATION_KEYS: Array<keyof UserDto> = ["id", "createdAt"];
 
 @OmitDto(UserDto, USER_MUTATION_KEYS)
@@ -104,9 +115,9 @@ export class UserQueryDto {
   declare emailContains?: string;
 }
 
-const UserPagedResponseDto = createPagedResponseDtoClass({
-  itemDto: UserDto,
-  description: "Paged user list response."
+const UserWithPostsPagedResponseDto = createPagedResponseDtoClass({
+  itemDto: UserWithPostsDto,
+  description: "Paged user list response with posts."
 });
 
 @Dto()
@@ -142,17 +153,22 @@ async function getUserOrThrow(session: any, id: number): Promise<User> {
 export class UserController {
   @Get("/")
   @Query(UserQueryDto)
-  @Returns(UserPagedResponseDto)
+  @Returns(UserWithPostsPagedResponseDto)
   async list(ctx: RequestContext<unknown, UserQueryDto>) {
     return withSession(createSession, async (session) => {
       const { page, pageSize } = parsePagination(ctx.query ?? {});
       const filters = parseFilter<User, "name" | "email">(ctx.query, USER_FILTER_MAPPINGS);
       const query = applyFilter(
-        selectFromEntity(User).orderBy(userRef.id, "ASC"),
+        selectFromEntity(User)
+          .orderBy(userRef.id, "ASC")
+          .includeLazy("posts", {
+            columns: ["id", "title", "body", "userId", "createdAt"]
+          }),
         User,
         filters
       );
       const paged = await query.executePaged(session, { page, pageSize });
+      await Promise.all(paged.items.map((user) => user.posts.load()));
       return toPagedResponse(paged);
     });
   }

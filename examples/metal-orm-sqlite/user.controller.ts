@@ -27,7 +27,7 @@ import {
   UserDto,
   UserErrors,
   UserParamsDto,
-  UserPagedResponseDto,
+  UserWithPostsPagedResponseDto,
   UserQueryDto
 } from "./user.dtos";
 import { CreateUserPostDto, PostDto } from "./post.dtos";
@@ -81,7 +81,7 @@ function buildUserFilter(query?: UserQueryDto): UserFilter | undefined {
 export class UserController {
   @Get("/")
   @Query(UserQueryDto)
-  @Returns(UserPagedResponseDto)
+  @Returns(UserWithPostsPagedResponseDto)
   async list(ctx: RequestContext<unknown, UserQueryDto>) {
     const page =
       coerce.integer(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
@@ -94,11 +94,16 @@ export class UserController {
     return withSession(async (session) => {
       const filters = buildUserFilter(ctx.query);
       const query = applyFilter(
-        selectFromEntity(User).orderBy(userRef.id, "ASC"),
+        selectFromEntity(User)
+          .orderBy(userRef.id, "ASC")
+          .includeLazy("posts", {
+            columns: ["id", "title", "body", "userId", "createdAt"]
+          }),
         User,
         filters
       );
       const paged = await query.executePaged(session, { page, pageSize });
+      await Promise.all(paged.items.map((user) => user.posts.load()));
       return toPagedResponse(paged);
     });
   }

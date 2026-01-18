@@ -10,6 +10,7 @@ import {
   t
 } from "../../src";
 import { User } from "./user.entity";
+import { PostDto } from "./post.dtos";
 
 export const DEFAULT_PAGE_SIZE = 25;
 export const MAX_PAGE_SIZE = 100;
@@ -33,6 +34,21 @@ export class UserDto {
   declare email?: string | null;
   declare createdAt: string;
 }
+
+export interface UserWithPostsDto extends UserDto {
+  posts: PostDto[];
+}
+
+@Dto()
+class UserPostsDto {
+  @Field(t.array(t.ref(PostDto)))
+  posts!: PostDto[];
+}
+
+@MergeDto([UserDto, UserPostsDto], {
+  description: "User returned by the API with posts."
+})
+export class UserWithPostsDto {}
 
 const USER_MUTATION_KEYS: Array<keyof UserDto> = ["id", "createdAt"];
 type UserMutationDto = Omit<UserDto, (typeof USER_MUTATION_KEYS)[number]>;
@@ -129,6 +145,17 @@ class PagedResponseMetaDto {
   description: "Paged user list response."
 })
 export class UserPagedResponseDto {}
+
+@Dto()
+class UserWithPostsListItemsDto {
+  @Field(t.array(t.ref(UserWithPostsDto)))
+  items!: UserWithPostsDto[];
+}
+
+@MergeDto([UserWithPostsListItemsDto, PagedResponseMetaDto], {
+  description: "Paged user list response with posts."
+})
+export class UserWithPostsPagedResponseDto {}
 
 @Dto()
 class ErrorDto {
