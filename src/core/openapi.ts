@@ -3,10 +3,9 @@ import type { ControllerMeta, InputMeta, ResponseMeta } from "./metadata";
 import type { Constructor, DtoConstructor } from "./types";
 import {
   createSchemaContext,
-  buildSchemaFromSource,
-  ensureDtoComponent
+  buildSchemaFromSource
 } from "./schema-builder";
-import { getAllControllers, getAllDtos, getDtoMeta } from "./metadata";
+import { getAllControllers, getDtoMeta } from "./metadata";
 import type { SchemaNode, SchemaSource } from "./schema";
 
 export interface OpenApiInfo {
@@ -39,9 +38,6 @@ export interface OpenApiDocument {
 
 export function buildOpenApi(options: OpenApiOptions): OpenApiDocument {
   const context = createSchemaContext();
-  for (const [dto] of getAllDtos()) {
-    ensureDtoComponent(dto, context);
-  }
 
   const controllers = filterControllers(options.controllers);
   const paths: Record<string, Record<string, unknown>> = {};
@@ -110,7 +106,7 @@ function buildResponses(
   for (const response of responses) {
     const contentType = response.contentType ?? "application/json";
     output[String(response.status)] = {
-      description: response.description ?? "OK",
+      description: response.description ?? getDefaultStatusDescription(response.status),
       content: response.schema
         ? {
             [contentType]: {
@@ -121,6 +117,37 @@ function buildResponses(
     };
   }
   return output;
+}
+
+function getDefaultStatusDescription(status: number): string {
+  switch (status) {
+    case 200:
+      return "OK";
+    case 201:
+      return "Created";
+    case 202:
+      return "Accepted";
+    case 204:
+      return "No Content";
+    case 400:
+      return "Bad Request";
+    case 401:
+      return "Unauthorized";
+    case 403:
+      return "Forbidden";
+    case 404:
+      return "Not Found";
+    case 409:
+      return "Conflict";
+    case 422:
+      return "Unprocessable Entity";
+    case 500:
+      return "Internal Server Error";
+    case 503:
+      return "Service Unavailable";
+    default:
+      return "OK";
+  }
 }
 
 function buildParameters(

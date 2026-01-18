@@ -16,17 +16,19 @@ export const DEFAULT_PAGE_SIZE = 25;
 export const MAX_PAGE_SIZE = 100;
 
 const ALBUM_DTO_OVERRIDES = {
-  id: t.integer({ description: "Album id." }),
+  id: t.integer({ description: "Album id.", minimum: 1 }),
   title: t.string({ minLength: 1 }),
   releaseYear: t.nullable(t.integer({ minimum: 1900, maximum: 9999 })),
-  artistId: t.integer({ description: "Artist id." }),
+  artistId: t.integer({ description: "Artist id.", minimum: 1 }),
   createdAt: t.dateTime({ description: "Creation timestamp." })
 };
 
 const albumCrud = createMetalCrudDtos(Album, {
   overrides: ALBUM_DTO_OVERRIDES,
   response: { description: "Album returned by the API." },
-  mutationExclude: ["id", "createdAt"]
+  mutationExclude: ["id", "createdAt"],
+  replace: { exclude: ["artistId"] },
+  update: { exclude: ["artistId"] }
 });
 
 export interface AlbumDto extends Omit<Album, "artist" | "tracks"> {}
@@ -35,18 +37,19 @@ export interface AlbumDto extends Omit<Album, "artist" | "tracks"> {}
 export class AlbumDto {}
 
 type AlbumMutationDto = Omit<AlbumDto, "id" | "createdAt">;
+type AlbumUpdateDto = Omit<AlbumMutationDto, "artistId">;
 
 export interface CreateAlbumDto extends AlbumMutationDto {}
 
 @albumCrud.create
 export class CreateAlbumDto {}
 
-export interface ReplaceAlbumDto extends AlbumMutationDto {}
+export interface ReplaceAlbumDto extends AlbumUpdateDto {}
 
 @albumCrud.replace
 export class ReplaceAlbumDto {}
 
-export interface UpdateAlbumDto extends Partial<AlbumMutationDto> {}
+export interface UpdateAlbumDto extends Partial<AlbumUpdateDto> {}
 
 @albumCrud.update
 export class UpdateAlbumDto {}
@@ -67,7 +70,7 @@ export interface CreateArtistAlbumDto extends ArtistAlbumMutationDto {}
 })
 export class CreateArtistAlbumDto {}
 
-const PagedQueryDto = createPagedQueryDtoClass({
+export const AlbumPagedQueryDto = createPagedQueryDtoClass({
   defaultPageSize: DEFAULT_PAGE_SIZE,
   maxPageSize: MAX_PAGE_SIZE,
   name: "AlbumPagedQueryDto"
@@ -85,7 +88,7 @@ class AlbumFilterQueryDto {
   artistId?: number;
 }
 
-@MergeDto([PagedQueryDto, AlbumFilterQueryDto])
+@MergeDto([AlbumPagedQueryDto, AlbumFilterQueryDto])
 export class AlbumQueryDto {
   declare page?: number;
   declare pageSize?: number;
@@ -101,9 +104,27 @@ export const AlbumPagedResponseDto = createPagedResponseDtoClass({
 });
 
 @Dto()
+class ErrorDetailDto {
+  @Field(t.string())
+  field!: string;
+
+  @Field(t.string())
+  message!: string;
+}
+
+@Dto()
 class ErrorDto {
   @Field(t.string())
   message!: string;
+
+  @Field(t.optional(t.string()))
+  code?: string;
+
+  @Field(t.optional(t.array(t.ref(ErrorDetailDto))))
+  errors?: ErrorDetailDto[];
+
+  @Field(t.optional(t.string()))
+  traceId?: string;
 }
 
 export const AlbumErrors = Errors(ErrorDto, [

@@ -11,7 +11,7 @@ import type { DtoConstructor } from "../core/types";
 import { registerDto, type FieldMeta } from "../core/metadata";
 import { HttpError } from "../core/errors";
 import { coerce } from "../core/coerce";
-import { Dto, Field, MergeDto } from "../core/decorators";
+import { Dto, Field } from "../core/decorators";
 
 export type MetalDtoMode = "response" | "create" | "update";
 
@@ -360,15 +360,13 @@ export function createPagedResponseDtoClass(
   options: PagedResponseDtoOptions
 ): DtoConstructor {
   const { itemDto, description, name } = options;
+  const responseDescription = description ?? "Paged response.";
 
-  @Dto()
-  class ListItemsDto {
+  @Dto({ name, description: responseDescription })
+  class PagedResponseDto {
     @Field(t.array(t.ref(itemDto)))
     items!: unknown[];
-  }
 
-  @Dto()
-  class PagedResponseMetaDto {
     @Field(t.integer({ minimum: 0 }))
     totalItems!: number;
 
@@ -387,12 +385,6 @@ export function createPagedResponseDtoClass(
     @Field(t.boolean())
     hasPrevPage!: boolean;
   }
-
-  @MergeDto([ListItemsDto, PagedResponseMetaDto], {
-    description: description ?? "Paged response.",
-    name
-  })
-  class PagedResponseDto {}
 
   return PagedResponseDto;
 }

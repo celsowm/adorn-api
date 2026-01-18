@@ -54,7 +54,12 @@ function parseInteger(value: unknown, options: IntegerOptions = {}): number | un
 function requireTrackId(value: unknown): number {
   const id = parseInteger(value, { min: 1 });
   if (id === undefined) {
-    throw new HttpError(400, "Invalid track id.");
+    const message = "Invalid track id.";
+    throw new HttpError(
+      400,
+      message,
+      buildErrorBody(message, "INVALID_TRACK_ID", [{ field: "id", message }])
+    );
   }
   return id;
 }
@@ -63,6 +68,12 @@ const trackRef = entityRef(TrackEntity);
 
 type TrackFilter = SimpleWhereInput<typeof TrackEntity, "title" | "albumId">;
 type OrmSession = ReturnType<typeof createSession>;
+
+type ErrorDetail = { field: string; message: string };
+
+function buildErrorBody(message: string, code: string, errors?: ErrorDetail[]) {
+  return { message, code, errors };
+}
 
 async function withSession<T>(handler: (session: OrmSession) => Promise<T>) {
   const session = createSession();
@@ -76,7 +87,8 @@ async function withSession<T>(handler: (session: OrmSession) => Promise<T>) {
 async function getTrackOrThrow(session: OrmSession, id: number): Promise<TrackEntity> {
   const track = await session.find(TrackEntity, id);
   if (!track) {
-    throw new HttpError(404, "Track not found.");
+    const message = "Track not found.";
+    throw new HttpError(404, message, buildErrorBody(message, "TRACK_NOT_FOUND"));
   }
   return track;
 }
@@ -84,7 +96,8 @@ async function getTrackOrThrow(session: OrmSession, id: number): Promise<TrackEn
 async function getAlbumOrThrow(session: OrmSession, id: number): Promise<Album> {
   const album = await session.find(Album, id);
   if (!album) {
-    throw new HttpError(404, "Album not found.");
+    const message = "Album not found.";
+    throw new HttpError(404, message, buildErrorBody(message, "ALBUM_NOT_FOUND"));
   }
   return album;
 }
@@ -168,11 +181,9 @@ export class TrackController {
     const id = requireTrackId(ctx.params.id);
     return withSession(async (session) => {
       const entity = await getTrackOrThrow(session, id);
-      await getAlbumOrThrow(session, ctx.body.albumId);
       entity.title = ctx.body.title;
       entity.durationSeconds = ctx.body.durationSeconds ?? null;
       entity.trackNumber = ctx.body.trackNumber ?? null;
-      entity.albumId = ctx.body.albumId;
       await session.commit();
       return entity as TrackDto;
     });
@@ -195,10 +206,6 @@ export class TrackController {
       }
       if (ctx.body.trackNumber !== undefined) {
         entity.trackNumber = ctx.body.trackNumber ?? null;
-      }
-      if (ctx.body.albumId !== undefined) {
-        await getAlbumOrThrow(session, ctx.body.albumId);
-        entity.albumId = ctx.body.albumId;
       }
       await session.commit();
       return entity as TrackDto;

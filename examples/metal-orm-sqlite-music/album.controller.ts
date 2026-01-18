@@ -10,7 +10,6 @@ import {
   Put,
   Query,
   Returns,
-  t,
   type RequestContext
 } from "../../src";
 import { applyFilter, toPagedResponse } from "metal-orm";
@@ -30,9 +29,16 @@ import {
   AlbumPagedResponseDto,
   AlbumQueryDto
 } from "./album.dtos";
-import { TrackDto } from "./track.dtos";
+import {
+  TrackDto,
+  TrackPagedQueryDto,
+  TrackPagedResponseDto,
+  DEFAULT_PAGE_SIZE as TRACK_DEFAULT_PAGE_SIZE,
+  MAX_PAGE_SIZE as TRACK_MAX_PAGE_SIZE
+} from "./track.dtos";
 import { Album as AlbumEntity } from "./album.entity";
 import { Artist } from "./artist.entity";
+import { Track as TrackEntity } from "./track.entity";
 
 type IntegerOptions = {
   min?: number;
@@ -57,15 +63,28 @@ function parseInteger(value: unknown, options: IntegerOptions = {}): number | un
 function requireAlbumId(value: unknown): number {
   const id = parseInteger(value, { min: 1 });
   if (id === undefined) {
-    throw new HttpError(400, "Invalid album id.");
+    const message = "Invalid album id.";
+    throw new HttpError(
+      400,
+      message,
+      buildErrorBody(message, "INVALID_ALBUM_ID", [{ field: "id", message }])
+    );
   }
   return id;
 }
 
 const albumRef = entityRef(AlbumEntity);
+const trackRef = entityRef(TrackEntity);
 
 type AlbumFilter = SimpleWhereInput<typeof AlbumEntity, "title" | "releaseYear" | "artistId">;
+type AlbumTrackFilter = SimpleWhereInput<typeof TrackEntity, "albumId">;
 type OrmSession = ReturnType<typeof createSession>;
+
+type ErrorDetail = { field: string; message: string };
+
+function buildErrorBody(message: string, code: string, errors?: ErrorDetail[]) {
+  return { message, code, errors };
+}
 
 async function withSession<T>(handler: (session: OrmSession) => Promise<T>) {
   const session = createSession();
@@ -79,7 +98,8 @@ async function withSession<T>(handler: (session: OrmSession) => Promise<T>) {
 async function getAlbumOrThrow(session: OrmSession, id: number): Promise<AlbumEntity> {
   const album = await session.find(AlbumEntity, id);
   if (!album) {
-    throw new HttpError(404, "Album not found.");
+    const message = "Album not found.";
+    throw new HttpError(404, message, buildErrorBody(message, "ALBUM_NOT_FOUND"));
   }
   return album;
 }
@@ -87,7 +107,8 @@ async function getAlbumOrThrow(session: OrmSession, id: number): Promise<AlbumEn
 async function getArtistOrThrow(session: OrmSession, id: number): Promise<Artist> {
   const artist = await session.find(Artist, id);
   if (!artist) {
-    throw new HttpError(404, "Artist not found.");
+    const message = "Artist not found.";
+    throw new HttpError(404, message, buildErrorBody(message, "ARTIST_NOT_FOUND"));
   }
   return artist;
 }
@@ -173,10 +194,8 @@ export class AlbumController {
     const id = requireAlbumId(ctx.params.id);
     return withSession(async (session) => {
       const entity = await getAlbumOrThrow(session, id);
-      await getArtistOrThrow(session, ctx.body.artistId);
       entity.title = ctx.body.title;
       entity.releaseYear = ctx.body.releaseYear ?? null;
-      entity.artistId = ctx.body.artistId;
       await session.commit();
       return entity as AlbumDto;
     });
@@ -197,10 +216,6 @@ export class AlbumController {
       if (ctx.body.releaseYear !== undefined) {
         entity.releaseYear = ctx.body.releaseYear ?? null;
       }
-      if (ctx.body.artistId !== undefined) {
-        await getArtistOrThrow(session, ctx.body.artistId);
-        entity.artistId = ctx.body.artistId;
-      }
       await session.commit();
       return entity as AlbumDto;
     });
@@ -208,13 +223,33 @@ export class AlbumController {
 
   @Get("/:id/tracks")
   @Params(AlbumParamsDto)
-  @Returns(t.array(t.ref(TrackDto)))
+  @Query(TrackPagedQueryDto)
+  @Returns(TrackPagedResponseDto)
   @AlbumErrors
-  async listTracks(ctx: RequestContext<unknown, undefined, AlbumParamsDto>) {
+  async listTracks(
+    ctx: RequestContext<unknown, TrackPagedQueryDto, AlbumParamsDto>
+  ) {
     const id = requireAlbumId(ctx.params.id);
+    const page =
+      parseInteger(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
+    const pageSize =
+      parseInteger(ctx.query?.pageSize, {
+        min: 1,
+        max: TRACK_MAX_PAGE_SIZE,
+        clamp: true
+      }) ?? TRACK_DEFAULT_PAGE_SIZE;
     return withSession(async (session) => {
-      const album = await getAlbumOrThrow(session, id);
-      return (await album.tracks.load()) as TrackDto[];
+      await getAlbumOrThrow(session, id);
+      const filters: AlbumTrackFilter = {
+        albumId: { equals: id }
+      };
+      const query = applyFilter(
+        selectFromEntity(TrackEntity).orderBy(trackRef.id, "ASC"),
+        TrackEntity,
+        filters
+      );
+      const paged = await query.executePaged(session, { page, pageSize });
+      return toPagedResponse(paged);
     });
   }
 

@@ -15,7 +15,7 @@ export const DEFAULT_PAGE_SIZE = 25;
 export const MAX_PAGE_SIZE = 100;
 
 const ARTIST_DTO_OVERRIDES = {
-  id: t.integer({ description: "Artist id." }),
+  id: t.integer({ description: "Artist id.", minimum: 1 }),
   name: t.string({ minLength: 1 }),
   genre: t.nullable(t.string()),
   country: t.nullable(t.string()),
@@ -86,9 +86,27 @@ export const ArtistPagedResponseDto = createPagedResponseDtoClass({
 });
 
 @Dto()
+class ErrorDetailDto {
+  @Field(t.string())
+  field!: string;
+
+  @Field(t.string())
+  message!: string;
+}
+
+@Dto()
 class ErrorDto {
   @Field(t.string())
   message!: string;
+
+  @Field(t.optional(t.string()))
+  code?: string;
+
+  @Field(t.optional(t.array(t.ref(ErrorDetailDto))))
+  errors?: ErrorDetailDto[];
+
+  @Field(t.optional(t.string()))
+  traceId?: string;
 }
 
 export const ArtistErrors = Errors(ErrorDto, [

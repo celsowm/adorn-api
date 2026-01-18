@@ -10,7 +10,6 @@ import {
   Put,
   Query,
   Returns,
-  t,
   type RequestContext
 } from "../../src";
 import { applyFilter, toPagedResponse } from "metal-orm";
@@ -30,7 +29,14 @@ import {
   ArtistPagedResponseDto,
   ArtistQueryDto
 } from "./artist.dtos";
-import { CreateArtistAlbumDto } from "./album.dtos";
+import {
+  CreateArtistAlbumDto,
+  AlbumPagedQueryDto,
+  AlbumPagedResponseDto,
+  DEFAULT_PAGE_SIZE as ALBUM_DEFAULT_PAGE_SIZE,
+  MAX_PAGE_SIZE as ALBUM_MAX_PAGE_SIZE
+} from "./album.dtos";
+import { Album as AlbumEntity } from "./album.entity";
 import { Artist } from "./artist.entity";
 
 type IntegerOptions = {
@@ -56,15 +62,28 @@ function parseInteger(value: unknown, options: IntegerOptions = {}): number | un
 function requireArtistId(value: unknown): number {
   const id = parseInteger(value, { min: 1 });
   if (id === undefined) {
-    throw new HttpError(400, "Invalid artist id.");
+    const message = "Invalid artist id.";
+    throw new HttpError(
+      400,
+      message,
+      buildErrorBody(message, "INVALID_ARTIST_ID", [{ field: "id", message }])
+    );
   }
   return id;
 }
 
 const artistRef = entityRef(Artist);
+const albumRef = entityRef(AlbumEntity);
 
 type ArtistFilter = SimpleWhereInput<typeof Artist, "name" | "genre">;
+type ArtistAlbumFilter = SimpleWhereInput<typeof AlbumEntity, "artistId">;
 type OrmSession = ReturnType<typeof createSession>;
+
+type ErrorDetail = { field: string; message: string };
+
+function buildErrorBody(message: string, code: string, errors?: ErrorDetail[]) {
+  return { message, code, errors };
+}
 
 async function withSession<T>(handler: (session: OrmSession) => Promise<T>) {
   const session = createSession();
@@ -78,7 +97,8 @@ async function withSession<T>(handler: (session: OrmSession) => Promise<T>) {
 async function getArtistOrThrow(session: OrmSession, id: number): Promise<Artist> {
   const artist = await session.find(Artist, id);
   if (!artist) {
-    throw new HttpError(404, "Artist not found.");
+    const message = "Artist not found.";
+    throw new HttpError(404, message, buildErrorBody(message, "ARTIST_NOT_FOUND"));
   }
   return artist;
 }
@@ -198,13 +218,33 @@ export class ArtistController {
 
   @Get("/:id/albums")
   @Params(ArtistParamsDto)
-  @Returns(t.array(t.ref(AlbumDto)))
+  @Query(AlbumPagedQueryDto)
+  @Returns(AlbumPagedResponseDto)
   @ArtistErrors
-  async listAlbums(ctx: RequestContext<unknown, undefined, ArtistParamsDto>) {
+  async listAlbums(
+    ctx: RequestContext<unknown, AlbumPagedQueryDto, ArtistParamsDto>
+  ) {
     const id = requireArtistId(ctx.params.id);
+    const page =
+      parseInteger(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
+    const pageSize =
+      parseInteger(ctx.query?.pageSize, {
+        min: 1,
+        max: ALBUM_MAX_PAGE_SIZE,
+        clamp: true
+      }) ?? ALBUM_DEFAULT_PAGE_SIZE;
     return withSession(async (session) => {
-      const artist = await getArtistOrThrow(session, id);
-      return (await artist.albums.load()) as AlbumDto[];
+      await getArtistOrThrow(session, id);
+      const filters: ArtistAlbumFilter = {
+        artistId: { equals: id }
+      };
+      const query = applyFilter(
+        selectFromEntity(AlbumEntity).orderBy(albumRef.id, "ASC"),
+        AlbumEntity,
+        filters
+      );
+      const paged = await query.executePaged(session, { page, pageSize });
+      return toPagedResponse(paged);
     });
   }
 
