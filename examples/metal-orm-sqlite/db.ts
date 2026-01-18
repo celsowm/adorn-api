@@ -58,6 +58,19 @@ export async function initializeDatabase() {
     "create table posts (id integer primary key autoincrement, title text not null, body text, userId integer not null, createdAt text not null, foreign key(userId) references users(id))"
   );
 
+  await execSql(db, `
+    INSERT INTO users (name, email, createdAt) VALUES 
+      ('Alice', 'alice@example.com', '2026-01-17T00:00:00.000Z'),
+      ('Bob', 'bob@example.com', '2026-01-17T00:00:00.000Z')
+  `);
+
+  await execSql(db, `
+    INSERT INTO posts (title, body, userId, createdAt) VALUES 
+      ('First Post', 'This is the first post content', 1, '2026-01-17T00:00:00.000Z'),
+      ('Second Post', 'Another post here', 2, '2026-01-17T00:00:00.000Z'),
+      ('Third Post', 'Yet another post', 1, '2026-01-17T00:00:00.000Z')
+  `);
+
   const executor = createSqliteExecutor(createSqliteClient(db));
   orm = new Orm({
     dialect: new SqliteDialect(),
