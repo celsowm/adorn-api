@@ -50,7 +50,7 @@ function parseInteger(value: unknown, options: IntegerOptions = {}): number | un
   if (typeof value !== "number" || !Number.isInteger(value)) {
     return undefined;
   }
-  let result = value;
+  const result = value;
   if (options.min !== undefined && result < options.min) {
     return options.clamp ? options.min : undefined;
   }

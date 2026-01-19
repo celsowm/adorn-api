@@ -132,11 +132,6 @@ export const UserErrors = Errors(ErrorDto, [
   { status: 404, description: "User not found." }
 ]);
 
-type UserFilter = {
-  name?: { contains?: string };
-  email?: { contains?: string };
-};
-
 const USER_FILTER_MAPPINGS = {
   nameContains: { field: "name" as const, operator: "contains" as const },
   emailContains: { field: "email" as const, operator: "contains" as const }
@@ -152,7 +147,7 @@ function parseInteger(value: unknown, options: IntegerOptions = {}): number | un
   if (typeof value !== "number" || !Number.isInteger(value)) {
     return undefined;
   }
-  let result = value;
+  const result = value;
   if (options.min !== undefined && result < options.min) {
     return options.clamp ? options.min : undefined;
   }

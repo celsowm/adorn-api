@@ -10,7 +10,7 @@ import {
   createMetalCrudDtos
 } from "./metal-orm";
 import { HttpError } from "../core/errors";
-import { Orm, Column, Entity, PrimaryKey, col } from "metal-orm";
+import { Column, Entity, PrimaryKey, col } from "metal-orm";
 import { getDtoMeta } from "../core/metadata";
 
 describe("metal-orm helpers", () => {
@@ -161,7 +161,7 @@ describe("metal-orm helpers", () => {
 
       const createSession = () => mockSession;
 
-      const result = await withSession(createSession, async (session) => {
+      const result = await withSession(createSession, async (_session) => {
         return { id: 1 };
       });
 

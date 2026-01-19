@@ -25,9 +25,9 @@ export interface MetalDtoOptions extends DtoOptions {
 export type MetalDtoTarget = Parameters<typeof getColumnMap>[0];
 
 export function MetalDto(target: MetalDtoTarget, options: MetalDtoOptions = {}) {
-  return (value: Function): void => {
+  return (value: DtoConstructor): void => {
     const fields = buildFields(target, options);
-    registerDto(value as DtoConstructor, {
+    registerDto(value, {
       name: options.name ?? value.name,
       description: options.description,
       fields,
@@ -266,7 +266,7 @@ export interface FilterMapping {
   operator: "equals" | "contains" | "startsWith" | "endsWith" | "gt" | "gte" | "lt" | "lte";
 }
 
-export interface ParseFilterOptions<T> {
+export interface ParseFilterOptions {
   query?: Record<string, unknown>;
   fieldMappings?: Record<string, FilterMapping>;
 }

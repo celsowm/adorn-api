@@ -69,7 +69,7 @@ export interface ErrorResponseOptions
 }
 
 export function Dto(options: DtoOptions = {}) {
-  return (value: Function, context: ClassDecoratorContext): void => {
+  return (value: DtoConstructor, context: ClassDecoratorContext): void => {
     const meta = getAdornMetadata(context.metadata as DecoratorMetadata);
     const fields = meta.dtoFields ?? {};
     const dtoMeta: DtoMeta = {
@@ -78,7 +78,7 @@ export function Dto(options: DtoOptions = {}) {
       fields,
       additionalProperties: options.additionalProperties
     };
-    registerDto(value as DtoConstructor, dtoMeta);
+    registerDto(value, dtoMeta);
   };
 }
 
@@ -87,11 +87,11 @@ export function PickDto(
   keys: string[],
   options: DtoComposeOptions = {}
 ) {
-  return (value: Function, _context: ClassDecoratorContext): void => {
+  return (value: DtoConstructor, _context: ClassDecoratorContext): void => {
     const dtoMeta = getDtoMetaOrThrow(dto);
     const fields = pickFields(dtoMeta.fields, keys);
     const mergedFields = applyOverrides(fields, options.overrides);
-    registerDto(value as DtoConstructor, buildDerivedMeta(value, dtoMeta, mergedFields, options));
+    registerDto(value, buildDerivedMeta(value, dtoMeta, mergedFields, options));
   };
 }
 
@@ -100,32 +100,32 @@ export function OmitDto(
   keys: string[],
   options: DtoComposeOptions = {}
 ) {
-  return (value: Function, _context: ClassDecoratorContext): void => {
+  return (value: DtoConstructor, _context: ClassDecoratorContext): void => {
     const dtoMeta = getDtoMetaOrThrow(dto);
     const fields = omitFields(dtoMeta.fields, keys);
     const mergedFields = applyOverrides(fields, options.overrides);
-    registerDto(value as DtoConstructor, buildDerivedMeta(value, dtoMeta, mergedFields, options));
+    registerDto(value, buildDerivedMeta(value, dtoMeta, mergedFields, options));
   };
 }
 
 export function PartialDto(dto: DtoConstructor, options: DtoComposeOptions = {}) {
-  return (value: Function, _context: ClassDecoratorContext): void => {
+  return (value: DtoConstructor, _context: ClassDecoratorContext): void => {
     const dtoMeta = getDtoMetaOrThrow(dto);
     const fields = makeFieldsPartial(dtoMeta.fields);
     const mergedFields = applyOverrides(fields, options.overrides);
-    registerDto(value as DtoConstructor, buildDerivedMeta(value, dtoMeta, mergedFields, options));
+    registerDto(value, buildDerivedMeta(value, dtoMeta, mergedFields, options));
   };
 }
 
 export function MergeDto(dtos: DtoConstructor[], options: DtoComposeOptions = {}) {
-  return (value: Function, _context: ClassDecoratorContext): void => {
+  return (value: DtoConstructor, _context: ClassDecoratorContext): void => {
     if (!dtos.length) {
       throw new Error("MergeDto requires at least one DTO.");
     }
     const metas = dtos.map(getDtoMetaOrThrow);
     const fields = mergeFields(metas.map((meta) => meta.fields));
     const mergedFields = applyOverrides(fields, options.overrides);
-    registerDto(value as DtoConstructor, buildDerivedMeta(value, metas[0], mergedFields, options));
+    registerDto(value, buildDerivedMeta(value, metas[0], mergedFields, options));
   };
 }
 
@@ -141,7 +141,7 @@ export function Field(schemaOrOptions: SchemaNode | FieldOptions) {
 }
 
 export function Controller(pathOrOptions: string | ControllerOptions = {}) {
-  return (value: Function, context: ClassDecoratorContext): void => {
+  return (value: Constructor, context: ClassDecoratorContext): void => {
     const options =
       typeof pathOrOptions === "string" ? { path: pathOrOptions } : pathOrOptions;
     const meta = getAdornMetadata(context.metadata as DecoratorMetadata);
@@ -362,7 +362,7 @@ function getDtoMetaOrThrow(dto: DtoConstructor): DtoMeta {
 }
 
 function buildDerivedMeta(
-  value: Function,
+  value: Constructor,
   baseMeta: DtoMeta,
   fields: Record<string, FieldMeta>,
   options: DtoComposeOptions
