@@ -10,6 +10,7 @@ import {
   Put,
   Query,
   Returns,
+  parsePagination,
   t,
   type RequestContext
 } from "../../src";
@@ -19,8 +20,6 @@ import { entityRef, selectFromEntity } from "metal-orm";
 import { createSession } from "./db";
 import {
   CreateUserDto,
-  DEFAULT_PAGE_SIZE,
-  MAX_PAGE_SIZE,
   ReplaceUserDto,
   UpdateUserDto,
   UserDto,
@@ -102,14 +101,8 @@ export class UserController {
   @Query(UserQueryDto)
   @Returns(UserWithPostsPagedResponseDto)
   async list(ctx: RequestContext<unknown, UserQueryDto>) {
-    const page =
-      parseInteger(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
-    const pageSize =
-      parseInteger(ctx.query?.pageSize, {
-        min: 1,
-        max: MAX_PAGE_SIZE,
-        clamp: true
-      }) ?? DEFAULT_PAGE_SIZE;
+    const paginationQuery = (ctx.query ?? {}) as Record<string, unknown>;
+    const { page, pageSize } = parsePagination(paginationQuery);
     return withSession(async (session) => {
       const filters = buildUserFilter(ctx.query);
       const query = applyFilter(

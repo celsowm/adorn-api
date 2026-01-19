@@ -89,12 +89,7 @@ export class UserParamsDto {
   declare id: number;
 }
 
-const DEFAULT_PAGE_SIZE = 25;
-const MAX_PAGE_SIZE = 100;
-
 const PagedQueryDto = createPagedQueryDtoClass({
-  defaultPageSize: DEFAULT_PAGE_SIZE,
-  maxPageSize: MAX_PAGE_SIZE,
   name: "UserPagedQueryDto"
 });
 

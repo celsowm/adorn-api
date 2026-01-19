@@ -12,9 +12,6 @@ import {
 import { Album } from "./album.entity";
 import { CreateAlbumTrackDto } from "./track.dtos";
 
-export const DEFAULT_PAGE_SIZE = 25;
-export const MAX_PAGE_SIZE = 100;
-
 const ALBUM_DTO_OVERRIDES = {
   id: t.integer({ description: "Album id.", minimum: 1 }),
   title: t.string({ minLength: 1 }),
@@ -71,8 +68,6 @@ export interface CreateArtistAlbumDto extends ArtistAlbumMutationDto {}
 export class CreateArtistAlbumDto {}
 
 export const AlbumPagedQueryDto = createPagedQueryDtoClass({
-  defaultPageSize: DEFAULT_PAGE_SIZE,
-  maxPageSize: MAX_PAGE_SIZE,
   name: "AlbumPagedQueryDto"
 });
 

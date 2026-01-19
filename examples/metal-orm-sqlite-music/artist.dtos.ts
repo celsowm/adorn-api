@@ -11,9 +11,6 @@ import {
 import { Artist } from "./artist.entity";
 import { AlbumDto, CreateArtistAlbumDto } from "./album.dtos";
 
-export const DEFAULT_PAGE_SIZE = 25;
-export const MAX_PAGE_SIZE = 100;
-
 const ARTIST_DTO_OVERRIDES = {
   id: t.integer({ description: "Artist id.", minimum: 1 }),
   name: t.string({ minLength: 1 }),
@@ -57,8 +54,6 @@ export interface ArtistParamsDto extends Pick<ArtistDto, "id"> {}
 export class ArtistParamsDto {}
 
 const PagedQueryDto = createPagedQueryDtoClass({
-  defaultPageSize: DEFAULT_PAGE_SIZE,
-  maxPageSize: MAX_PAGE_SIZE,
   name: "ArtistPagedQueryDto"
 });
 

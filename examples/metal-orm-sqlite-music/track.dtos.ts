@@ -11,9 +11,6 @@ import {
 } from "../../src";
 import { Track } from "./track.entity";
 
-export const DEFAULT_PAGE_SIZE = 25;
-export const MAX_PAGE_SIZE = 100;
-
 const TRACK_DTO_OVERRIDES = {
   id: t.integer({ description: "Track id.", minimum: 1 }),
   title: t.string({ minLength: 1 }),
@@ -71,8 +68,6 @@ export interface CreateAlbumTrackDto extends AlbumTrackMutationDto {}
 export class CreateAlbumTrackDto {}
 
 export const TrackPagedQueryDto = createPagedQueryDtoClass({
-  defaultPageSize: DEFAULT_PAGE_SIZE,
-  maxPageSize: MAX_PAGE_SIZE,
   name: "TrackPagedQueryDto"
 });
 

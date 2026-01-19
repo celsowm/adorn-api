@@ -11,9 +11,6 @@ import {
 import { User } from "./user.entity";
 import { PostDto } from "./post.dtos";
 
-export const DEFAULT_PAGE_SIZE = 25;
-export const MAX_PAGE_SIZE = 100;
-
 const USER_DTO_OVERRIDES = {
   id: t.integer({ description: "User id." }),
   name: t.string({ minLength: 1 }),
@@ -70,8 +67,6 @@ export interface UserParamsDto extends Pick<UserDto, "id"> {}
 export class UserParamsDto {}
 
 const PagedQueryDto = createPagedQueryDtoClass({
-  defaultPageSize: DEFAULT_PAGE_SIZE,
-  maxPageSize: MAX_PAGE_SIZE,
   name: "UserPagedQueryDto"
 });
 

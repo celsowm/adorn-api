@@ -10,6 +10,7 @@ import {
   Put,
   Query,
   Returns,
+  parsePagination,
   type RequestContext
 } from "../../src";
 import { applyFilter, toPagedResponse } from "metal-orm";
@@ -19,8 +20,6 @@ import { createSession } from "./db";
 import {
   CreateAlbumDto,
   CreateAlbumTrackDto,
-  DEFAULT_PAGE_SIZE,
-  MAX_PAGE_SIZE,
   ReplaceAlbumDto,
   UpdateAlbumDto,
   AlbumDto,
@@ -32,9 +31,7 @@ import {
 import {
   TrackDto,
   TrackPagedQueryDto,
-  TrackPagedResponseDto,
-  DEFAULT_PAGE_SIZE as TRACK_DEFAULT_PAGE_SIZE,
-  MAX_PAGE_SIZE as TRACK_MAX_PAGE_SIZE
+  TrackPagedResponseDto
 } from "./track.dtos";
 import { Album as AlbumEntity } from "./album.entity";
 import { Artist } from "./artist.entity";
@@ -136,14 +133,8 @@ export class AlbumController {
   @Query(AlbumQueryDto)
   @Returns(AlbumPagedResponseDto)
   async list(ctx: RequestContext<unknown, AlbumQueryDto>) {
-    const page =
-      parseInteger(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
-    const pageSize =
-      parseInteger(ctx.query?.pageSize, {
-        min: 1,
-        max: MAX_PAGE_SIZE,
-        clamp: true
-      }) ?? DEFAULT_PAGE_SIZE;
+    const paginationQuery = (ctx.query ?? {}) as Record<string, unknown>;
+    const { page, pageSize } = parsePagination(paginationQuery);
     return withSession(async (session) => {
       const filters = buildAlbumFilter(ctx.query);
       const query = applyFilter(
@@ -230,14 +221,8 @@ export class AlbumController {
     ctx: RequestContext<unknown, TrackPagedQueryDto, AlbumParamsDto>
   ) {
     const id = requireAlbumId(ctx.params.id);
-    const page =
-      parseInteger(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
-    const pageSize =
-      parseInteger(ctx.query?.pageSize, {
-        min: 1,
-        max: TRACK_MAX_PAGE_SIZE,
-        clamp: true
-      }) ?? TRACK_DEFAULT_PAGE_SIZE;
+    const paginationQuery = (ctx.query ?? {}) as Record<string, unknown>;
+    const { page, pageSize } = parsePagination(paginationQuery);
     return withSession(async (session) => {
       await getAlbumOrThrow(session, id);
       const filters: AlbumTrackFilter = {

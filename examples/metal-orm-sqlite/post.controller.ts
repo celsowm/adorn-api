@@ -10,6 +10,7 @@ import {
   Put,
   Query,
   Returns,
+  parsePagination,
   type RequestContext
 } from "../../src";
 import { applyFilter, toPagedResponse } from "metal-orm";
@@ -18,8 +19,6 @@ import { entityRef, selectFromEntity } from "metal-orm";
 import { createSession } from "./db";
 import {
   CreatePostDto,
-  DEFAULT_PAGE_SIZE,
-  MAX_PAGE_SIZE,
   PostDto,
   PostErrors,
   PostParamsDto,
@@ -109,14 +108,8 @@ export class PostController {
   @Query(PostQueryDto)
   @Returns(PostPagedResponseDto)
   async list(ctx: RequestContext<unknown, PostQueryDto>) {
-    const page =
-      parseInteger(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
-    const pageSize =
-      parseInteger(ctx.query?.pageSize, {
-        min: 1,
-        max: MAX_PAGE_SIZE,
-        clamp: true
-      }) ?? DEFAULT_PAGE_SIZE;
+  const paginationQuery = (ctx.query ?? {}) as Record<string, unknown>;
+  const { page, pageSize } = parsePagination(paginationQuery);
     return withSession(async (session) => {
       const filters = buildPostFilter(ctx.query);
       const query = applyFilter(

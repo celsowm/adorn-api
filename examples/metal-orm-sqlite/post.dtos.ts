@@ -11,9 +11,6 @@ import {
 } from "../../src";
 import { Post } from "./post.entity";
 
-export const DEFAULT_PAGE_SIZE = 25;
-export const MAX_PAGE_SIZE = 100;
-
 const POST_DTO_OVERRIDES = {
   id: t.integer({ description: "Post id." }),
   title: t.string({ minLength: 1 }),
@@ -67,8 +64,6 @@ export interface CreateUserPostDto extends UserPostMutationDto {}
 export class CreateUserPostDto {}
 
 const PagedQueryDto = createPagedQueryDtoClass({
-  defaultPageSize: DEFAULT_PAGE_SIZE,
-  maxPageSize: MAX_PAGE_SIZE,
   name: "PostPagedQueryDto"
 });
 

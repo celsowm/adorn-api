@@ -10,6 +10,7 @@ import {
   Put,
   Query,
   Returns,
+  parsePagination,
   type RequestContext
 } from "../../src";
 import { applyFilter, toPagedResponse } from "metal-orm";
@@ -18,8 +19,6 @@ import { entityRef, selectFromEntity } from "metal-orm";
 import { createSession } from "./db";
 import {
   CreateArtistDto,
-  DEFAULT_PAGE_SIZE,
-  MAX_PAGE_SIZE,
   ReplaceArtistDto,
   UpdateArtistDto,
   AlbumDto,
@@ -32,9 +31,7 @@ import {
 import {
   CreateArtistAlbumDto,
   AlbumPagedQueryDto,
-  AlbumPagedResponseDto,
-  DEFAULT_PAGE_SIZE as ALBUM_DEFAULT_PAGE_SIZE,
-  MAX_PAGE_SIZE as ALBUM_MAX_PAGE_SIZE
+  AlbumPagedResponseDto
 } from "./album.dtos";
 import { Album as AlbumEntity } from "./album.entity";
 import { Artist } from "./artist.entity";
@@ -123,14 +120,8 @@ export class ArtistController {
   @Query(ArtistQueryDto)
   @Returns(ArtistPagedResponseDto)
   async list(ctx: RequestContext<unknown, ArtistQueryDto>) {
-    const page =
-      parseInteger(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
-    const pageSize =
-      parseInteger(ctx.query?.pageSize, {
-        min: 1,
-        max: MAX_PAGE_SIZE,
-        clamp: true
-      }) ?? DEFAULT_PAGE_SIZE;
+    const paginationQuery = (ctx.query ?? {}) as Record<string, unknown>;
+    const { page, pageSize } = parsePagination(paginationQuery);
     return withSession(async (session) => {
       const filters = buildArtistFilter(ctx.query);
       const query = applyFilter(
@@ -225,14 +216,8 @@ export class ArtistController {
     ctx: RequestContext<unknown, AlbumPagedQueryDto, ArtistParamsDto>
   ) {
     const id = requireArtistId(ctx.params.id);
-    const page =
-      parseInteger(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
-    const pageSize =
-      parseInteger(ctx.query?.pageSize, {
-        min: 1,
-        max: ALBUM_MAX_PAGE_SIZE,
-        clamp: true
-      }) ?? ALBUM_DEFAULT_PAGE_SIZE;
+    const paginationQuery = (ctx.query ?? {}) as Record<string, unknown>;
+    const { page, pageSize } = parsePagination(paginationQuery);
     return withSession(async (session) => {
       await getArtistOrThrow(session, id);
       const filters: ArtistAlbumFilter = {

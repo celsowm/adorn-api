@@ -10,6 +10,7 @@ import {
   Put,
   Query,
   Returns,
+  parsePagination,
   type RequestContext
 } from "../../src";
 import { applyFilter, toPagedResponse } from "metal-orm";
@@ -18,8 +19,6 @@ import { entityRef, selectFromEntity } from "metal-orm";
 import { createSession } from "./db";
 import {
   CreateTrackDto,
-  DEFAULT_PAGE_SIZE,
-  MAX_PAGE_SIZE,
   ReplaceTrackDto,
   UpdateTrackDto,
   TrackDto,
@@ -122,14 +121,8 @@ export class TrackController {
   @Query(TrackQueryDto)
   @Returns(TrackPagedResponseDto)
   async list(ctx: RequestContext<unknown, TrackQueryDto>) {
-    const page =
-      parseInteger(ctx.query?.page, { min: 1, clamp: true }) ?? 1;
-    const pageSize =
-      parseInteger(ctx.query?.pageSize, {
-        min: 1,
-        max: MAX_PAGE_SIZE,
-        clamp: true
-      }) ?? DEFAULT_PAGE_SIZE;
+    const paginationQuery = (ctx.query ?? {}) as Record<string, unknown>;
+    const { page, pageSize } = parsePagination(paginationQuery);
     return withSession(async (session) => {
       const filters = buildTrackFilter(ctx.query);
       const query = applyFilter(
