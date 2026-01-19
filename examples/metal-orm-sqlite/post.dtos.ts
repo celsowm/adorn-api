@@ -4,7 +4,7 @@ import {
   Field,
   MergeDto,
   MetalDto,
-  createMetalCrudDtos,
+  createMetalCrudDtoClasses,
   createPagedQueryDtoClass,
   createPagedResponseDtoClass,
   t
@@ -19,38 +19,26 @@ const POST_DTO_OVERRIDES = {
   createdAt: t.dateTime({ description: "Creation timestamp." })
 };
 
-const postCrud = createMetalCrudDtos(Post, {
+const postCrud = createMetalCrudDtoClasses(Post, {
   overrides: POST_DTO_OVERRIDES,
   response: { description: "Post returned by the API." },
   mutationExclude: ["id", "createdAt"]
 });
 
-export interface PostDto extends Omit<Post, "user"> {}
-
-@postCrud.response
-export class PostDto {}
-
+export type PostDto = Omit<Post, "user">;
 type PostMutationDto = Omit<PostDto, "id" | "createdAt">;
+export type CreatePostDto = PostMutationDto;
+export type ReplacePostDto = PostMutationDto;
+export type UpdatePostDto = Partial<PostMutationDto>;
+export type PostParamsDto = Pick<PostDto, "id">;
 
-export interface CreatePostDto extends PostMutationDto {}
-
-@postCrud.create
-export class CreatePostDto {}
-
-export interface ReplacePostDto extends PostMutationDto {}
-
-@postCrud.replace
-export class ReplacePostDto {}
-
-export interface UpdatePostDto extends Partial<PostMutationDto> {}
-
-@postCrud.update
-export class UpdatePostDto {}
-
-export interface PostParamsDto extends Pick<PostDto, "id"> {}
-
-@postCrud.params
-export class PostParamsDto {}
+export const {
+  response: PostDto,
+  create: CreatePostDto,
+  replace: ReplacePostDto,
+  update: UpdatePostDto,
+  params: PostParamsDto
+} = postCrud;
 
 type UserPostMutationDto = Omit<PostDto, "id" | "createdAt" | "userId">;
 

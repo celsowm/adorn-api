@@ -3,7 +3,7 @@ import {
   Errors,
   Field,
   MergeDto,
-  createMetalCrudDtos,
+  createMetalCrudDtoClasses,
   createPagedQueryDtoClass,
   createPagedResponseDtoClass,
   t
@@ -20,38 +20,26 @@ const ARTIST_DTO_OVERRIDES = {
   createdAt: t.dateTime({ description: "Creation timestamp." })
 };
 
-const artistCrud = createMetalCrudDtos(Artist, {
+const artistCrud = createMetalCrudDtoClasses(Artist, {
   overrides: ARTIST_DTO_OVERRIDES,
   response: { description: "Artist returned by the API." },
   mutationExclude: ["id", "createdAt"]
 });
 
-export interface ArtistDto extends Omit<Artist, "albums"> {}
-
-@artistCrud.response
-export class ArtistDto {}
-
+export type ArtistDto = Omit<Artist, "albums">;
 type ArtistMutationDto = Omit<ArtistDto, "id" | "createdAt">;
+export type CreateArtistDto = ArtistMutationDto;
+export type ReplaceArtistDto = ArtistMutationDto;
+export type UpdateArtistDto = Partial<ArtistMutationDto>;
+export type ArtistParamsDto = Pick<ArtistDto, "id">;
 
-export interface CreateArtistDto extends ArtistMutationDto {}
-
-@artistCrud.create
-export class CreateArtistDto {}
-
-export interface ReplaceArtistDto extends ArtistMutationDto {}
-
-@artistCrud.replace
-export class ReplaceArtistDto {}
-
-export interface UpdateArtistDto extends Partial<ArtistMutationDto> {}
-
-@artistCrud.update
-export class UpdateArtistDto {}
-
-export interface ArtistParamsDto extends Pick<ArtistDto, "id"> {}
-
-@artistCrud.params
-export class ArtistParamsDto {}
+export const {
+  response: ArtistDto,
+  create: CreateArtistDto,
+  replace: ReplaceArtistDto,
+  update: UpdateArtistDto,
+  params: ArtistParamsDto
+} = artistCrud;
 
 const PagedQueryDto = createPagedQueryDtoClass({
   name: "ArtistPagedQueryDto"

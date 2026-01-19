@@ -4,7 +4,7 @@ import {
   Field,
   MergeDto,
   MetalDto,
-  createMetalCrudDtos,
+  createMetalCrudDtoClasses,
   createPagedQueryDtoClass,
   createPagedResponseDtoClass,
   t
@@ -20,7 +20,7 @@ const TRACK_DTO_OVERRIDES = {
   createdAt: t.dateTime({ description: "Creation timestamp." })
 };
 
-const trackCrud = createMetalCrudDtos(Track, {
+const trackCrud = createMetalCrudDtoClasses(Track, {
   overrides: TRACK_DTO_OVERRIDES,
   response: { description: "Track returned by the API." },
   mutationExclude: ["id", "createdAt"],
@@ -28,33 +28,21 @@ const trackCrud = createMetalCrudDtos(Track, {
   update: { exclude: ["albumId"] }
 });
 
-export interface TrackDto extends Omit<Track, "album"> {}
-
-@trackCrud.response
-export class TrackDto {}
-
+export type TrackDto = Omit<Track, "album">;
 type TrackMutationDto = Omit<TrackDto, "id" | "createdAt">;
 type TrackUpdateDto = Omit<TrackMutationDto, "albumId">;
+export type CreateTrackDto = TrackMutationDto;
+export type ReplaceTrackDto = TrackUpdateDto;
+export type UpdateTrackDto = Partial<TrackUpdateDto>;
+export type TrackParamsDto = Pick<TrackDto, "id">;
 
-export interface CreateTrackDto extends TrackMutationDto {}
-
-@trackCrud.create
-export class CreateTrackDto {}
-
-export interface ReplaceTrackDto extends TrackUpdateDto {}
-
-@trackCrud.replace
-export class ReplaceTrackDto {}
-
-export interface UpdateTrackDto extends Partial<TrackUpdateDto> {}
-
-@trackCrud.update
-export class UpdateTrackDto {}
-
-export interface TrackParamsDto extends Pick<TrackDto, "id"> {}
-
-@trackCrud.params
-export class TrackParamsDto {}
+export const {
+  response: TrackDto,
+  create: CreateTrackDto,
+  replace: ReplaceTrackDto,
+  update: UpdateTrackDto,
+  params: TrackParamsDto
+} = trackCrud;
 
 type AlbumTrackMutationDto = Omit<TrackDto, "id" | "createdAt" | "albumId">;
 

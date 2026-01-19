@@ -408,6 +408,21 @@ export interface MetalCrudDtoDecorators {
   params: ReturnType<typeof MetalDto>;
 }
 
+export type MetalCrudDtoClassNames = Partial<Record<keyof MetalCrudDtoDecorators, string>>;
+
+export interface MetalCrudDtoClassOptions extends MetalCrudDtoOptions {
+  baseName?: string;
+  names?: MetalCrudDtoClassNames;
+}
+
+export interface MetalCrudDtoClasses {
+  response: DtoConstructor;
+  create: DtoConstructor;
+  replace: DtoConstructor;
+  update: DtoConstructor;
+  params: DtoConstructor;
+}
+
 export function createMetalCrudDtos(
   target: MetalDtoTarget,
   options: MetalCrudDtoOptions = {}
@@ -438,6 +453,43 @@ export function createMetalCrudDtos(
     update: MetalDto(target, update),
     params: MetalDto(target, params)
   };
+}
+
+export function createMetalCrudDtoClasses(
+  target: MetalDtoTarget,
+  options: MetalCrudDtoClassOptions = {}
+): MetalCrudDtoClasses {
+  const { baseName, names, ...crudOptions } = options;
+  const decorators = createMetalCrudDtos(target, crudOptions);
+  const entityName = baseName ?? getTargetName(target);
+  const defaultNames: Record<keyof MetalCrudDtoDecorators, string> = {
+    response: `${entityName}Dto`,
+    create: `Create${entityName}Dto`,
+    replace: `Replace${entityName}Dto`,
+    update: `Update${entityName}Dto`,
+    params: `${entityName}ParamsDto`
+  };
+
+  const classes: Partial<MetalCrudDtoClasses> = {};
+  for (const key of Object.keys(decorators) as Array<keyof MetalCrudDtoDecorators>) {
+    const name = names?.[key] ?? defaultNames[key];
+    classes[key] = buildDtoClass(name, decorators[key]);
+  }
+  return classes as MetalCrudDtoClasses;
+}
+
+function buildDtoClass(name: string, decorator: ReturnType<typeof MetalDto>): DtoConstructor {
+  const DtoClass = class {};
+  Object.defineProperty(DtoClass, "name", { value: name, configurable: true });
+  decorator(DtoClass);
+  return DtoClass;
+}
+
+function getTargetName(target: MetalDtoTarget): string {
+  if (typeof target === "function" && target.name) {
+    return target.name;
+  }
+  return "Entity";
 }
 
 function mergeOverrides(

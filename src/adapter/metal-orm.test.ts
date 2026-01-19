@@ -7,7 +7,8 @@ import {
   withSession,
   createPagedQueryDtoClass,
   createPagedResponseDtoClass,
-  createMetalCrudDtos
+  createMetalCrudDtos,
+  createMetalCrudDtoClasses
 } from "./metal-orm";
 import { HttpError } from "../core/errors";
 import { Column, Entity, PrimaryKey, col } from "metal-orm";
@@ -277,6 +278,49 @@ describe("metal-orm helpers", () => {
       expect(createMeta?.fields.id).toBeUndefined();
       expect(updateMeta?.fields.name?.optional).toBe(true);
       expect(Object.keys(paramsMeta?.fields ?? {})).toEqual(["id"]);
+    });
+  });
+
+  describe("createMetalCrudDtoClasses", () => {
+    @Entity({ tableName: "crud_dto_class_entities" })
+    class CrudDtoClassEntity {
+      @PrimaryKey(col.autoIncrement(col.int()))
+      id!: number;
+
+      @Column(col.notNull(col.text()))
+      name!: string;
+
+      @Column(col.text())
+      nickname?: string | null;
+    }
+
+    it("builds ready-to-export DTO classes", () => {
+      const classes = createMetalCrudDtoClasses(CrudDtoClassEntity, {
+        mutationExclude: ["id"]
+      });
+
+      const responseMeta = getDtoMeta(classes.response);
+      const createMeta = getDtoMeta(classes.create);
+      const paramsMeta = getDtoMeta(classes.params);
+
+      expect(classes.response.name).toBe("CrudDtoClassEntityDto");
+      expect(responseMeta?.fields.id).toBeDefined();
+      expect(createMeta?.fields.id).toBeUndefined();
+      expect(paramsMeta?.fields).toEqual({ id: expect.any(Object) });
+    });
+
+    it("applies custom name overrides", () => {
+      const classes = createMetalCrudDtoClasses(CrudDtoClassEntity, {
+        baseName: "Person",
+        names: {
+          response: "PersonDto",
+          params: "PersonIdDto"
+        }
+      });
+
+      expect(classes.response.name).toBe("PersonDto");
+      expect(classes.params.name).toBe("PersonIdDto");
+      expect(classes.create.name).toBe("CreatePersonDto");
     });
   });
 });

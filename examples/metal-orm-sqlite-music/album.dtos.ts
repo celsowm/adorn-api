@@ -4,7 +4,7 @@ import {
   Field,
   MergeDto,
   MetalDto,
-  createMetalCrudDtos,
+  createMetalCrudDtoClasses,
   createPagedQueryDtoClass,
   createPagedResponseDtoClass,
   t
@@ -20,7 +20,7 @@ const ALBUM_DTO_OVERRIDES = {
   createdAt: t.dateTime({ description: "Creation timestamp." })
 };
 
-const albumCrud = createMetalCrudDtos(Album, {
+const albumCrud = createMetalCrudDtoClasses(Album, {
   overrides: ALBUM_DTO_OVERRIDES,
   response: { description: "Album returned by the API." },
   mutationExclude: ["id", "createdAt"],
@@ -28,33 +28,21 @@ const albumCrud = createMetalCrudDtos(Album, {
   update: { exclude: ["artistId"] }
 });
 
-export interface AlbumDto extends Omit<Album, "artist" | "tracks"> {}
-
-@albumCrud.response
-export class AlbumDto {}
-
+export type AlbumDto = Omit<Album, "artist" | "tracks">;
 type AlbumMutationDto = Omit<AlbumDto, "id" | "createdAt">;
 type AlbumUpdateDto = Omit<AlbumMutationDto, "artistId">;
+export type CreateAlbumDto = AlbumMutationDto;
+export type ReplaceAlbumDto = AlbumUpdateDto;
+export type UpdateAlbumDto = Partial<AlbumUpdateDto>;
+export type AlbumParamsDto = Pick<AlbumDto, "id">;
 
-export interface CreateAlbumDto extends AlbumMutationDto {}
-
-@albumCrud.create
-export class CreateAlbumDto {}
-
-export interface ReplaceAlbumDto extends AlbumUpdateDto {}
-
-@albumCrud.replace
-export class ReplaceAlbumDto {}
-
-export interface UpdateAlbumDto extends Partial<AlbumUpdateDto> {}
-
-@albumCrud.update
-export class UpdateAlbumDto {}
-
-export interface AlbumParamsDto extends Pick<AlbumDto, "id"> {}
-
-@albumCrud.params
-export class AlbumParamsDto {}
+export const {
+  response: AlbumDto,
+  create: CreateAlbumDto,
+  replace: ReplaceAlbumDto,
+  update: UpdateAlbumDto,
+  params: AlbumParamsDto
+} = albumCrud;
 
 type ArtistAlbumMutationDto = Omit<AlbumDto, "id" | "createdAt" | "artistId">;
 

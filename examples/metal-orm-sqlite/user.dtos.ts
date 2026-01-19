@@ -3,7 +3,7 @@ import {
   Errors,
   Field,
   MergeDto,
-  createMetalCrudDtos,
+  createMetalCrudDtoClasses,
   createPagedQueryDtoClass,
   createPagedResponseDtoClass,
   t
@@ -18,16 +18,26 @@ const USER_DTO_OVERRIDES = {
   createdAt: t.dateTime({ description: "Creation timestamp." })
 };
 
-const userCrud = createMetalCrudDtos(User, {
+const userCrud = createMetalCrudDtoClasses(User, {
   overrides: USER_DTO_OVERRIDES,
   response: { description: "User returned by the API." },
   mutationExclude: ["id", "createdAt"]
 });
 
-export interface UserDto extends Omit<User, "posts"> {}
+export type UserDto = Omit<User, "posts">;
+type UserMutationDto = Omit<UserDto, "id" | "createdAt">;
+export type CreateUserDto = UserMutationDto;
+export type ReplaceUserDto = UserMutationDto;
+export type UpdateUserDto = Partial<UserMutationDto>;
+export type UserParamsDto = Pick<UserDto, "id">;
 
-@userCrud.response
-export class UserDto {}
+export const {
+  response: UserDto,
+  create: CreateUserDto,
+  replace: ReplaceUserDto,
+  update: UpdateUserDto,
+  params: UserParamsDto
+} = userCrud;
 
 export interface UserWithPostsDto extends UserDto {
   posts: PostDto[];
@@ -43,28 +53,6 @@ class UserPostsDto {
   description: "User returned by the API with posts."
 })
 export class UserWithPostsDto {}
-
-type UserMutationDto = Omit<UserDto, "id" | "createdAt">;
-
-export interface CreateUserDto extends UserMutationDto {}
-
-@userCrud.create
-export class CreateUserDto {}
-
-export interface ReplaceUserDto extends UserMutationDto {}
-
-@userCrud.replace
-export class ReplaceUserDto {}
-
-export interface UpdateUserDto extends Partial<UserMutationDto> {}
-
-@userCrud.update
-export class UpdateUserDto {}
-
-export interface UserParamsDto extends Pick<UserDto, "id"> {}
-
-@userCrud.params
-export class UserParamsDto {}
 
 const PagedQueryDto = createPagedQueryDtoClass({
   name: "UserPagedQueryDto"
