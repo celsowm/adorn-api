@@ -24,6 +24,7 @@ import {
   PostParamsDto,
   PostPagedResponseDto,
   PostQueryDto,
+  PostQueryDtoClass,
   ReplacePostDto,
   UpdatePostDto
 } from "./post.dtos";
@@ -105,7 +106,7 @@ function buildPostFilter(query?: PostQueryDto): PostFilter | undefined {
 @Controller("/posts")
 export class PostController {
   @Get("/")
-  @Query(PostQueryDto)
+  @Query(PostQueryDtoClass)
   @Returns(PostPagedResponseDto)
   async list(ctx: RequestContext<unknown, PostQueryDto>) {
   const paginationQuery = (ctx.query ?? {}) as Record<string, unknown>;

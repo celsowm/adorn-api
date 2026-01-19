@@ -18,19 +18,22 @@ import type { SimpleWhereInput } from "metal-orm";
 import { entityRef, selectFromEntity } from "metal-orm";
 import { createSession } from "./db";
 import {
+  AlbumDto,
+  AlbumParamsDto,
+  AlbumQueryDto,
+  AlbumQueryDtoClass,
+  AlbumPagedResponseDto,
+  AlbumErrors,
   CreateAlbumDto,
-  CreateAlbumTrackDto,
   ReplaceAlbumDto,
   UpdateAlbumDto,
-  AlbumDto,
-  AlbumErrors,
-  AlbumParamsDto,
-  AlbumPagedResponseDto,
-  AlbumQueryDto
+  CreateAlbumTrackDto,
+  CreateAlbumTrackDtoClass
 } from "./album.dtos";
 import {
   TrackDto,
-  TrackPagedQueryDto,
+  TrackQueryDto,
+  TrackQueryDtoClass,
   TrackPagedResponseDto
 } from "./track.dtos";
 import { Album as AlbumEntity } from "./album.entity";
@@ -130,7 +133,7 @@ function buildAlbumFilter(query?: AlbumQueryDto): AlbumFilter | undefined {
 @Controller("/albums")
 export class AlbumController {
   @Get("/")
-  @Query(AlbumQueryDto)
+  @Query(AlbumQueryDtoClass)
   @Returns(AlbumPagedResponseDto)
   async list(ctx: RequestContext<unknown, AlbumQueryDto>) {
     const paginationQuery = (ctx.query ?? {}) as Record<string, unknown>;
@@ -214,11 +217,11 @@ export class AlbumController {
 
   @Get("/:id/tracks")
   @Params(AlbumParamsDto)
-  @Query(TrackPagedQueryDto)
+  @Query(TrackQueryDtoClass)
   @Returns(TrackPagedResponseDto)
   @AlbumErrors
   async listTracks(
-    ctx: RequestContext<unknown, TrackPagedQueryDto, AlbumParamsDto>
+    ctx: RequestContext<unknown, TrackQueryDto, AlbumParamsDto>
   ) {
     const id = requireAlbumId(ctx.params.id);
     const paginationQuery = (ctx.query ?? {}) as Record<string, unknown>;
@@ -240,7 +243,7 @@ export class AlbumController {
 
   @Post("/:id/tracks")
   @Params(AlbumParamsDto)
-  @Body(CreateAlbumTrackDto)
+  @Body(CreateAlbumTrackDtoClass)
   @Returns({ status: 201, schema: TrackDto })
   @AlbumErrors
   async createTrack(

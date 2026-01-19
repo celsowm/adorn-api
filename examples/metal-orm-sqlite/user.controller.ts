@@ -26,9 +26,10 @@ import {
   UserErrors,
   UserParamsDto,
   UserWithPostsPagedResponseDto,
-  UserQueryDto
+  UserQueryDto,
+  UserQueryDtoClass
 } from "./user.dtos";
-import { CreateUserPostDto, PostDto } from "./post.dtos";
+import { CreateUserPostDto, CreateUserPostDtoClass, PostDto } from "./post.dtos";
 import { User } from "./user.entity";
 
 type IntegerOptions = {
@@ -98,7 +99,7 @@ function buildUserFilter(query?: UserQueryDto): UserFilter | undefined {
 @Controller("/users")
 export class UserController {
   @Get("/")
-  @Query(UserQueryDto)
+  @Query(UserQueryDtoClass)
   @Returns(UserWithPostsPagedResponseDto)
   async list(ctx: RequestContext<unknown, UserQueryDto>) {
     const paginationQuery = (ctx.query ?? {}) as Record<string, unknown>;
@@ -196,7 +197,7 @@ export class UserController {
 
   @Post("/:id/posts")
   @Params(UserParamsDto)
-  @Body(CreateUserPostDto)
+  @Body(CreateUserPostDtoClass)
   @Returns({ status: 201, schema: PostDto })
   @UserErrors
   async createPost(

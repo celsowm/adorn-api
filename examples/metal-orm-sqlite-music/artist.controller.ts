@@ -26,11 +26,14 @@ import {
   ArtistErrors,
   ArtistParamsDto,
   ArtistPagedResponseDto,
-  ArtistQueryDto
+  ArtistQueryDto,
+  ArtistQueryDtoClass
 } from "./artist.dtos";
 import {
   CreateArtistAlbumDto,
-  AlbumPagedQueryDto,
+  CreateArtistAlbumDtoClass,
+  AlbumQueryDto,
+  AlbumQueryDtoClass,
   AlbumPagedResponseDto
 } from "./album.dtos";
 import { Album as AlbumEntity } from "./album.entity";
@@ -117,7 +120,7 @@ function buildArtistFilter(query?: ArtistQueryDto): ArtistFilter | undefined {
 @Controller("/artists")
 export class ArtistController {
   @Get("/")
-  @Query(ArtistQueryDto)
+  @Query(ArtistQueryDtoClass)
   @Returns(ArtistPagedResponseDto)
   async list(ctx: RequestContext<unknown, ArtistQueryDto>) {
     const paginationQuery = (ctx.query ?? {}) as Record<string, unknown>;
@@ -209,11 +212,11 @@ export class ArtistController {
 
   @Get("/:id/albums")
   @Params(ArtistParamsDto)
-  @Query(AlbumPagedQueryDto)
+  @Query(AlbumQueryDtoClass)
   @Returns(AlbumPagedResponseDto)
   @ArtistErrors
   async listAlbums(
-    ctx: RequestContext<unknown, AlbumPagedQueryDto, ArtistParamsDto>
+    ctx: RequestContext<unknown, AlbumQueryDto, ArtistParamsDto>
   ) {
     const id = requireArtistId(ctx.params.id);
     const paginationQuery = (ctx.query ?? {}) as Record<string, unknown>;
@@ -235,7 +238,7 @@ export class ArtistController {
 
   @Post("/:id/albums")
   @Params(ArtistParamsDto)
-  @Body(CreateArtistAlbumDto)
+  @Body(CreateArtistAlbumDtoClass)
   @Returns({ status: 201, schema: AlbumDto })
   @ArtistErrors
   async createAlbum(

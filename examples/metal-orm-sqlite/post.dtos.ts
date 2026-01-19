@@ -25,13 +25,6 @@ const postCrud = createMetalCrudDtoClasses(Post, {
   mutationExclude: ["id", "createdAt"]
 });
 
-export type PostDto = Omit<Post, "user">;
-type PostMutationDto = Omit<PostDto, "id" | "createdAt">;
-export type CreatePostDto = PostMutationDto;
-export type ReplacePostDto = PostMutationDto;
-export type UpdatePostDto = Partial<PostMutationDto>;
-export type PostParamsDto = Pick<PostDto, "id">;
-
 export const {
   response: PostDto,
   create: CreatePostDto,
@@ -40,7 +33,14 @@ export const {
   params: PostParamsDto
 } = postCrud;
 
-export const CreateUserPostDto = createNestedCreateDtoClass(
+export type PostDto = Omit<Post, "user">;
+type PostMutationDto = Omit<PostDto, "id" | "createdAt">;
+export type CreatePostDto = PostMutationDto;
+export type ReplacePostDto = PostMutationDto;
+export type UpdatePostDto = Partial<PostMutationDto>;
+export type PostParamsDto = InstanceType<typeof PostParamsDto>;
+
+export const CreateUserPostDtoClass = createNestedCreateDtoClass(
   Post,
   POST_DTO_OVERRIDES,
   {
@@ -49,13 +49,25 @@ export const CreateUserPostDto = createNestedCreateDtoClass(
   }
 );
 
-export const PostQueryDto = createPagedFilterQueryDtoClass({
+export interface CreateUserPostDto {
+  title: string;
+  body?: string | null;
+}
+
+export const PostQueryDtoClass = createPagedFilterQueryDtoClass({
   name: "PostQueryDto",
   filters: {
     titleContains: { schema: t.string({ minLength: 1 }), operator: "contains" },
     userId: { schema: t.integer({ minimum: 1 }), operator: "equals" }
   }
 });
+
+export interface PostQueryDto {
+  page?: number;
+  pageSize?: number;
+  titleContains?: string;
+  userId?: number;
+}
 
 export const PostPagedResponseDto = createPagedResponseDtoClass({
   name: "PostPagedResponseDto",
@@ -67,5 +79,3 @@ export const PostErrors = Errors(SimpleErrorDto, [
   { status: 400, description: "Invalid post id." },
   { status: 404, description: "Post not found." }
 ]);
-
-export type PostQueryDto = typeof PostQueryDto;

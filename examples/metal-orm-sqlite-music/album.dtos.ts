@@ -10,7 +10,7 @@ import {
   t
 } from "../../src";
 import { Album } from "./album.entity";
-import { CreateAlbumTrackDto } from "./track.dtos";
+import { CreateAlbumTrackDto, CreateAlbumTrackDtoClass } from "./track.dtos";
 
 const ALBUM_DTO_OVERRIDES = {
   id: t.integer({ description: "Album id.", minimum: 1 }),
@@ -27,14 +27,6 @@ const albumCrud = createMetalCrudDtoClasses(Album, {
   immutable: ["artistId"]
 });
 
-export type AlbumDto = Omit<Album, "artist" | "tracks">;
-type AlbumMutationDto = Omit<AlbumDto, "id" | "createdAt">;
-type AlbumUpdateDto = Omit<AlbumMutationDto, "artistId">;
-export type CreateAlbumDto = AlbumMutationDto;
-export type ReplaceAlbumDto = AlbumUpdateDto;
-export type UpdateAlbumDto = Partial<AlbumUpdateDto>;
-export type AlbumParamsDto = Pick<AlbumDto, "id">;
-
 export const {
   response: AlbumDto,
   create: CreateAlbumDto,
@@ -43,7 +35,15 @@ export const {
   params: AlbumParamsDto
 } = albumCrud;
 
-export const CreateArtistAlbumDto = createNestedCreateDtoClass(
+export type AlbumDto = Omit<Album, "artist" | "tracks">;
+type AlbumMutationDto = Omit<AlbumDto, "id" | "createdAt">;
+type AlbumUpdateDto = Omit<AlbumMutationDto, "artistId">;
+export type CreateAlbumDto = AlbumMutationDto;
+export type ReplaceAlbumDto = AlbumUpdateDto;
+export type UpdateAlbumDto = Partial<AlbumUpdateDto>;
+export type AlbumParamsDto = InstanceType<typeof AlbumParamsDto>;
+
+export const CreateArtistAlbumDtoClass = createNestedCreateDtoClass(
   Album,
   ALBUM_DTO_OVERRIDES,
   {
@@ -52,7 +52,12 @@ export const CreateArtistAlbumDto = createNestedCreateDtoClass(
   }
 );
 
-export const AlbumQueryDto = createPagedFilterQueryDtoClass({
+export interface CreateArtistAlbumDto {
+  title: string;
+  releaseYear?: number | null;
+}
+
+export const AlbumQueryDtoClass = createPagedFilterQueryDtoClass({
   name: "AlbumQueryDto",
   filters: {
     titleContains: { schema: t.string({ minLength: 1 }), operator: "contains" },
@@ -60,6 +65,14 @@ export const AlbumQueryDto = createPagedFilterQueryDtoClass({
     artistId: { schema: t.integer({ minimum: 1 }), operator: "equals" }
   }
 });
+
+export interface AlbumQueryDto {
+  page?: number;
+  pageSize?: number;
+  titleContains?: string;
+  releaseYear?: number;
+  artistId?: number;
+}
 
 export const AlbumPagedResponseDto = createPagedResponseDtoClass({
   name: "AlbumPagedResponseDto",
@@ -72,5 +85,4 @@ export const AlbumErrors = Errors(StandardErrorDto, [
   { status: 404, description: "Album not found." }
 ]);
 
-export type AlbumQueryDto = typeof AlbumQueryDto;
-export { CreateAlbumTrackDto };
+export { CreateAlbumTrackDto, CreateAlbumTrackDtoClass };

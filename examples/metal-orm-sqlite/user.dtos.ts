@@ -26,13 +26,6 @@ const userCrud = createMetalCrudDtoClasses(User, {
   mutationExclude: ["id", "createdAt"]
 });
 
-export type UserDto = Omit<User, "posts">;
-type UserMutationDto = Omit<UserDto, "id" | "createdAt">;
-export type CreateUserDto = UserMutationDto;
-export type ReplaceUserDto = UserMutationDto;
-export type UpdateUserDto = Partial<UserMutationDto>;
-export type UserParamsDto = Pick<UserDto, "id">;
-
 export const {
   response: UserDto,
   create: CreateUserDto,
@@ -40,6 +33,13 @@ export const {
   update: UpdateUserDto,
   params: UserParamsDto
 } = userCrud;
+
+export type UserDto = Omit<User, "posts">;
+type UserMutationDto = Omit<UserDto, "id" | "createdAt">;
+export type CreateUserDto = UserMutationDto;
+export type ReplaceUserDto = UserMutationDto;
+export type UpdateUserDto = Partial<UserMutationDto>;
+export type UserParamsDto = InstanceType<typeof UserParamsDto>;
 
 export interface UserWithPostsDto extends UserDto {
   posts: PostDto[];
@@ -56,13 +56,20 @@ class UserPostsDto {
 })
 export class UserWithPostsDto {}
 
-export const UserQueryDto = createPagedFilterQueryDtoClass({
+export const UserQueryDtoClass = createPagedFilterQueryDtoClass({
   name: "UserQueryDto",
   filters: {
     nameContains: { schema: t.string({ minLength: 1 }), operator: "contains" },
     emailContains: { schema: t.string({ minLength: 1 }), operator: "contains" }
   }
 });
+
+export interface UserQueryDto {
+  page?: number;
+  pageSize?: number;
+  nameContains?: string;
+  emailContains?: string;
+}
 
 export const UserPagedResponseDto = createPagedResponseDtoClass({
   name: "UserPagedResponseDto",
@@ -80,5 +87,3 @@ export const UserErrors = Errors(SimpleErrorDto, [
   { status: 400, description: "Invalid user id." },
   { status: 404, description: "User not found." }
 ]);
-
-export type UserQueryDto = typeof UserQueryDto;

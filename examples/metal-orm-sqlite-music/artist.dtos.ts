@@ -26,13 +26,6 @@ const artistCrud = createMetalCrudDtoClasses(Artist, {
   mutationExclude: ["id", "createdAt"]
 });
 
-export type ArtistDto = Omit<Artist, "albums">;
-type ArtistMutationDto = Omit<ArtistDto, "id" | "createdAt">;
-export type CreateArtistDto = ArtistMutationDto;
-export type ReplaceArtistDto = ArtistMutationDto;
-export type UpdateArtistDto = Partial<ArtistMutationDto>;
-export type ArtistParamsDto = Pick<ArtistDto, "id">;
-
 export const {
   response: ArtistDto,
   create: CreateArtistDto,
@@ -41,13 +34,27 @@ export const {
   params: ArtistParamsDto
 } = artistCrud;
 
-export const ArtistQueryDto = createPagedFilterQueryDtoClass({
+export type ArtistDto = Omit<Artist, "albums">;
+type ArtistMutationDto = Omit<ArtistDto, "id" | "createdAt">;
+export type CreateArtistDto = ArtistMutationDto;
+export type ReplaceArtistDto = ArtistMutationDto;
+export type UpdateArtistDto = Partial<ArtistMutationDto>;
+export type ArtistParamsDto = InstanceType<typeof ArtistParamsDto>;
+
+export const ArtistQueryDtoClass = createPagedFilterQueryDtoClass({
   name: "ArtistQueryDto",
   filters: {
     nameContains: { schema: t.string({ minLength: 1 }), operator: "contains" },
     genreContains: { schema: t.string({ minLength: 1 }), operator: "contains" }
   }
 });
+
+export interface ArtistQueryDto {
+  page?: number;
+  pageSize?: number;
+  nameContains?: string;
+  genreContains?: string;
+}
 
 export const ArtistPagedResponseDto = createPagedResponseDtoClass({
   name: "ArtistPagedResponseDto",
@@ -60,5 +67,4 @@ export const ArtistErrors = Errors(StandardErrorDto, [
   { status: 404, description: "Artist not found." }
 ]);
 
-export type ArtistQueryDto = typeof ArtistQueryDto;
 export { AlbumDto, CreateArtistAlbumDto };

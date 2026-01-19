@@ -25,7 +25,8 @@ import {
   TrackErrors,
   TrackParamsDto,
   TrackPagedResponseDto,
-  TrackQueryDto
+  TrackQueryDto,
+  TrackQueryDtoClass
 } from "./track.dtos";
 import { Track as TrackEntity } from "./track.entity";
 import { Album } from "./album.entity";
@@ -118,7 +119,7 @@ function buildTrackFilter(query?: TrackQueryDto): TrackFilter | undefined {
 @Controller("/tracks")
 export class TrackController {
   @Get("/")
-  @Query(TrackQueryDto)
+  @Query(TrackQueryDtoClass)
   @Returns(TrackPagedResponseDto)
   async list(ctx: RequestContext<unknown, TrackQueryDto>) {
     const paginationQuery = (ctx.query ?? {}) as Record<string, unknown>;
