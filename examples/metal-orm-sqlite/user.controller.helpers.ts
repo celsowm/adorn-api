@@ -29,7 +29,7 @@ import {
   parseFilter,
   createPagedQueryDtoClass,
   createPagedResponseDtoClass
-} from "../../src/adapter/metal-orm";
+} from "../../src";
 import { User } from "./user.entity";
 import { PostDto } from "./post.dtos";
 

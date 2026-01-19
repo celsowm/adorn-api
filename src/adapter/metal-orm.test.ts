@@ -9,7 +9,7 @@ import {
   createPagedResponseDtoClass,
   createMetalCrudDtos,
   createMetalCrudDtoClasses
-} from "./metal-orm";
+} from "./metal-orm/index";
 import { HttpError } from "../core/errors";
 import { Column, Entity, PrimaryKey, col } from "metal-orm";
 import { getDtoMeta } from "../core/metadata";
