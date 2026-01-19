@@ -1,12 +1,12 @@
 import {
   Dto,
-  Errors,
-  Field,
   MergeDto,
-  MetalDto,
+  Errors,
   createMetalCrudDtoClasses,
-  createPagedQueryDtoClass,
   createPagedResponseDtoClass,
+  createNestedCreateDtoClass,
+  createPagedFilterQueryDtoClass,
+  SimpleErrorDto,
   t
 } from "../../src";
 import { Post } from "./post.entity";
@@ -21,7 +21,7 @@ const POST_DTO_OVERRIDES = {
 
 const postCrud = createMetalCrudDtoClasses(Post, {
   overrides: POST_DTO_OVERRIDES,
-  response: { description: "Post returned by the API." },
+  response: { description: "Post returned by API." },
   mutationExclude: ["id", "createdAt"]
 });
 
@@ -40,37 +40,22 @@ export const {
   params: PostParamsDto
 } = postCrud;
 
-type UserPostMutationDto = Omit<PostDto, "id" | "createdAt" | "userId">;
+export const CreateUserPostDto = createNestedCreateDtoClass(
+  Post,
+  POST_DTO_OVERRIDES,
+  {
+    name: "CreateUserPostDto",
+    additionalExclude: ["userId"]
+  }
+);
 
-export interface CreateUserPostDto extends UserPostMutationDto {}
-
-@MetalDto(Post, {
-  mode: "create",
-  overrides: POST_DTO_OVERRIDES,
-  exclude: ["id", "createdAt", "userId"]
-})
-export class CreateUserPostDto {}
-
-const PagedQueryDto = createPagedQueryDtoClass({
-  name: "PostPagedQueryDto"
+export const PostQueryDto = createPagedFilterQueryDtoClass({
+  name: "PostQueryDto",
+  filters: {
+    titleContains: { schema: t.string({ minLength: 1 }), operator: "contains" },
+    userId: { schema: t.integer({ minimum: 1 }), operator: "equals" }
+  }
 });
-
-@Dto()
-class PostFilterQueryDto {
-  @Field(t.optional(t.string({ minLength: 1 })))
-  titleContains?: string;
-
-  @Field(t.optional(t.integer({ minimum: 1 })))
-  userId?: number;
-}
-
-@MergeDto([PagedQueryDto, PostFilterQueryDto])
-export class PostQueryDto {
-  declare page?: number;
-  declare pageSize?: number;
-  declare titleContains?: string;
-  declare userId?: number;
-}
 
 export const PostPagedResponseDto = createPagedResponseDtoClass({
   name: "PostPagedResponseDto",
@@ -78,13 +63,9 @@ export const PostPagedResponseDto = createPagedResponseDtoClass({
   description: "Paged post list response."
 });
 
-@Dto()
-class ErrorDto {
-  @Field(t.string())
-  message!: string;
-}
-
-export const PostErrors = Errors(ErrorDto, [
+export const PostErrors = Errors(SimpleErrorDto, [
   { status: 400, description: "Invalid post id." },
   { status: 404, description: "Post not found." }
 ]);
+
+export type PostQueryDto = typeof PostQueryDto;

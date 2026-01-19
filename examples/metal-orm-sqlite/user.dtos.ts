@@ -1,11 +1,13 @@
 import {
   Dto,
-  Errors,
   Field,
   MergeDto,
+  Errors,
   createMetalCrudDtoClasses,
-  createPagedQueryDtoClass,
   createPagedResponseDtoClass,
+  createNestedCreateDtoClass,
+  createPagedFilterQueryDtoClass,
+  SimpleErrorDto,
   t
 } from "../../src";
 import { User } from "./user.entity";
@@ -20,7 +22,7 @@ const USER_DTO_OVERRIDES = {
 
 const userCrud = createMetalCrudDtoClasses(User, {
   overrides: USER_DTO_OVERRIDES,
-  response: { description: "User returned by the API." },
+  response: { description: "User returned by API." },
   mutationExclude: ["id", "createdAt"]
 });
 
@@ -50,30 +52,17 @@ class UserPostsDto {
 }
 
 @MergeDto([UserDto, UserPostsDto], {
-  description: "User returned by the API with posts."
+  description: "User returned by API with posts."
 })
 export class UserWithPostsDto {}
 
-const PagedQueryDto = createPagedQueryDtoClass({
-  name: "UserPagedQueryDto"
+export const UserQueryDto = createPagedFilterQueryDtoClass({
+  name: "UserQueryDto",
+  filters: {
+    nameContains: { schema: t.string({ minLength: 1 }), operator: "contains" },
+    emailContains: { schema: t.string({ minLength: 1 }), operator: "contains" }
+  }
 });
-
-@Dto()
-class UserFilterQueryDto {
-  @Field(t.optional(t.string({ minLength: 1 })))
-  nameContains?: string;
-
-  @Field(t.optional(t.string({ minLength: 1 })))
-  emailContains?: string;
-}
-
-@MergeDto([PagedQueryDto, UserFilterQueryDto])
-export class UserQueryDto {
-  declare page?: number;
-  declare pageSize?: number;
-  declare nameContains?: string;
-  declare emailContains?: string;
-}
 
 export const UserPagedResponseDto = createPagedResponseDtoClass({
   name: "UserPagedResponseDto",
@@ -87,13 +76,9 @@ export const UserWithPostsPagedResponseDto = createPagedResponseDtoClass({
   description: "Paged user list response with posts."
 });
 
-@Dto()
-class ErrorDto {
-  @Field(t.string())
-  message!: string;
-}
-
-export const UserErrors = Errors(ErrorDto, [
+export const UserErrors = Errors(SimpleErrorDto, [
   { status: 400, description: "Invalid user id." },
   { status: 404, description: "User not found." }
 ]);
+
+export type UserQueryDto = typeof UserQueryDto;

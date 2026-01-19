@@ -70,7 +70,6 @@ export interface PagedResponseDtoOptions {
 }
 
 export interface FilterFieldDef {
-  field: string;
   schema?: SchemaNode;
   operator?: "equals" | "contains" | "startsWith" | "endsWith" | "gt" | "gte" | "lt" | "lte";
 }

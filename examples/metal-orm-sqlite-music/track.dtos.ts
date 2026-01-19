@@ -1,12 +1,12 @@
 import {
   Dto,
-  Errors,
-  Field,
   MergeDto,
-  MetalDto,
+  Errors,
   createMetalCrudDtoClasses,
-  createPagedQueryDtoClass,
   createPagedResponseDtoClass,
+  createNestedCreateDtoClass,
+  createPagedFilterQueryDtoClass,
+  StandardErrorDto,
   t
 } from "../../src";
 import { Track } from "./track.entity";
@@ -24,8 +24,7 @@ const trackCrud = createMetalCrudDtoClasses(Track, {
   overrides: TRACK_DTO_OVERRIDES,
   response: { description: "Track returned by the API." },
   mutationExclude: ["id", "createdAt"],
-  replace: { exclude: ["albumId"] },
-  update: { exclude: ["albumId"] }
+  immutable: ["albumId"]
 });
 
 export type TrackDto = Omit<Track, "album">;
@@ -44,37 +43,22 @@ export const {
   params: TrackParamsDto
 } = trackCrud;
 
-type AlbumTrackMutationDto = Omit<TrackDto, "id" | "createdAt" | "albumId">;
+export const CreateAlbumTrackDto = createNestedCreateDtoClass(
+  Track,
+  TRACK_DTO_OVERRIDES,
+  {
+    name: "CreateAlbumTrackDto",
+    additionalExclude: ["albumId"]
+  }
+);
 
-export interface CreateAlbumTrackDto extends AlbumTrackMutationDto {}
-
-@MetalDto(Track, {
-  mode: "create",
-  overrides: TRACK_DTO_OVERRIDES,
-  exclude: ["id", "createdAt", "albumId"]
-})
-export class CreateAlbumTrackDto {}
-
-export const TrackPagedQueryDto = createPagedQueryDtoClass({
-  name: "TrackPagedQueryDto"
+export const TrackQueryDto = createPagedFilterQueryDtoClass({
+  name: "TrackQueryDto",
+  filters: {
+    titleContains: { schema: t.string({ minLength: 1 }), operator: "contains" },
+    albumId: { schema: t.integer({ minimum: 1 }), operator: "equals" }
+  }
 });
-
-@Dto()
-class TrackFilterQueryDto {
-  @Field(t.optional(t.string({ minLength: 1 })))
-  titleContains?: string;
-
-  @Field(t.optional(t.integer({ minimum: 1 })))
-  albumId?: number;
-}
-
-@MergeDto([TrackPagedQueryDto, TrackFilterQueryDto])
-export class TrackQueryDto {
-  declare page?: number;
-  declare pageSize?: number;
-  declare titleContains?: string;
-  declare albumId?: number;
-}
 
 export const TrackPagedResponseDto = createPagedResponseDtoClass({
   name: "TrackPagedResponseDto",
@@ -82,31 +66,10 @@ export const TrackPagedResponseDto = createPagedResponseDtoClass({
   description: "Paged track list response."
 });
 
-@Dto()
-class ErrorDetailDto {
-  @Field(t.string())
-  field!: string;
-
-  @Field(t.string())
-  message!: string;
-}
-
-@Dto()
-class ErrorDto {
-  @Field(t.string())
-  message!: string;
-
-  @Field(t.optional(t.string()))
-  code?: string;
-
-  @Field(t.optional(t.array(t.ref(ErrorDetailDto))))
-  errors?: ErrorDetailDto[];
-
-  @Field(t.optional(t.string()))
-  traceId?: string;
-}
-
-export const TrackErrors = Errors(ErrorDto, [
+export const TrackErrors = Errors(StandardErrorDto, [
   { status: 400, description: "Invalid track id." },
   { status: 404, description: "Track not found." }
 ]);
+
+export type CreateAlbumTrackDto = typeof CreateAlbumTrackDto;
+export type TrackQueryDto = typeof TrackQueryDto;

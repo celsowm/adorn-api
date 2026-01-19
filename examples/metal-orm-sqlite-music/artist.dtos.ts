@@ -1,11 +1,11 @@
 import {
   Dto,
-  Errors,
-  Field,
   MergeDto,
+  Errors,
   createMetalCrudDtoClasses,
-  createPagedQueryDtoClass,
   createPagedResponseDtoClass,
+  createPagedFilterQueryDtoClass,
+  StandardErrorDto,
   t
 } from "../../src";
 import { Artist } from "./artist.entity";
@@ -22,7 +22,7 @@ const ARTIST_DTO_OVERRIDES = {
 
 const artistCrud = createMetalCrudDtoClasses(Artist, {
   overrides: ARTIST_DTO_OVERRIDES,
-  response: { description: "Artist returned by the API." },
+  response: { description: "Artist returned by API." },
   mutationExclude: ["id", "createdAt"]
 });
 
@@ -41,26 +41,13 @@ export const {
   params: ArtistParamsDto
 } = artistCrud;
 
-const PagedQueryDto = createPagedQueryDtoClass({
-  name: "ArtistPagedQueryDto"
+export const ArtistQueryDto = createPagedFilterQueryDtoClass({
+  name: "ArtistQueryDto",
+  filters: {
+    nameContains: { schema: t.string({ minLength: 1 }), operator: "contains" },
+    genreContains: { schema: t.string({ minLength: 1 }), operator: "contains" }
+  }
 });
-
-@Dto()
-class ArtistFilterQueryDto {
-  @Field(t.optional(t.string({ minLength: 1 })))
-  nameContains?: string;
-
-  @Field(t.optional(t.string({ minLength: 1 })))
-  genreContains?: string;
-}
-
-@MergeDto([PagedQueryDto, ArtistFilterQueryDto])
-export class ArtistQueryDto {
-  declare page?: number;
-  declare pageSize?: number;
-  declare nameContains?: string;
-  declare genreContains?: string;
-}
 
 export const ArtistPagedResponseDto = createPagedResponseDtoClass({
   name: "ArtistPagedResponseDto",
@@ -68,33 +55,10 @@ export const ArtistPagedResponseDto = createPagedResponseDtoClass({
   description: "Paged artist list response."
 });
 
-@Dto()
-class ErrorDetailDto {
-  @Field(t.string())
-  field!: string;
-
-  @Field(t.string())
-  message!: string;
-}
-
-@Dto()
-class ErrorDto {
-  @Field(t.string())
-  message!: string;
-
-  @Field(t.optional(t.string()))
-  code?: string;
-
-  @Field(t.optional(t.array(t.ref(ErrorDetailDto))))
-  errors?: ErrorDetailDto[];
-
-  @Field(t.optional(t.string()))
-  traceId?: string;
-}
-
-export const ArtistErrors = Errors(ErrorDto, [
+export const ArtistErrors = Errors(StandardErrorDto, [
   { status: 400, description: "Invalid artist id." },
   { status: 404, description: "Artist not found." }
 ]);
 
+export type ArtistQueryDto = typeof ArtistQueryDto;
 export { AlbumDto, CreateArtistAlbumDto };
