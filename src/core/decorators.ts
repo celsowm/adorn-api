@@ -15,59 +15,119 @@ import {
   type RouteMetaInput
 } from "./metadata";
 
+/**
+ * Options for configuring a Data Transfer Object (DTO).
+ */
 export interface DtoOptions {
+  /** Custom name for the DTO */
   name?: string;
+  /** Description of the DTO */
   description?: string;
+  /** Whether to allow additional properties not defined in the schema */
   additionalProperties?: boolean;
 }
 
+/**
+ * Options for composing DTOs from existing DTOs.
+ * @extends DtoOptions
+ */
 export interface DtoComposeOptions extends DtoOptions {
+  /** Field overrides for the composed DTO */
   overrides?: Record<string, FieldOverride>;
 }
 
+/**
+ * Options for overriding field definitions.
+ */
 export interface FieldOverrideOptions {
+  /** Schema definition for the field */
   schema?: SchemaNode;
+  /** Whether the field is optional */
   optional?: boolean;
+  /** Description of the field */
   description?: string;
 }
 
+/**
+ * Field override definition - can be either a schema node or override options.
+ */
 export type FieldOverride = SchemaNode | FieldOverrideOptions;
 
+/**
+ * Options for defining a field in a DTO.
+ */
 export interface FieldOptions {
+  /** Schema definition for the field */
   schema: SchemaNode;
+  /** Whether the field is optional */
   optional?: boolean;
+  /** Description of the field */
   description?: string;
 }
 
+/**
+ * Options for configuring a controller.
+ */
 export interface ControllerOptions {
+  /** Base path for the controller */
   path?: string;
+  /** Tags for OpenAPI documentation */
   tags?: string[];
 }
 
+/**
+ * Options for documenting routes.
+ */
 export interface DocOptions {
+  /** Summary of the route */
   summary?: string;
+  /** Detailed description of the route */
   description?: string;
+  /** Tags for OpenAPI documentation */
   tags?: string[];
 }
 
+/**
+ * Options for input parameters.
+ */
 export interface InputOptions {
+  /** Description of the input */
   description?: string;
+  /** Whether the input is required */
   required?: boolean;
+  /** Content type for the input */
   contentType?: string;
 }
 
+/**
+ * Options for return responses.
+ */
 export interface ReturnsOptions {
+  /** HTTP status code */
   status?: number;
+  /** Schema for the response body */
   schema?: SchemaSource;
+  /** Description of the response */
   description?: string;
+  /** Content type for the response */
   contentType?: string;
 }
 
+/**
+ * Options for error responses.
+ * @extends Omit<ReturnsOptions, "schema" | "status">
+ */
 export interface ErrorResponseOptions
   extends Omit<ReturnsOptions, "schema" | "status"> {
+  /** HTTP status code for the error */
   status: number;
 }
 
+/**
+ * Decorator for defining Data Transfer Objects (DTOs).
+ * @param options - Configuration options for the DTO
+ * @returns Class decorator function
+ */
 export function Dto(options: DtoOptions = {}) {
   return (value: DtoConstructor, context: ClassDecoratorContext): void => {
     const meta = getAdornMetadata(context.metadata as DecoratorMetadata);
@@ -82,6 +142,13 @@ export function Dto(options: DtoOptions = {}) {
   };
 }
 
+/**
+ * Creates a new DTO by picking specific fields from an existing DTO.
+ * @param dto - Source DTO to pick fields from
+ * @param keys - Array of field names to include
+ * @param options - Composition options
+ * @returns Class decorator function
+ */
 export function PickDto(
   dto: DtoConstructor,
   keys: string[],
@@ -95,6 +162,13 @@ export function PickDto(
   };
 }
 
+/**
+ * Creates a new DTO by omitting specific fields from an existing DTO.
+ * @param dto - Source DTO to omit fields from
+ * @param keys - Array of field names to exclude
+ * @param options - Composition options
+ * @returns Class decorator function
+ */
 export function OmitDto(
   dto: DtoConstructor,
   keys: string[],
@@ -108,6 +182,12 @@ export function OmitDto(
   };
 }
 
+/**
+ * Creates a new DTO by making all fields optional from an existing DTO.
+ * @param dto - Source DTO to make fields optional
+ * @param options - Composition options
+ * @returns Class decorator function
+ */
 export function PartialDto(dto: DtoConstructor, options: DtoComposeOptions = {}) {
   return (value: DtoConstructor, _context: ClassDecoratorContext): void => {
     const dtoMeta = getDtoMetaOrThrow(dto);
@@ -117,6 +197,12 @@ export function PartialDto(dto: DtoConstructor, options: DtoComposeOptions = {})
   };
 }
 
+/**
+ * Creates a new DTO by merging multiple existing DTOs.
+ * @param dtos - Array of DTOs to merge
+ * @param options - Composition options
+ * @returns Class decorator function
+ */
 export function MergeDto(dtos: DtoConstructor[], options: DtoComposeOptions = {}) {
   return (value: DtoConstructor, _context: ClassDecoratorContext): void => {
     if (!dtos.length) {
@@ -129,6 +215,11 @@ export function MergeDto(dtos: DtoConstructor[], options: DtoComposeOptions = {}
   };
 }
 
+/**
+ * Decorator for defining fields in a DTO.
+ * @param schemaOrOptions - Schema definition or field options
+ * @returns Property decorator function
+ */
 export function Field(schemaOrOptions: SchemaNode | FieldOptions) {
   return (_value: unknown, context: ClassFieldDecoratorContext): void => {
     if (typeof context.name !== "string") {
@@ -140,6 +231,11 @@ export function Field(schemaOrOptions: SchemaNode | FieldOptions) {
   };
 }
 
+/**
+ * Decorator for defining API controllers.
+ * @param pathOrOptions - Base path or controller options
+ * @returns Class decorator function
+ */
 export function Controller(pathOrOptions: string | ControllerOptions = {}) {
   return (value: Constructor, context: ClassDecoratorContext): void => {
     const options =
@@ -156,6 +252,11 @@ export function Controller(pathOrOptions: string | ControllerOptions = {}) {
   };
 }
 
+/**
+ * Decorator for adding documentation to route handlers.
+ * @param options - Documentation options
+ * @returns Method decorator function
+ */
 export function Doc(options: DocOptions) {
   return (_value: unknown, context: ClassMethodDecoratorContext): void => {
     const route = getRoute(context.metadata as DecoratorMetadata, context.name);
@@ -165,26 +266,57 @@ export function Doc(options: DocOptions) {
   };
 }
 
+/**
+ * Decorator for GET HTTP method routes.
+ * @param path - Route path
+ * @returns Method decorator function
+ */
 export function Get(path = "") {
   return Route("get", path);
 }
 
+/**
+ * Decorator for POST HTTP method routes.
+ * @param path - Route path
+ * @returns Method decorator function
+ */
 export function Post(path = "") {
   return Route("post", path);
 }
 
+/**
+ * Decorator for PUT HTTP method routes.
+ * @param path - Route path
+ * @returns Method decorator function
+ */
 export function Put(path = "") {
   return Route("put", path);
 }
 
+/**
+ * Decorator for PATCH HTTP method routes.
+ * @param path - Route path
+ * @returns Method decorator function
+ */
 export function Patch(path = "") {
   return Route("patch", path);
 }
 
+/**
+ * Decorator for DELETE HTTP method routes.
+ * @param path - Route path
+ * @returns Method decorator function
+ */
 export function Delete(path = "") {
   return Route("delete", path);
 }
 
+/**
+ * Decorator for defining request body schema.
+ * @param schema - Schema for the request body
+ * @param options - Input options
+ * @returns Method decorator function
+ */
 export function Body(schema: SchemaSource, options: InputOptions = {}) {
   return (_value: unknown, context: ClassMethodDecoratorContext): void => {
     const route = getRoute(context.metadata as DecoratorMetadata, context.name);
@@ -192,6 +324,12 @@ export function Body(schema: SchemaSource, options: InputOptions = {}) {
   };
 }
 
+/**
+ * Decorator for defining query parameter schema.
+ * @param schema - Schema for query parameters
+ * @param options - Input options
+ * @returns Method decorator function
+ */
 export function Query(schema: SchemaSource, options: InputOptions = {}) {
   return (_value: unknown, context: ClassMethodDecoratorContext): void => {
     const route = getRoute(context.metadata as DecoratorMetadata, context.name);
@@ -199,6 +337,12 @@ export function Query(schema: SchemaSource, options: InputOptions = {}) {
   };
 }
 
+/**
+ * Decorator for defining path parameter schema.
+ * @param schema - Schema for path parameters
+ * @param options - Input options
+ * @returns Method decorator function
+ */
 export function Params(schema: SchemaSource, options: InputOptions = {}) {
   return (_value: unknown, context: ClassMethodDecoratorContext): void => {
     const route = getRoute(context.metadata as DecoratorMetadata, context.name);
@@ -206,6 +350,12 @@ export function Params(schema: SchemaSource, options: InputOptions = {}) {
   };
 }
 
+/**
+ * Decorator for defining request header schema.
+ * @param schema - Schema for request headers
+ * @param options - Input options
+ * @returns Method decorator function
+ */
 export function Headers(schema: SchemaSource, options: InputOptions = {}) {
   return (_value: unknown, context: ClassMethodDecoratorContext): void => {
     const route = getRoute(context.metadata as DecoratorMetadata, context.name);
@@ -213,6 +363,12 @@ export function Headers(schema: SchemaSource, options: InputOptions = {}) {
   };
 }
 
+/**
+ * Decorator for defining successful return responses.
+ * @param schemaOrOptions - Response schema or options
+ * @param options - Additional response options
+ * @returns Method decorator function
+ */
 export function Returns(
   schemaOrOptions: SchemaSource | ReturnsOptions = {},
   options: Omit<ReturnsOptions, "schema"> = {}
@@ -224,6 +380,12 @@ export function Returns(
   };
 }
 
+/**
+ * Decorator for defining error return responses.
+ * @param schemaOrOptions - Error response schema or options
+ * @param options - Additional response options
+ * @returns Method decorator function
+ */
 export function ReturnsError(
   schemaOrOptions: SchemaSource | ReturnsOptions = {},
   options: Omit<ReturnsOptions, "schema"> = {}
@@ -237,6 +399,12 @@ export function ReturnsError(
   };
 }
 
+/**
+ * Decorator for defining multiple error responses.
+ * @param schema - Schema for error responses
+ * @param responses - Array of error response options
+ * @returns Method decorator function
+ */
 export function Errors(schema: SchemaSource, responses: ErrorResponseOptions[]) {
   return (_value: unknown, context: ClassMethodDecoratorContext): void => {
     if (!responses.length) {

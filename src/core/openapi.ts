@@ -8,34 +8,66 @@ import {
 import { getAllControllers, getDtoMeta } from "./metadata";
 import type { SchemaNode, SchemaSource } from "./schema";
 
+/**
+ * OpenAPI document information.
+ */
 export interface OpenApiInfo {
+  /** API title */
   title: string;
+  /** API version */
   version: string;
+  /** API description */
   description?: string;
 }
 
+/**
+ * OpenAPI server information.
+ */
 export interface OpenApiServer {
+  /** Server URL */
   url: string;
+  /** Server description */
   description?: string;
 }
 
+/**
+ * Options for building OpenAPI documents.
+ */
 export interface OpenApiOptions {
+  /** OpenAPI document information */
   info: OpenApiInfo;
+  /** Array of servers */
   servers?: OpenApiServer[];
+  /** Array of controllers to include */
   controllers?: Constructor[];
 }
 
+/**
+ * OpenAPI document structure.
+ */
 export interface OpenApiDocument {
+  /** OpenAPI specification version */
   openapi: "3.1.0";
+  /** JSON Schema dialect */
   jsonSchemaDialect: string;
+  /** API information */
   info: OpenApiInfo;
+  /** API servers */
   servers?: OpenApiServer[];
+  /** API paths */
   paths: Record<string, Record<string, unknown>>;
+  /** Reusable components */
   components: {
+    /** Schema definitions */
     schemas: Record<string, JsonSchema>;
   };
 }
 
+/**
+ * Builds an OpenAPI document from controllers.
+ * @param options - OpenAPI build options
+ * @returns OpenAPI document
+ */
 export function buildOpenApi(options: OpenApiOptions): OpenApiDocument {
   const context = createSchemaContext();
 

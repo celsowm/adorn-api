@@ -2,13 +2,25 @@ import type { JsonPrimitive, SchemaNode, SchemaSource } from "./schema";
 import type { DtoConstructor } from "./types";
 import { getDtoMeta } from "./metadata";
 
+/**
+ * JSON Schema type.
+ */
 export type JsonSchema = Record<string, unknown>;
 
+/**
+ * Context for building schemas.
+ */
 export interface SchemaBuildContext {
+  /** Schema components */
   components: Record<string, JsonSchema>;
+  /** Set of seen DTOs to avoid circular references */
   seen: Set<DtoConstructor>;
 }
 
+/**
+ * Creates a new schema building context.
+ * @returns Schema build context
+ */
 export function createSchemaContext(): SchemaBuildContext {
   return {
     components: {},
@@ -16,6 +28,12 @@ export function createSchemaContext(): SchemaBuildContext {
   };
 }
 
+/**
+ * Builds a JSON schema from a schema source.
+ * @param source - Schema source
+ * @param context - Schema build context
+ * @returns JSON schema
+ */
 export function buildSchemaFromSource(source: SchemaSource, context: SchemaBuildContext): JsonSchema {
   if (isSchemaNode(source)) {
     return buildSchemaFromNode(source, context);
@@ -23,11 +41,23 @@ export function buildSchemaFromSource(source: SchemaSource, context: SchemaBuild
   return buildSchemaFromDto(source, context);
 }
 
+/**
+ * Builds a JSON schema from a DTO constructor.
+ * @param dto - DTO constructor
+ * @param context - Schema build context
+ * @returns JSON schema reference
+ */
 export function buildSchemaFromDto(dto: DtoConstructor, context: SchemaBuildContext): JsonSchema {
   const name = ensureDtoComponent(dto, context);
   return { $ref: `#/components/schemas/${name}` };
 }
 
+/**
+ * Ensures a DTO component is registered in the schema context.
+ * @param dto - DTO constructor
+ * @param context - Schema build context
+ * @returns Component name
+ */
 export function ensureDtoComponent(dto: DtoConstructor, context: SchemaBuildContext): string {
   const dtoMeta = getDtoMeta(dto);
   if (!dtoMeta) {
@@ -41,6 +71,12 @@ export function ensureDtoComponent(dto: DtoConstructor, context: SchemaBuildCont
   return dtoMeta.name;
 }
 
+/**
+ * Builds a JSON schema from DTO metadata.
+ * @param meta - DTO metadata
+ * @param context - Schema build context
+ * @returns JSON schema
+ */
 export function buildDtoSchema(
   meta: { name: string; description?: string; fields: Record<string, { schema: SchemaNode; optional?: boolean; description?: string }>; additionalProperties?: boolean },
   context: SchemaBuildContext
@@ -76,6 +112,12 @@ export function buildDtoSchema(
   return dtoSchema;
 }
 
+/**
+ * Builds a JSON schema from a schema node.
+ * @param node - Schema node
+ * @param context - Schema build context
+ * @returns JSON schema
+ */
 export function buildSchemaFromNode(node: SchemaNode, context: SchemaBuildContext): JsonSchema {
   let schema: JsonSchema;
   switch (node.kind) {

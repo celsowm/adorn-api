@@ -1,6 +1,12 @@
 import type { PaginationConfig, PaginationOptions, ParsedPagination } from "./types";
 import { coerce } from "../../core/coerce";
 
+/**
+ * Parses pagination parameters from query parameters.
+ * @param query - Query parameters
+ * @param config - Pagination configuration
+ * @returns Parsed pagination result
+ */
 export function parsePagination(
   query: Record<string, unknown>,
   config: PaginationConfig = {}

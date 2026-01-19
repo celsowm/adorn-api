@@ -1,5 +1,11 @@
 import type { Filter, FilterMapping, ParseFilterOptions } from "./types";
 
+/**
+ * Parses filter parameters from query parameters.
+ * @param query - Query parameters
+ * @param mappings - Filter field mappings
+ * @returns Parsed filter or undefined
+ */
 export function parseFilter<T, K extends keyof T>(
   query: Record<string, unknown> | undefined,
   mappings: Record<string, { field: K; operator: "equals" | "contains" | "startsWith" | "endsWith" | "gt" | "gte" | "lt" | "lte" }>
@@ -26,6 +32,12 @@ export function parseFilter<T, K extends keyof T>(
   return Object.keys(filter).length ? filter : undefined;
 }
 
+/**
+ * Creates filter mappings for an entity.
+ * @param entity - Entity type
+ * @param fields - Array of field definitions
+ * @returns Filter mappings
+ */
 export function createFilterMappings<T extends Record<string, unknown>>(
   entity: T,
   fields: Array<{ queryKey: string; field: keyof T; operator?: "equals" | "contains" | "startsWith" | "endsWith" }>

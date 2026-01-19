@@ -15,30 +15,58 @@ import type {
 import { coerce } from "../core/coerce";
 import { HttpError, isHttpError } from "../core/errors";
 
+/**
+ * Request context provided to route handlers.
+ */
 export interface RequestContext<
   TBody = unknown,
   TQuery extends object | undefined = Record<string, unknown>,
   TParams extends object | undefined = Record<string, string | number | boolean | undefined>,
   THeaders extends object | undefined = Record<string, string | string[] | undefined>
 > {
+  /** Express request object */
   req: Request;
+  /** Express response object */
   res: Response;
+  /** Parsed request body */
   body: TBody;
+  /** Parsed query parameters */
   query: TQuery;
+  /** Parsed path parameters */
   params: TParams;
+  /** Request headers */
   headers: THeaders;
 }
 
+/**
+ * Input coercion modes.
+ */
 export type InputCoercionMode = "safe" | "strict";
+
+/**
+ * Input coercion setting - can be a mode or disabled.
+ */
 export type InputCoercionSetting = InputCoercionMode | false;
 
+/**
+ * Options for creating an Express application adapter.
+ */
 export interface ExpressAdapterOptions {
+  /** Array of controller classes */
   controllers: Constructor[];
+  /** Whether to enable JSON body parsing */
   jsonBody?: boolean;
+  /** OpenAPI configuration */
   openApi?: OpenApiExpressOptions;
+  /** Input coercion setting */
   inputCoercion?: InputCoercionSetting;
 }
 
+/**
+ * Creates an Express application with Adorn controllers.
+ * @param options - Express adapter options
+ * @returns Configured Express application
+ */
 export function createExpressApp(options: ExpressAdapterOptions): express.Express {
   const app = express();
   if (options.jsonBody ?? true) {
@@ -52,19 +80,38 @@ export function createExpressApp(options: ExpressAdapterOptions): express.Expres
   return app;
 }
 
+/**
+ * Options for OpenAPI documentation UI.
+ */
 export interface OpenApiDocsOptions {
+  /** Path for documentation UI */
   path?: string;
+  /** Title for documentation page */
   title?: string;
+  /** URL for Swagger UI assets */
   swaggerUiUrl?: string;
 }
 
+/**
+ * OpenAPI configuration for Express adapter.
+ */
 export interface OpenApiExpressOptions {
+  /** OpenAPI document info */
   info: OpenApiInfo;
+  /** Array of servers */
   servers?: OpenApiServer[];
+  /** Path for OpenAPI JSON endpoint */
   path?: string;
+  /** Documentation UI configuration */
   docs?: boolean | OpenApiDocsOptions;
 }
 
+/**
+ * Attaches controllers to an Express application.
+ * @param app - Express application instance
+ * @param controllers - Array of controller classes
+ * @param inputCoercion - Input coercion setting
+ */
 export function attachControllers(
   app: express.Express,
   controllers: Constructor[],
