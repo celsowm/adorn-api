@@ -4,8 +4,8 @@ import {
   MergeDto,
   Errors,
   createMetalCrudDtoClasses,
+  createMetalDtoOverrides,
   createPagedResponseDtoClass,
-  createNestedCreateDtoClass,
   createPagedFilterQueryDtoClass,
   SimpleErrorDto,
   t
@@ -13,15 +13,14 @@ import {
 import { User } from "./user.entity";
 import { PostDto } from "./post.dtos";
 
-const USER_DTO_OVERRIDES = {
-  id: t.integer({ description: "User id." }),
-  name: t.string({ minLength: 1 }),
-  email: t.nullable(t.string({ format: "email" })),
-  createdAt: t.dateTime({ description: "Creation timestamp." })
-};
+const userOverrides = createMetalDtoOverrides(User, {
+  overrides: {
+    email: t.nullable(t.string({ format: "email" }))
+  }
+});
 
 const userCrud = createMetalCrudDtoClasses(User, {
-  overrides: USER_DTO_OVERRIDES,
+  overrides: userOverrides,
   response: { description: "User returned by API." },
   mutationExclude: ["id", "createdAt"]
 });

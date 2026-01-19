@@ -1,8 +1,7 @@
 import {
-  Dto,
-  MergeDto,
   Errors,
   createMetalCrudDtoClasses,
+  createMetalDtoOverrides,
   createPagedResponseDtoClass,
   createPagedFilterQueryDtoClass,
   StandardErrorDto,
@@ -11,17 +10,16 @@ import {
 import { Artist } from "./artist.entity";
 import { AlbumDto, CreateArtistAlbumDto } from "./album.dtos";
 
-const ARTIST_DTO_OVERRIDES = {
-  id: t.integer({ description: "Artist id.", minimum: 1 }),
-  name: t.string({ minLength: 1 }),
-  genre: t.nullable(t.string()),
-  country: t.nullable(t.string()),
-  formedYear: t.nullable(t.integer({ minimum: 1000, maximum: 9999 })),
-  createdAt: t.dateTime({ description: "Creation timestamp." })
-};
+const artistOverrides = createMetalDtoOverrides(Artist, {
+  overrides: {
+    genre: t.nullable(t.string()),
+    country: t.nullable(t.string()),
+    formedYear: t.nullable(t.integer({ minimum: 1000, maximum: 9999 }))
+  }
+});
 
 const artistCrud = createMetalCrudDtoClasses(Artist, {
-  overrides: ARTIST_DTO_OVERRIDES,
+  overrides: artistOverrides,
   response: { description: "Artist returned by API." },
   mutationExclude: ["id", "createdAt"]
 });

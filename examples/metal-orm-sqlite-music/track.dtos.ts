@@ -1,8 +1,7 @@
 import {
-  Dto,
-  MergeDto,
   Errors,
   createMetalCrudDtoClasses,
+  createMetalDtoOverrides,
   createPagedResponseDtoClass,
   createNestedCreateDtoClass,
   createPagedFilterQueryDtoClass,
@@ -11,17 +10,15 @@ import {
 } from "../../src";
 import { Track } from "./track.entity";
 
-const TRACK_DTO_OVERRIDES = {
-  id: t.integer({ description: "Track id.", minimum: 1 }),
-  title: t.string({ minLength: 1 }),
-  durationSeconds: t.nullable(t.integer({ minimum: 0 })),
-  trackNumber: t.nullable(t.integer({ minimum: 1 })),
-  albumId: t.integer({ description: "Album id.", minimum: 1 }),
-  createdAt: t.dateTime({ description: "Creation timestamp." })
-};
+const trackOverrides = createMetalDtoOverrides(Track, {
+  overrides: {
+    durationSeconds: t.nullable(t.integer({ minimum: 0 })),
+    trackNumber: t.nullable(t.integer({ minimum: 1 }))
+  }
+});
 
 const trackCrud = createMetalCrudDtoClasses(Track, {
-  overrides: TRACK_DTO_OVERRIDES,
+  overrides: trackOverrides,
   response: { description: "Track returned by API." },
   mutationExclude: ["id", "createdAt"],
   immutable: ["albumId"]
@@ -45,7 +42,7 @@ export type TrackParamsDto = InstanceType<typeof TrackParamsDto>;
 
 export const CreateAlbumTrackDtoClass = createNestedCreateDtoClass(
   Track,
-  TRACK_DTO_OVERRIDES,
+  trackOverrides,
   {
     name: "CreateAlbumTrackDto",
     additionalExclude: ["albumId"]

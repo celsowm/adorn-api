@@ -19,6 +19,7 @@ import {
   Field,
   Errors,
   t,
+  createMetalDtoOverrides,
   type RequestContext
 } from "../../src";
 import { applyFilter, toPagedResponse, selectFromEntity, entityRef } from "metal-orm";
@@ -35,16 +36,15 @@ import { PostDto } from "./post.dtos";
 
 const userRef = entityRef(User);
 
-const USER_DTO_OVERRIDES = {
-  id: t.integer({ description: "User id." }),
-  name: t.string({ minLength: 1 }),
-  email: t.nullable(t.string({ format: "email" })),
-  createdAt: t.dateTime({ description: "Creation timestamp." })
-};
+const userOverrides = createMetalDtoOverrides(User, {
+  overrides: {
+    email: t.nullable(t.string({ format: "email" }))
+  }
+});
 
 @MetalDto(User, {
   description: "User returned by the API.",
-  overrides: USER_DTO_OVERRIDES
+  overrides: userOverrides
 })
 export class UserDto {
   declare id: number;
@@ -175,8 +175,8 @@ export class UserController {
   @Returns(UserWithPostsPagedResponseDto)
   async list(ctx: RequestContext<unknown, UserQueryDto>) {
     return withSession(createSession, async (session) => {
-      const { page, pageSize } = parsePagination(ctx.query ?? {});
-      const filters = parseFilter<User, "name" | "email">(ctx.query, USER_FILTER_MAPPINGS);
+      const { page, pageSize } = parsePagination((ctx.query ?? {}) as Record<string, unknown>);
+      const filters = parseFilter<User, "name" | "email">((ctx.query ?? {}) as Record<string, unknown>, USER_FILTER_MAPPINGS);
       const query = applyFilter(
         selectFromEntity(User)
           .orderBy(userRef.id, "ASC")
@@ -268,14 +268,14 @@ export class UserController {
 
   @Post("/:id/posts")
   @Params(UserParamsDto)
-  @Body({
+  @Body(t.object({
     title: t.string({ minLength: 1 }),
     body: t.nullable(t.string())
-  })
+  }))
   @Returns({ status: 201, schema: PostDto })
   @UserErrors
   async createPost(
-    ctx: RequestContext<{ title: string; body?: string | null }, undefined, UserParamsDto>
+    ctx: RequestContext<any, undefined, UserParamsDto>
   ) {
     return withSession(createSession, async (session) => {
       const id = requireUserId(ctx.params.id);

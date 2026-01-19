@@ -24,6 +24,11 @@ export {
 } from "./crud-dtos";
 
 export {
+  createMetalDtoOverrides,
+  type CreateMetalDtoOverridesOptions
+} from "./convention-overrides";
+
+export {
   createErrorDtoClass,
   StandardErrorDto,
   SimpleErrorDto,

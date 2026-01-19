@@ -1,8 +1,7 @@
 import {
-  Dto,
-  MergeDto,
   Errors,
   createMetalCrudDtoClasses,
+  createMetalDtoOverrides,
   createPagedResponseDtoClass,
   createNestedCreateDtoClass,
   createPagedFilterQueryDtoClass,
@@ -12,16 +11,14 @@ import {
 import { Album } from "./album.entity";
 import { CreateAlbumTrackDto, CreateAlbumTrackDtoClass } from "./track.dtos";
 
-const ALBUM_DTO_OVERRIDES = {
-  id: t.integer({ description: "Album id.", minimum: 1 }),
-  title: t.string({ minLength: 1 }),
-  releaseYear: t.nullable(t.integer({ minimum: 1900, maximum: 9999 })),
-  artistId: t.integer({ description: "Artist id.", minimum: 1 }),
-  createdAt: t.dateTime({ description: "Creation timestamp." })
-};
+const albumOverrides = createMetalDtoOverrides(Album, {
+  overrides: {
+    releaseYear: t.nullable(t.integer({ minimum: 1900, maximum: 9999 }))
+  }
+});
 
 const albumCrud = createMetalCrudDtoClasses(Album, {
-  overrides: ALBUM_DTO_OVERRIDES,
+  overrides: albumOverrides,
   response: { description: "Album returned by API." },
   mutationExclude: ["id", "createdAt"],
   immutable: ["artistId"]
@@ -45,7 +42,7 @@ export type AlbumParamsDto = InstanceType<typeof AlbumParamsDto>;
 
 export const CreateArtistAlbumDtoClass = createNestedCreateDtoClass(
   Album,
-  ALBUM_DTO_OVERRIDES,
+  albumOverrides,
   {
     name: "CreateArtistAlbumDto",
     additionalExclude: ["artistId"]

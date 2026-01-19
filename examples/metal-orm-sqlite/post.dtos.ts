@@ -1,8 +1,7 @@
 import {
-  Dto,
-  MergeDto,
   Errors,
   createMetalCrudDtoClasses,
+  createMetalDtoOverrides,
   createPagedResponseDtoClass,
   createNestedCreateDtoClass,
   createPagedFilterQueryDtoClass,
@@ -11,16 +10,14 @@ import {
 } from "../../src";
 import { Post } from "./post.entity";
 
-const POST_DTO_OVERRIDES = {
-  id: t.integer({ description: "Post id." }),
-  title: t.string({ minLength: 1 }),
-  body: t.nullable(t.string()),
-  userId: t.integer({ description: "User id." }),
-  createdAt: t.dateTime({ description: "Creation timestamp." })
-};
+const postOverrides = createMetalDtoOverrides(Post, {
+  overrides: {
+    email: t.nullable(t.string({ format: "email" }))
+  }
+});
 
 const postCrud = createMetalCrudDtoClasses(Post, {
-  overrides: POST_DTO_OVERRIDES,
+  overrides: postOverrides,
   response: { description: "Post returned by API." },
   mutationExclude: ["id", "createdAt"]
 });
@@ -42,7 +39,7 @@ export type PostParamsDto = InstanceType<typeof PostParamsDto>;
 
 export const CreateUserPostDtoClass = createNestedCreateDtoClass(
   Post,
-  POST_DTO_OVERRIDES,
+  postOverrides,
   {
     name: "CreateUserPostDto",
     additionalExclude: ["userId"]
