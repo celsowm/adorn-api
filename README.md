@@ -1,34 +1,91 @@
 # Adorn API
 
-Decorator-first web framework with OpenAPI 3.1 schema generation, built on top of Express.
+[![npm version](https://badge.fury.io/js/adorn-api.svg)](https://www.npmjs.com/package/adorn-api)
+
+Decorator-first web framework for TypeScript with OpenAPI 3.1 schema generation.
 
 ## Features
 
-- **Decorator-First API**: Define APIs using TypeScript decorators for controllers, routes, and DTOs
-- **Automatic OpenAPI 3.1 Generation**: Swagger UI documentation auto-generated from your code
-- **Type-Safe DTOs**: Data Transfer Objects with built-in validation and serialization
-- **Input Coercion**: Automatic type conversion and validation of HTTP inputs
-- **Error Handling**: Comprehensive error handling with custom error responses
-- **Metal ORM Integration**: Built-in support for Metal ORM with CRUD operations and pagination
-- **Express Integration**: Lightweight adapter for Express.js
-- **Type Safety**: Full TypeScript support with type inferencing
+- **Decorator-based API definition** - Use TypeScript decorators to define controllers, routes, DTOs, and schemas
+- **OpenAPI 3.1 generation** - Automatically generate OpenAPI 3.1 specifications from your decorators
+- **Express integration** - Built-in Express adapter with automatic request/response handling
+- **Metal ORM integration** - Seamlessly integrate with Metal ORM for database operations
+- **Type-safe DTOs** - Create type-safe Data Transfer Objects with composition utilities
+- **Input coercion** - Automatic type coercion for query parameters and path parameters (safe or strict modes)
+- **Error handling** - Built-in HTTP error handling with customizable error DTOs
+- **Swagger UI** - Built-in Swagger UI documentation
 
 ## Installation
 
 ```bash
-npm install adorn-api
+npm install adorn-api express metal-orm
 ```
 
 ## Quick Start
 
-### 1. Define DTOs
+```typescript
+import { Controller, Get, Dto, Field, t, createExpressApp } from "adorn-api";
+
+@Dto({ description: "User record" })
+class UserDto {
+  @Field(t.uuid({ description: "User ID" }))
+  id!: string;
+
+  @Field(t.string({ minLength: 1 }))
+  name!: string;
+}
+
+@Controller("/users")
+class UserController {
+  @Get("/:id")
+  @Params(UserDto)
+  @Returns(UserDto)
+  async getOne(ctx: RequestContext<unknown, undefined, UserDto>) {
+    return {
+      id: ctx.params.id,
+      name: "Ada Lovelace"
+    };
+  }
+}
+
+const app = createExpressApp({
+  controllers: [UserController],
+  openApi: {
+    info: { title: "My API", version: "1.0.0" },
+    docs: true
+  }
+});
+
+app.listen(3000);
+```
+
+Visit http://localhost:3000/docs to see your API documentation.
+
+## Examples
+
+The repository includes several examples demonstrating different features:
+
+- **basic** - Simple controller and DTO usage
+- **restful** - RESTful API with full CRUD operations
+- **openapi** - OpenAPI documentation setup
+- **metal-orm-sqlite** - Metal ORM integration with SQLite
+- **metal-orm-sqlite-music** - Complex Metal ORM example with relationships
+
+Run an example:
+```bash
+npm run example basic
+```
+
+## Core Concepts
+
+### DTOs (Data Transfer Objects)
+
+DTOs define the shape of your API data:
 
 ```typescript
-import { Dto, Field, OmitDto, PickDto, t } from "adorn-api";
-
-@Dto({ description: "User record returned by the API." })
-export class UserDto {
-  @Field(t.uuid({ description: "User identifier." }))
+@Dto({ description: "User data" })
+class UserDto {
+  @Field(t.uuid())
   id!: string;
 
   @Field(t.string({ minLength: 1 }))
@@ -37,327 +94,275 @@ export class UserDto {
   @Field(t.optional(t.string()))
   nickname?: string;
 }
-
-@OmitDto(UserDto, ["id"])
-export class CreateUserDto {}
-
-@PickDto(UserDto, ["id"])
-export class UserParamsDto {}
 ```
 
-### 2. Create a Controller
+### Controllers
+
+Controllers group related routes:
 
 ```typescript
-import {
-  Body,
-  Controller,
-  Get,
-  Params,
-  Post,
-  Returns,
-  type RequestContext
-} from "adorn-api";
-import { CreateUserDto, UserDto, UserParamsDto } from "./user.dtos";
-
 @Controller("/users")
-export class UserController {
-  @Get("/:id")
-  @Params(UserParamsDto)
-  @Returns(UserDto)
-  async getOne(ctx: RequestContext<unknown, undefined, { id: string }>) {
-    return {
-      id: ctx.params.id,
-      name: "Ada Lovelace",
-      nickname: "Ada"
-    };
+class UserController {
+  @Get("/")
+  async list() {
+    return [{ id: "1", name: "User 1" }];
   }
 
   @Post("/")
   @Body(CreateUserDto)
-  @Returns({ status: 201, schema: UserDto, description: "Created" })
   async create(ctx: RequestContext<CreateUserDto>) {
-    return {
-      id: "3f0f4d0f-1cb1-4cf1-9c32-3d4bce1b3f36",
-      name: ctx.body.name,
-      nickname: ctx.body.nickname
-    };
+    return { id: "new-id", ...ctx.body };
   }
 }
 ```
 
-### 3. Create and Start the App
+### Request Context
 
-```typescript
-import { createExpressApp } from "adorn-api";
-import { UserController } from "./user.controller";
+Route handlers receive a typed `RequestContext` with:
+- `req` - Express request
+- `res` - Express response
+- `body` - Parsed request body
+- `query` - Parsed query parameters
+- `params` - Parsed path parameters
+- `headers` - Request headers
 
-export function createApp() {
-  return createExpressApp({
-    controllers: [UserController],
-    openApi: {
-      info: {
-        title: "Adorn API",
-        version: "1.0.0"
-      },
-      docs: true
-    }
-  });
-}
+## Decorators
 
-// Start the server
-const app = createApp();
-app.listen(3000, () => {
-  console.log("Server running on http://localhost:3000");
-  console.log("Documentation available at http://localhost:3000/docs");
-});
-```
+### Controller Decorators
 
-## Documentation
+- `@Controller(pathOrOptions)` - Define a controller with base path and tags
 
-### Controllers
+### HTTP Method Decorators
 
-Controllers are classes decorated with `@Controller()` that group related API endpoints.
+- `@Get(path)` - GET route
+- `@Post(path)` - POST route
+- `@Put(path)` - PUT route
+- `@Patch(path)` - PATCH route
+- `@Delete(path)` - DELETE route
 
-```typescript
-@Controller("/api/v1/users")
-export class UserController {
-  // Endpoints here
-}
-```
+### Input Decorators
 
-### Routes
+- `@Body(schema, options)` - Request body schema
+- `@Query(schema, options)` - Query parameters schema
+- `@Params(schema, options)` - Path parameters schema
+- `@Headers(schema, options)` - Request headers schema
 
-Routes are methods decorated with HTTP method decorators:
+### Response Decorators
 
-- `@Get(path)` - GET request
-- `@Post(path)` - POST request
-- `@Put(path)` - PUT request
-- `@Patch(path)` - PATCH request
-- `@Delete(path)` - DELETE request
+- `@Returns(schemaOrOptions, options)` - Define response schema
+- `@ReturnsError(schemaOrOptions, options)` - Define error response
+- `@Errors(schema, responses)` - Define multiple error responses
+- `@Doc(options)` - Add route documentation
 
-```typescript
-@Get("/")
-@Returns(t.array(UserDto))
-async listUsers() {
-  return users;
-}
-```
+### DTO Decorators
 
-### Inputs
-
-Use decorators to define and validate request inputs:
-
-- `@Body(schema)` - Request body
-- `@Query(schema)` - Query parameters
-- `@Params(schema)` - Path parameters
-- `@Headers(schema)` - Request headers
-
-```typescript
-@Get("/:id")
-@Params(UserParamsDto)
-@Query(PaginationDto)
-@Returns(UserDto)
-async getUser(ctx: RequestContext<unknown, PaginationDto, { id: string }>) {
-  // ctx.params.id is typed as string
-  // ctx.query is typed as PaginationDto
-}
-```
-
-### Responses
-
-Use `@Returns()` decorator to document responses:
-
-```typescript
-@Returns(UserDto) // 200 OK with UserDto
-@Returns({ status: 201, schema: UserDto, description: "Created" })
-@ReturnsError(ValidationErrorDto) // 400+ error response
-@Errors(ApiErrorDto, [
-  { status: 404, description: "Not Found" },
-  { status: 401, description: "Unauthorized" }
-])
-```
-
-### DTOs (Data Transfer Objects)
-
-DTOs define the shape of data sent to and from your API:
-
-```typescript
-@Dto({ 
-  description: "User data",
-  additionalProperties: false // Disallow extra properties
-})
-export class UserDto {
-  @Field(t.uuid({ description: "Unique identifier" }))
-  id!: string;
-
-  @Field(t.string({ 
-    minLength: 1, 
-    maxLength: 100, 
-    description: "Full name" 
-  }))
-  name!: string;
-
-  @Field(t.optional(t.email({ description: "Email address" })))
-  email?: string;
-
-  @Field(t.array(t.string({ description: "User roles" })))
-  roles!: string[];
-}
-```
+- `@Dto(options)` - Define a DTO class
+- `@Field(schemaOrOptions)` - Define a field in a DTO
 
 ### DTO Composition
 
-Create new DTOs by composing existing ones:
+- `@PickDto(dto, keys, options)` - Create DTO with selected fields
+- `@OmitDto(dto, keys, options)` - Create DTO excluding fields
+- `@PartialDto(dto, options)` - Create DTO with all fields optional
+- `@MergeDto(dtos, options)` - Create DTO by merging multiple DTOs
+
+## Schema Builder
+
+The `t` object provides type-safe schema definitions:
 
 ```typescript
-// Pick specific fields
-@PickDto(UserDto, ["id", "name"])
-export class UserSummaryDto {}
-
-// Omit specific fields
-@OmitDto(UserDto, ["password"])
-export class PublicUserDto {}
-
-// Make all fields optional
-@PartialDto(UserDto)
-export class UpdateUserDto {}
-
-// Merge multiple DTOs
-@MergeDto([UserDto, AddressDto])
-export class UserWithAddressDto {}
+t.string({ minLength: 1, maxLength: 100, pattern: "^[a-z]+$" })
+t.uuid({ description: "Unique identifier" })
+t.dateTime()
+t.number({ minimum: 0, maximum: 100, exclusiveMaximum: true })
+t.integer({ multipleOf: 5 })
+t.boolean()
+t.array(t.string(), { minItems: 1, maxItems: 10 })
+t.object({ name: t.string(), age: t.integer() })
+t.record(t.string())
+t.enum(["active", "inactive"])
+t.literal("admin")
+t.union([t.string(), t.integer()])
+t.ref(SomeDto)
+t.any()
+t.null()
+t.optional(schema)
+t.nullable(schema)
 ```
 
-### Schema Types
+## OpenAPI Documentation
 
-The `t` (type) object provides schema builders for all JSON types:
-
-- Primitives: `t.string()`, `t.number()`, `t.integer()`, `t.boolean()`, `t.null()`
-- Formats: `t.uuid()`, `t.email()`, `t.dateTime()`
-- Complex: `t.array()`, `t.object()`, `t.record()`
-- Composition: `t.union()`, `t.enum()`, `t.literal()`
-- References: `t.ref()`
-- Modifiers: `t.optional()`, `t.nullable()`
-
-### Metal ORM Integration
-
-Adorn provides seamless integration with Metal ORM:
-
-```typescript
-import { 
-  MetalDto, 
-  createMetalCrudDtos,
-  parsePagination,
-  type RequestContext
-} from "adorn-api";
-import { User } from "./user.entity";
-
-// Generate CRUD DTOs from Metal ORM entity
-const {
-  CreateDto,
-  UpdateDto,
-  ReplaceDto,
-  ResponseDto,
-  ParamsDto
-} = createMetalCrudDtos(User);
-
-@Controller("/users")
-export class UserController {
-  @Get("/")
-  @Query(PaginationQueryDto)
-  @Returns(ResponseDto)
-  async list(ctx: RequestContext<unknown, PaginationQueryDto>) {
-    const { page, pageSize } = parsePagination(ctx.query);
-    // Query with pagination...
-  }
-
-  @Post("/")
-  @Body(CreateDto)
-  @Returns({ status: 201, schema: ResponseDto })
-  async create(ctx: RequestContext<typeof CreateDto>) {
-    // Create user...
-  }
-}
-```
-
-### Error Handling
-
-Throw `HttpError` for HTTP error responses:
-
-```typescript
-import { HttpError } from "adorn-api";
-
-throw new HttpError(404, "User not found");
-
-// With custom body and headers
-throw new HttpError({
-  status: 400,
-  message: "Validation failed",
-  body: { 
-    errors: ["Email is invalid", "Password is too short"] 
-  },
-  headers: { "X-Error-Code": "VALIDATION_ERROR" }
-});
-```
-
-### OpenAPI Configuration
-
-Customize the OpenAPI generation:
+Enable OpenAPI documentation:
 
 ```typescript
 createExpressApp({
-  controllers: [UserController],
+  controllers: [MyController],
   openApi: {
     info: {
       title: "My API",
-      version: "2.0.0",
-      description: "API documentation"
+      version: "1.0.0",
+      description: "API description"
     },
-    servers: [
-      { url: "https://api.example.com/v1", description: "Production" },
-      { url: "http://localhost:3000", description: "Development" }
-    ],
-    path: "/api-docs.json", // OpenAPI JSON endpoint
+    servers: [{ url: "https://api.example.com", description: "Production" }],
+    path: "/openapi.json",        // JSON spec path (default: /openapi.json)
+    docs: true,                    // Enable Swagger UI (default: /docs)
     docs: {
-      path: "/api-docs", // Swagger UI path
-      title: "API Documentation",
+      path: "/docs",               // Swagger UI path
+      title: "API Docs",
       swaggerUiUrl: "https://unpkg.com/swagger-ui-dist@5"
     }
   }
 });
 ```
 
-### Input Coercion
+## Metal ORM Integration
 
-Configure input coercion behavior:
+### CRUD DTOs
+
+Automatically create CRUD DTOs from Metal entities:
 
 ```typescript
-createExpressApp({
-  controllers: [UserController],
-  inputCoercion: "strict" // "safe" (default), "strict", or false
+import { User } from "./entities";
+import { createMetalCrudDtoClasses, createMetalDtoOverrides } from "adorn-api";
+
+const overrides = createMetalDtoOverrides(User, {
+  overrides: {
+    email: t.nullable(t.string({ format: "email" }))
+  }
+});
+
+const crud = createMetalCrudDtoClasses(User, {
+  overrides,
+  response: { description: "User response" },
+  mutationExclude: ["id", "createdAt"]
+});
+
+const { UserDto, CreateUserDto, UpdateUserDto, UserParamsDto } = crud;
+```
+
+### Pagination
+
+```typescript
+import { createPagedQueryDtoClass, createPagedResponseDtoClass, parsePagination } from "adorn-api";
+
+const PagedQueryDto = createPagedQueryDtoClass({
+  name: "PagedQueryDto",
+  defaultPageSize: 20,
+  maxPageSize: 100
+});
+
+const PagedResponseDto = createPagedResponseDtoClass({
+  name: "PagedResponseDto",
+  itemDto: UserDto
+});
+
+// In controller:
+@Get("/")
+@Query(PagedQueryDto)
+@Returns(PagedResponseDto)
+async list(ctx: RequestContext<unknown, PagedQueryDto>) {
+  const pagination = parsePagination(ctx.query);
+  // Use pagination for queries...
+}
+```
+
+### Filtering
+
+```typescript
+import { createPagedFilterQueryDtoClass, createFilterMappings, parseFilter } from "adorn-api";
+
+const UserQueryDto = createPagedFilterQueryDtoClass({
+  name: "UserQueryDto",
+  filters: {
+    nameContains: { schema: t.string(), operator: "contains" },
+    ageGte: { schema: t.integer(), operator: "gte" },
+    active: { schema: t.boolean() }
+  }
+});
+
+// In controller:
+const filterMappings = createFilterMappings(User, {
+  nameContains: "name",
+  ageGte: "age",
+  active: "active"
+});
+const filters = parseFilter(ctx.query, filterMappings);
+```
+
+## Error Handling
+
+### HttpError
+
+```typescript
+import { HttpError } from "adorn-api";
+
+// Simple error
+throw new HttpError(404, "User not found");
+
+// With body
+throw new HttpError(400, "Validation failed", {
+  errors: [{ field: "email", message: "Invalid email" }]
+});
+
+// With headers
+throw new HttpError(401, "Unauthorized", undefined, {
+  "WWW-Authenticate": 'Bearer realm="api"'
+});
+
+// With options object
+throw new HttpError({
+  status: 500,
+  message: "Internal error",
+  body: { code: "INTERNAL_ERROR" },
+  cause: originalError
 });
 ```
 
-- **safe**: Attempt to coerce values to the expected type
-- **strict**: Throw errors for invalid inputs
-- **false**: Disable coercion entirely
+### Error DTOs
 
-## Examples
+```typescript
+import { createErrorDtoClass, SimpleErrorDto, StandardErrorDto, Errors } from "adorn-api";
 
-Check the `examples/` directory for complete examples:
+const ValidationErrorDto = createErrorDtoClass({
+  name: "ValidationErrorDto",
+  schema: t.object({
+    field: t.string(),
+    message: t.string()
+  })
+});
 
-- **basic**: Simple API with DTOs and controllers
-- **metal-orm-sqlite**: Full CRUD API with Metal ORM and SQLite
-- **metal-orm-sqlite-music**: Complex API with relationships
-- **restful**: RESTful API example
-- **openapi**: OpenAPI customization example
+// In controller:
+@Get("/:id")
+@Params(UserParamsDto)
+@Returns(UserDto)
+@Errors(SimpleErrorDto, [
+  { status: 400, description: "Invalid user ID" },
+  { status: 404, description: "User not found" }
+])
+async getOne(ctx: RequestContext<unknown, UserParamsDto>) {
+  // ...
+}
+```
 
-## Build and Test
+## Input Coercion
+
+Configure input coercion for query and path parameters:
+
+```typescript
+createExpressApp({
+  controllers: [MyController],
+  inputCoercion: "safe"   // "safe" | "strict" | false
+});
+```
+
+- **safe**: Coerces values, ignores failures
+- **strict**: Coerces values, throws on failures
+- **false**: Disables coercion
+
+## Development
 
 ```bash
-# Install dependencies
-npm install
-
-# Build the library
+# Build
 npm run build
 
 # Run tests
@@ -366,10 +371,29 @@ npm test
 # Run tests in watch mode
 npm run test:watch
 
-# Run an example
-npm run example -- basic
+# Run linting
+npm run lint
+
+# Run examples
+npm run example basic
 ```
+
+## TypeScript Configuration
+
+Ensure your `tsconfig.json` has:
+
+```json
+{
+  "compilerOptions": {
+    "experimentalDecorators": false,
+    "emitDecoratorMetadata": false,
+    "useDefineForClassFields": true
+  }
+}
+```
+
+Adorn API uses standard ECMAScript decorators (Stage 3).
 
 ## License
 
-MIT
+Check the package for license information.
