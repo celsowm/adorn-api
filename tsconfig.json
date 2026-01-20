@@ -1,42 +1,18 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ES2022",
-    "lib": ["ES2022"],
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": false,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": false,
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "rootDir": "src",
+    "outDir": "dist",
     "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "useDefineForClassFields": true,
     "experimentalDecorators": false,
-    "emitDecoratorMetadata": false,
-    "plugins": [
-      {
-        "name": "@typescript-eslint/eslint-plugin"
-      }
-    ]
+    "emitDecoratorMetadata": false
   },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "tests",
-    "examples"
-  ]
+  "include": ["src"]
 }
