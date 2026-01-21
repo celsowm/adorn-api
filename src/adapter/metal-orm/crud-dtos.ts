@@ -1,4 +1,4 @@
-import { Dto } from "../../core/decorators";
+
 import type { DtoConstructor } from "../../core/types";
 import { MetalDto } from "./dto";
 import type {
@@ -70,7 +70,7 @@ export function createNestedCreateDtoClass(
   overrides: Record<string, any>,
   options: NestedCreateDtoOptions
 ): DtoConstructor {
-  const { additionalExclude, name, parentEntity, ...metalDtoOptions } = options;
+  const { additionalExclude, name, parentEntity: _parentEntity, ...metalDtoOptions } = options;
 
   const allExcludes = mergeStringArrays(
     ["id", "createdAt"],

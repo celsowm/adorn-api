@@ -4,7 +4,7 @@ import type { ErrorDtoOptions } from "./types";
 import { t } from "../../core/schema";
 
 export function createErrorDtoClass(options: ErrorDtoOptions = {}): DtoConstructor {
-  const { withDetails = true, includeTraceId = true } = options;
+  const { withDetails = true, includeTraceId: _includeTraceId = true } = options;
 
   if (withDetails) {
     @Dto()

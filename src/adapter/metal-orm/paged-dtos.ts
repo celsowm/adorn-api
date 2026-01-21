@@ -1,6 +1,6 @@
 import { Dto, Field } from "../../core/decorators";
 import type { DtoConstructor } from "../../core/types";
-import type { SchemaNode } from "../../core/schema";
+
 import { t } from "../../core/schema";
 import type { FieldMeta } from "../../core/metadata";
 import { registerDto } from "../../core/metadata";

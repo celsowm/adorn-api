@@ -1,4 +1,4 @@
-import type { ColumnDef } from "metal-orm";
+
 import type { DtoOptions, FieldOverride } from "../../core/decorators";
 import type { SchemaNode } from "../../core/schema";
 import type { DtoConstructor } from "../../core/types";

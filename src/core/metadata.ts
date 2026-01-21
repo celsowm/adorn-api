@@ -79,6 +79,13 @@ export interface RouteMetaInput extends Partial<RouteMeta> {
 }
 
 export function getAdornMetadata(metadata: DecoratorMetadata): AdornMetadata {
+  // Handle case where metadata is undefined (when Symbol.metadata is not available)
+  if (!metadata) {
+    const temp: any = {};
+    temp[META_KEY] = {};
+    return temp[META_KEY];
+  }
+  
   if (!metadata[META_KEY]) {
     metadata[META_KEY] = {};
   }

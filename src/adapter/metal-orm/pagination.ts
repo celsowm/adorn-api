@@ -1,4 +1,4 @@
-import type { PaginationConfig, PaginationOptions, ParsedPagination } from "./types";
+import type { PaginationConfig, ParsedPagination } from "./types";
 import { coerce } from "../../core/coerce";
 
 /**
