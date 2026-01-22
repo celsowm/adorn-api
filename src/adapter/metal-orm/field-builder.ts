@@ -26,6 +26,16 @@ export function buildFields(
   options: MetalDtoOptions
 ): Record<string, FieldMeta> {
   const columns = getColumnMap(target);
+  
+  if (Object.keys(columns).length === 0) {
+    const targetName = typeof target === "function" ? target.name : String(target);
+    console.warn(
+      `[adorn-api] Warning: Entity "${targetName}" has no columns. ` +
+      `Make sure the entity class is decorated with @Entity and @Column decorators from metal-orm, ` +
+      `and that it is imported/executed before calling createMetalCrudDtoClasses.`
+    );
+  }
+  
   const include = options.include ? new Set(options.include) : undefined;
   const exclude = options.exclude ? new Set(options.exclude) : undefined;
   const mode = options.mode ?? "response";
