@@ -68,7 +68,7 @@ class NotaVersaoController {
   @Get("/")
   @Query(NotaVersaoQueryDtoClass)
   @Returns(NotaVersaoPagedResponseDto)
-  async list(_ctx: RequestContext<unknown, unknown>) {
+  async list(_ctx: RequestContext<unknown, Record<string, unknown>>) {
     return { items: [], total: 0, page: 1, pageSize: 25 };
   }
 
