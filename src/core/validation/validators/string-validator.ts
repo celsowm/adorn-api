@@ -1,4 +1,15 @@
-import type { ValidationError } from "../../validation-errors";
+import type { ValidationError, ValidationErrorCode } from "../../validation-errors";
+import {
+  createValidationError,
+  getCachedRegex,
+  isValidDateString,
+  isValidUUID,
+  isValidEmail,
+  isValidURI,
+  isValidHostname,
+  isValidIPv4,
+  isValidIPv6
+} from "./validation-utils";
 
 /**
  * Validates a string value.
@@ -11,36 +22,23 @@ export function validateString(
   const errors: ValidationError[] = [];
 
   if (typeof value !== "string") {
-    errors.push({
-      field: path,
-      message: "must be a string",
-      value
-    });
+    errors.push(createValidationError(path, "must be a string", value, "TYPE_STRING" as ValidationErrorCode));
     return errors;
   }
 
   if (schema.minLength !== undefined && value.length < schema.minLength) {
-    errors.push({
-      field: path,
-      message: `must be at least ${schema.minLength} characters long`,
-      value
-    });
+    errors.push(createValidationError(path, `must be at least ${schema.minLength} characters long`, value, "STRING_MIN_LENGTH" as ValidationErrorCode));
   }
 
   if (schema.maxLength !== undefined && value.length > schema.maxLength) {
-    errors.push({
-      field: path,
-      message: `must be at most ${schema.maxLength} characters long`,
-      value
-    });
+    errors.push(createValidationError(path, `must be at most ${schema.maxLength} characters long`, value, "STRING_MAX_LENGTH" as ValidationErrorCode));
   }
 
-  if (schema.pattern && !new RegExp(schema.pattern).test(value)) {
-    errors.push({
-      field: path,
-      message: `must match pattern ${schema.pattern}`,
-      value
-    });
+  if (schema.pattern) {
+    const regex = getCachedRegex(schema.pattern);
+    if (!regex.test(value)) {
+      errors.push(createValidationError(path, `must match pattern ${schema.pattern}`, value, "STRING_PATTERN" as ValidationErrorCode));
+    }
   }
 
   if (schema.format) {
@@ -63,24 +61,42 @@ function validateFormat(
 
   switch (format) {
     case "uuid":
-      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      if (!uuidPattern.test(value)) {
-        errors.push({
-          field: path,
-          message: "must be a valid UUID",
-          value
-        });
+      if (!isValidUUID(value)) {
+        errors.push(createValidationError(path, "must be a valid UUID", value, "FORMAT_UUID" as ValidationErrorCode));
       }
       break;
     case "date-time":
-      const date = new Date(value);
-      if (isNaN(date.getTime())) {
-        errors.push({
-          field: path,
-          message: "must be a valid date-time",
-          value
-        });
+      if (!isValidDateString(value)) {
+        errors.push(createValidationError(path, "must be a valid date-time", value, "FORMAT_DATE_TIME" as ValidationErrorCode));
       }
+      break;
+    case "email":
+      if (!isValidEmail(value)) {
+        errors.push(createValidationError(path, "must be a valid email address", value, "FORMAT_EMAIL" as ValidationErrorCode));
+      }
+      break;
+    case "uri":
+      if (!isValidURI(value)) {
+        errors.push(createValidationError(path, "must be a valid URI", value, "FORMAT_URI" as ValidationErrorCode));
+      }
+      break;
+    case "hostname":
+      if (!isValidHostname(value)) {
+        errors.push(createValidationError(path, "must be a valid hostname", value, "FORMAT_HOSTNAME" as ValidationErrorCode));
+      }
+      break;
+    case "ipv4":
+      if (!isValidIPv4(value)) {
+        errors.push(createValidationError(path, "must be a valid IPv4 address", value, "FORMAT_IPV4" as ValidationErrorCode));
+      }
+      break;
+    case "ipv6":
+      if (!isValidIPv6(value)) {
+        errors.push(createValidationError(path, "must be a valid IPv6 address", value, "FORMAT_IPV6" as ValidationErrorCode));
+      }
+      break;
+    default:
+      // Unknown format - skip validation
       break;
   }
 

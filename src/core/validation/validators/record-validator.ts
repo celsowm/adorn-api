@@ -1,6 +1,7 @@
-import type { ValidationError } from "../../validation-errors";
+import type { ValidationError, ValidationErrorCode } from "../../validation-errors";
 import type { SchemaNode } from "../../schema";
 import { validate } from "../validate";
+import { createValidationError } from "./validation-utils";
 
 /**
  * Validates a record value.
@@ -13,20 +14,12 @@ export function validateRecord(
   const errors: ValidationError[] = [];
 
   if (value === null || value === undefined) {
-    errors.push({
-      field: path,
-      message: "must be an object",
-      value
-    });
+    errors.push(createValidationError(path, "must be an object", value, "TYPE_OBJECT" as ValidationErrorCode));
     return errors;
   }
 
   if (typeof value !== "object") {
-    errors.push({
-      field: path,
-      message: "must be an object",
-      value
-    });
+    errors.push(createValidationError(path, "must be an object", value, "TYPE_OBJECT" as ValidationErrorCode));
     return errors;
   }
 

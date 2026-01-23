@@ -1,6 +1,7 @@
-import type { ValidationError } from "../../validation-errors";
+import type { ValidationError, ValidationErrorCode } from "../../validation-errors";
 import type { SchemaNode } from "../../schema";
 import { validate } from "../validate";
+import { createValidationError, deepEqual } from "./validation-utils";
 
 /**
  * Validates an array value.
@@ -13,36 +14,20 @@ export function validateArray(
   const errors: ValidationError[] = [];
 
   if (!Array.isArray(value)) {
-    errors.push({
-      field: path,
-      message: "must be an array",
-      value
-    });
+    errors.push(createValidationError(path, "must be an array", value, "TYPE_ARRAY" as ValidationErrorCode));
     return errors;
   }
 
   if (schema.minItems !== undefined && value.length < schema.minItems) {
-    errors.push({
-      field: path,
-      message: `must have at least ${schema.minItems} items`,
-      value
-    });
+    errors.push(createValidationError(path, `must have at least ${schema.minItems} items`, value, "ARRAY_MIN_ITEMS" as ValidationErrorCode));
   }
 
   if (schema.maxItems !== undefined && value.length > schema.maxItems) {
-    errors.push({
-      field: path,
-      message: `must have at most ${schema.maxItems} items`,
-      value
-    });
+    errors.push(createValidationError(path, `must have at most ${schema.maxItems} items`, value, "ARRAY_MAX_ITEMS" as ValidationErrorCode));
   }
 
   if (schema.uniqueItems && hasDuplicates(value)) {
-    errors.push({
-      field: path,
-      message: "must contain unique items",
-      value
-    });
+    errors.push(createValidationError(path, "must contain unique items", value, "ARRAY_UNIQUE_ITEMS" as ValidationErrorCode));
   }
 
   // Validate each item
@@ -58,14 +43,18 @@ export function validateArray(
   return errors;
 }
 
-function hasDuplicates(arr: any[]): boolean {
-  const seen = new Set();
-  for (const item of arr) {
-    const serialized = JSON.stringify(item);
-    if (seen.has(serialized)) {
-      return true;
+/**
+ * Checks if an array contains duplicate items using deep equality.
+ * @param arr - Array to check
+ * @returns True if array contains duplicates
+ */
+function hasDuplicates(arr: unknown[]): boolean {
+  for (let i = 0; i < arr.length; i++) {
+    for (let j = i + 1; j < arr.length; j++) {
+      if (deepEqual(arr[i], arr[j])) {
+        return true;
+      }
     }
-    seen.add(serialized);
   }
   return false;
 }

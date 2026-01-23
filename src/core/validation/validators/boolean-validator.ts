@@ -1,4 +1,5 @@
-import type { ValidationError } from "../../validation-errors";
+import type { ValidationError, ValidationErrorCode } from "../../validation-errors";
+import { createValidationError } from "./validation-utils";
 
 /**
  * Validates a boolean value.
@@ -11,11 +12,7 @@ export function validateBoolean(
   const errors: ValidationError[] = [];
 
   if (typeof value !== "boolean") {
-    errors.push({
-      field: path,
-      message: "must be a boolean",
-      value
-    });
+    errors.push(createValidationError(path, "must be a boolean", value, "TYPE_BOOLEAN" as ValidationErrorCode));
   }
 
   return errors;

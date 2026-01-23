@@ -1,4 +1,5 @@
-import type { ValidationError } from "../../validation-errors";
+import type { ValidationError, ValidationErrorCode } from "../../validation-errors";
+import { createValidationError, deepEqual } from "./validation-utils";
 
 /**
  * Validates a literal value.
@@ -10,39 +11,14 @@ export function validateLiteral(
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 
-  if (!isEqual(schema.value, value)) {
-    errors.push({
-      field: path,
-      message: `must be ${JSON.stringify(schema.value)}`,
-      value
-    });
+  if (!deepEqual(schema.value, value)) {
+    errors.push(createValidationError(
+      path,
+      `must be ${JSON.stringify(schema.value)}`,
+      value,
+      "LITERAL_INVALID_VALUE" as ValidationErrorCode
+    ));
   }
 
   return errors;
-}
-
-/**
- * Deep equality check for validation.
- */
-function isEqual(a: any, b: any): boolean {
-  if (a === b) return true;
-
-  if (typeof a !== typeof b) return false;
-
-  if (typeof a === "object") {
-    if (a === null || b === null) return false;
-
-    const aKeys = Object.keys(a);
-    const bKeys = Object.keys(b);
-
-    if (aKeys.length !== bKeys.length) return false;
-
-    for (const key of aKeys) {
-      if (!isEqual(a[key], b[key])) return false;
-    }
-
-    return true;
-  }
-
-  return false;
 }

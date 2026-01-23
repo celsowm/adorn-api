@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validate } from "../../src/core/validation";
-import { ValidationErrors } from "../../src/core/validation-errors";
+import { ValidationErrors, ValidationErrorCode } from "../../src/core/validation-errors";
 import { Dto, Field, t } from "../../src";
 
 describe("Validation", () => {
@@ -11,7 +11,7 @@ describe("Validation", () => {
 
       const errors2 = validate(123, t.string());
       expect(errors2).toEqual([
-        { field: "", message: "must be a string", value: 123 }
+        { field: "", message: "must be a string", value: 123, code: ValidationErrorCode.TYPE_STRING }
       ]);
     });
 
@@ -21,7 +21,7 @@ describe("Validation", () => {
 
       const errors2 = validate("123", t.number());
       expect(errors2).toEqual([
-        { field: "", message: "must be a number", value: "123" }
+        { field: "", message: "must be a number", value: "123", code: ValidationErrorCode.TYPE_NUMBER }
       ]);
     });
 
@@ -31,7 +31,7 @@ describe("Validation", () => {
 
       const errors2 = validate(123.5, t.integer());
       expect(errors2).toEqual([
-        { field: "", message: "must be an integer", value: 123.5 }
+        { field: "", message: "must be an integer", value: 123.5, code: ValidationErrorCode.TYPE_INTEGER }
       ]);
     });
 
@@ -41,7 +41,7 @@ describe("Validation", () => {
 
       const errors2 = validate("true", t.boolean());
       expect(errors2).toEqual([
-        { field: "", message: "must be a boolean", value: "true" }
+        { field: "", message: "must be a boolean", value: "true", code: ValidationErrorCode.TYPE_BOOLEAN }
       ]);
     });
 
@@ -51,7 +51,7 @@ describe("Validation", () => {
 
       const errors2 = validate("not array", t.array(t.number()));
       expect(errors2).toEqual([
-        { field: "", message: "must be an array", value: "not array" }
+        { field: "", message: "must be an array", value: "not array", code: ValidationErrorCode.TYPE_ARRAY }
       ]);
     });
 
@@ -61,7 +61,7 @@ describe("Validation", () => {
 
       const errors2 = validate("not object", t.object({ foo: t.string() }));
       expect(errors2).toEqual([
-        { field: "", message: "must be an object", value: "not object" }
+        { field: "", message: "must be an object", value: "not object", code: ValidationErrorCode.TYPE_OBJECT }
       ]);
     });
   });
@@ -73,7 +73,7 @@ describe("Validation", () => {
 
       const errors2 = validate("abc", t.string({ minLength: 4 }));
       expect(errors2).toEqual([
-        { field: "", message: "must be at least 4 characters long", value: "abc" }
+        { field: "", message: "must be at least 4 characters long", value: "abc", code: ValidationErrorCode.STRING_MIN_LENGTH }
       ]);
     });
 
@@ -83,7 +83,7 @@ describe("Validation", () => {
 
       const errors2 = validate("abcde", t.string({ maxLength: 4 }));
       expect(errors2).toEqual([
-        { field: "", message: "must be at most 4 characters long", value: "abcde" }
+        { field: "", message: "must be at most 4 characters long", value: "abcde", code: ValidationErrorCode.STRING_MAX_LENGTH }
       ]);
     });
 
@@ -101,7 +101,7 @@ describe("Validation", () => {
 
       const errors2 = validate("invalid-uuid", t.uuid());
       expect(errors2).toEqual([
-        { field: "", message: "must be a valid UUID", value: "invalid-uuid" }
+        { field: "", message: "must be a valid UUID", value: "invalid-uuid", code: ValidationErrorCode.FORMAT_UUID }
       ]);
     });
 
@@ -111,7 +111,7 @@ describe("Validation", () => {
 
       const errors2 = validate("invalid-date", t.dateTime());
       expect(errors2).toEqual([
-        { field: "", message: "must be a valid date-time", value: "invalid-date" }
+        { field: "", message: "must be a valid date-time", value: "invalid-date", code: ValidationErrorCode.FORMAT_DATE_TIME }
       ]);
     });
   });
@@ -123,7 +123,7 @@ describe("Validation", () => {
 
       const errors2 = validate(9, t.number({ minimum: 10 }));
       expect(errors2).toEqual([
-        { field: "", message: "must be at least 10", value: 9 }
+        { field: "", message: "must be at least 10", value: 9, code: ValidationErrorCode.NUMBER_MINIMUM }
       ]);
     });
 
@@ -133,7 +133,7 @@ describe("Validation", () => {
 
       const errors2 = validate(11, t.number({ maximum: 10 }));
       expect(errors2).toEqual([
-        { field: "", message: "must be at most 10", value: 11 }
+        { field: "", message: "must be at most 10", value: 11, code: ValidationErrorCode.NUMBER_MAXIMUM }
       ]);
     });
 
@@ -143,7 +143,7 @@ describe("Validation", () => {
 
       const errors2 = validate(10, t.number({ exclusiveMinimum: 10 }));
       expect(errors2).toEqual([
-        { field: "", message: "must be greater than 10", value: 10 }
+        { field: "", message: "must be greater than 10", value: 10, code: ValidationErrorCode.NUMBER_EXCLUSIVE_MINIMUM }
       ]);
     });
 
@@ -153,7 +153,7 @@ describe("Validation", () => {
 
       const errors2 = validate(10, t.number({ exclusiveMaximum: 10 }));
       expect(errors2).toEqual([
-        { field: "", message: "must be less than 10", value: 10 }
+        { field: "", message: "must be less than 10", value: 10, code: ValidationErrorCode.NUMBER_EXCLUSIVE_MAXIMUM }
       ]);
     });
 
@@ -163,7 +163,7 @@ describe("Validation", () => {
 
       const errors2 = validate(7, t.number({ multipleOf: 5 }));
       expect(errors2).toEqual([
-        { field: "", message: "must be a multiple of 5", value: 7 }
+        { field: "", message: "must be a multiple of 5", value: 7, code: ValidationErrorCode.NUMBER_MULTIPLE_OF }
       ]);
     });
   });
@@ -175,7 +175,7 @@ describe("Validation", () => {
 
       const errors2 = validate([1, 2], t.array(t.number(), { minItems: 3 }));
       expect(errors2).toEqual([
-        { field: "", message: "must have at least 3 items", value: [1, 2] }
+        { field: "", message: "must have at least 3 items", value: [1, 2], code: ValidationErrorCode.ARRAY_MIN_ITEMS }
       ]);
     });
 
@@ -185,7 +185,7 @@ describe("Validation", () => {
 
       const errors2 = validate([1, 2, 3, 4], t.array(t.number(), { maxItems: 3 }));
       expect(errors2).toEqual([
-        { field: "", message: "must have at most 3 items", value: [1, 2, 3, 4] }
+        { field: "", message: "must have at most 3 items", value: [1, 2, 3, 4], code: ValidationErrorCode.ARRAY_MAX_ITEMS }
       ]);
     });
 
@@ -195,7 +195,7 @@ describe("Validation", () => {
 
       const errors2 = validate([1, 2, 2, 3], t.array(t.number(), { uniqueItems: true }));
       expect(errors2).toEqual([
-        { field: "", message: "must contain unique items", value: [1, 2, 2, 3] }
+        { field: "", message: "must contain unique items", value: [1, 2, 2, 3], code: ValidationErrorCode.ARRAY_UNIQUE_ITEMS }
       ]);
     });
   });
@@ -210,7 +210,7 @@ describe("Validation", () => {
 
       const errors2 = validate({}, t.object({ foo: t.string() }, { required: ["foo"] }));
       expect(errors2).toEqual([
-        { field: "foo", message: "is required", value: undefined }
+        { field: "foo", message: "is required", value: undefined, code: ValidationErrorCode.OBJECT_REQUIRED_PROPERTY }
       ]);
     });
 
@@ -220,7 +220,7 @@ describe("Validation", () => {
 
       const errors2 = validate({ foo: "bar", baz: "qux" }, t.object({ foo: t.string() }));
       expect(errors2).toEqual([
-        { field: "baz", message: "is not a valid field", value: "qux" }
+        { field: "baz", message: "is not a valid field", value: "qux", code: ValidationErrorCode.OBJECT_ADDITIONAL_PROPERTY }
       ]);
 
       const errors3 = validate({ foo: "bar", baz: "qux" }, t.object({ foo: t.string() }, { additionalProperties: true }));
@@ -233,12 +233,12 @@ describe("Validation", () => {
 
       const errors2 = validate({ foo: "bar" }, t.object({ foo: t.string() }, { minProperties: 2, additionalProperties: true }));
       expect(errors2).toEqual([
-        { field: "", message: "must have at least 2 properties", value: { foo: "bar" } }
+        { field: "", message: "must have at least 2 properties", value: { foo: "bar" }, code: ValidationErrorCode.OBJECT_MIN_PROPERTIES }
       ]);
 
       const errors3 = validate({ foo: "bar", baz: "qux", qux: "baz" }, t.object({ foo: t.string() }, { maxProperties: 2, additionalProperties: true }));
       expect(errors3).toEqual([
-        { field: "", message: "must have at most 2 properties", value: { foo: "bar", baz: "qux", qux: "baz" } }
+        { field: "", message: "must have at most 2 properties", value: { foo: "bar", baz: "qux", qux: "baz" }, code: ValidationErrorCode.OBJECT_MAX_PROPERTIES }
       ]);
     });
   });
@@ -267,7 +267,7 @@ describe("Validation", () => {
     it("should validate required fields", () => {
       const errors = validate({ id: "550e8400-e29b-41d4-a716-446655440000" }, TestDto);
       expect(errors).toEqual([
-        { field: "name", message: "is required", value: undefined }
+        { field: "name", message: "is required", value: undefined, code: ValidationErrorCode.OBJECT_REQUIRED_PROPERTY }
       ]);
     });
 
@@ -298,7 +298,7 @@ describe("Validation", () => {
 
       const errors3 = validate(true, t.union([t.string(), t.number()]));
       expect(errors3).toEqual([
-        { field: "", message: "must match one of the allowed types", value: true }
+        { field: "", message: "must match one of the allowed types. Schema 1: must be a string; Schema 2: must be a number", value: true, code: ValidationErrorCode.UNION_NO_MATCH }
       ]);
     });
 

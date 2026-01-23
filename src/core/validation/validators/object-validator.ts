@@ -1,6 +1,7 @@
-import type { ValidationError } from "../../validation-errors";
+import type { ValidationError, ValidationErrorCode } from "../../validation-errors";
 import type { SchemaNode } from "../../schema";
 import { validate } from "../validate";
+import { createValidationError, validateIsObject, validateAdditionalProperties, validatePropertyCount } from "./validation-utils";
 
 /**
  * Validates an object value.
@@ -12,37 +13,23 @@ export function validateObject(
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 
-  if (value === null || value === undefined) {
-    errors.push({
-      field: path,
-      message: "must be an object",
-      value
-    });
+  // Validate that value is an object
+  errors.push(...validateIsObject(value, path));
+  if (errors.length > 0) {
     return errors;
   }
 
-  if (typeof value !== "object") {
-    errors.push({
-      field: path,
-      message: "must be an object",
-      value
-    });
-    return errors;
-  }
+  const objValue = value as Record<string, unknown>;
 
+  // Validate properties
   if (schema.properties) {
-    // Validate properties
     for (const [propName, propSchema] of Object.entries(schema.properties)) {
       const propPath = path ? `${path}.${propName}` : propName;
-      const propValue = (value as any)[propName];
+      const propValue = objValue[propName];
       const isRequired = schema.required?.includes(propName) ?? false;
 
       if (isRequired && propValue === undefined) {
-        errors.push({
-          field: propPath,
-          message: "is required",
-          value: propValue
-        });
+        errors.push(createValidationError(propPath, "is required", propValue, "OBJECT_REQUIRED_PROPERTY" as ValidationErrorCode));
         continue;
       }
 
@@ -54,50 +41,11 @@ export function validateObject(
   }
 
   // Validate additional properties
-  if (schema.additionalProperties === false) {
-    const valueKeys = Object.keys(value as Record<string, unknown>);
-    const schemaKeys = schema.properties ? Object.keys(schema.properties) : [];
-    const additionalKeys = valueKeys.filter(key => !schemaKeys.includes(key));
+  const allowedKeys = schema.properties ? Object.keys(schema.properties) : [];
+  errors.push(...validateAdditionalProperties(objValue, allowedKeys, schema.additionalProperties, path));
 
-    for (const key of additionalKeys) {
-      errors.push({
-        field: path ? `${path}.${key}` : key,
-        message: "is not a valid field",
-        value: (value as any)[key]
-      });
-    }
-  } else if (typeof schema.additionalProperties === "object") {
-    const valueKeys = Object.keys(value as Record<string, unknown>);
-    const schemaKeys = schema.properties ? Object.keys(schema.properties) : [];
-    const additionalKeys = valueKeys.filter(key => !schemaKeys.includes(key));
-
-    for (const key of additionalKeys) {
-      const additionalPath = path ? `${path}.${key}` : key;
-      const additionalValue = (value as any)[key];
-      const additionalErrors = validate(
-        additionalValue,
-        schema.additionalProperties!,
-        additionalPath
-      );
-      errors.push(...additionalErrors);
-    }
-  }
-
-  if (schema.minProperties !== undefined && Object.keys(value as Record<string, unknown>).length < schema.minProperties) {
-    errors.push({
-      field: path,
-      message: `must have at least ${schema.minProperties} properties`,
-      value
-    });
-  }
-
-  if (schema.maxProperties !== undefined && Object.keys(value as Record<string, unknown>).length > schema.maxProperties) {
-    errors.push({
-      field: path,
-      message: `must have at most ${schema.maxProperties} properties`,
-      value
-    });
-  }
+  // Validate min/max properties
+  errors.push(...validatePropertyCount(objValue, schema.minProperties, schema.maxProperties, path));
 
   return errors;
 }

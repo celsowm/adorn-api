@@ -1,4 +1,5 @@
-import type { ValidationError } from "../../validation-errors";
+import type { ValidationError, ValidationErrorCode } from "../../validation-errors";
+import { createValidationError } from "./validation-utils";
 
 /**
  * Validates a null value.
@@ -11,11 +12,7 @@ export function validateNull(
   const errors: ValidationError[] = [];
 
   if (value !== null) {
-    errors.push({
-      field: path,
-      message: "must be null",
-      value
-    });
+    errors.push(createValidationError(path, "must be null", value, "TYPE_NULL" as ValidationErrorCode));
   }
 
   return errors;

@@ -1,4 +1,3 @@
-import type { DtoConstructor } from "../types";
 import type { SchemaNode, SchemaSource } from "../schema";
 import { ValidationError } from "../validation-errors";
 import { validateDto } from "./validators/dto-validator";
