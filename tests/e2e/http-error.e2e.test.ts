@@ -10,7 +10,7 @@ import {
   Returns,
   createExpressApp,
   t
-} from "../index";
+} from "../../src/index";
 
 @Dto()
 class ErrorDto {

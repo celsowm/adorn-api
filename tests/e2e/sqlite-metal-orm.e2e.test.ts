@@ -12,7 +12,7 @@ import {
   createExpressApp,
   t,
   type RequestContext
-} from "../index";
+} from "../../src/index";
 import {
   SqliteDialect,
   Orm,

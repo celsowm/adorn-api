@@ -9,6 +9,39 @@ import { getAllControllers, getDtoMeta } from "./metadata";
 import type { SchemaNode, SchemaSource } from "./schema";
 
 /**
+ * Validates that all registered DTOs have non-empty field metadata.
+ * Throws an error with helpful diagnostic information if empty schemas are found.
+ * @param components - Schema components to validate
+ * @throws Error if any DTO has empty fields
+ */
+function validateSchemas(components: { schemas: Record<string, JsonSchema> }): void {
+  const emptySchemas: string[] = [];
+
+  for (const [name, schema] of Object.entries(components.schemas)) {
+    const hasProperties = schema.properties && typeof schema.properties === "object" && Object.keys(schema.properties).length > 0;
+    const isEmptyObject = schema.type === "object" && !hasProperties;
+    const isMissingProperties = schema.type === "object" && (!schema.properties || Object.keys(schema.properties).length === 0);
+    
+    if (isEmptyObject || isMissingProperties) {
+      emptySchemas.push(name);
+    }
+  }
+
+  if (emptySchemas.length > 0) {
+    const message = 
+      `[adorn-api] Validation failed: ${emptySchemas.length} DTO(s) have empty schemas:\n` +
+      emptySchemas.map(n => `  - ${n}`).join("\n") +
+      `\n\nThis usually means entity metadata is not loaded. Check:\n` +
+      `  1. Entity has @Entity and @Column decorators\n` +
+      `  2. Entity is imported/executed before createMetalCrudDtoClasses\n` +
+      `  3. No circular dependencies between entities and DTOs\n` +
+      `\nTo enable strict validation at DTO creation time, pass { strict: true } to createMetalCrudDtoClasses options.`;
+    
+    throw new Error(message);
+  }
+}
+
+/**
  * OpenAPI document information.
  */
 export interface OpenApiInfo {
@@ -70,7 +103,7 @@ export interface OpenApiDocument {
  */
 export function buildOpenApi(options: OpenApiOptions): OpenApiDocument {
   const context = createSchemaContext();
-
+  
   const controllers = filterControllers(options.controllers);
   const paths: Record<string, Record<string, unknown>> = {};
 
@@ -111,6 +144,8 @@ export function buildOpenApi(options: OpenApiOptions): OpenApiDocument {
       schemas: context.components
     }
   };
+  
+  validateSchemas(context.components as { schemas: Record<string, JsonSchema> });
 }
 
 function buildRequestBody(

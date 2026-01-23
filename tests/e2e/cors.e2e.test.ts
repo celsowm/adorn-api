@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import request from "supertest";
-import { Controller, Get, createExpressApp } from "../index";
+import { Controller, Get, createExpressApp } from "../../src/index";
 
 @Controller("/test")
 class TestController {

@@ -12,7 +12,7 @@ import {
   createPagedFilterQueryDtoClass,
   t,
   type RequestContext
-} from "../index";
+} from "../../src/index";
 import { Column, Entity, PrimaryKey, col } from "metal-orm";
 
 @Entity({ tableName: "nota_versao" })

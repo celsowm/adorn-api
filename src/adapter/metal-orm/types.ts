@@ -21,6 +21,8 @@ export interface MetalDtoOptions extends DtoOptions {
   exclude?: string[];
   /** Field overrides */
   overrides?: Record<string, FieldOverride>;
+  /** Whether to throw errors instead of warnings for invalid metadata (default: false) */
+  strict?: boolean;
 }
 
 /**
@@ -171,6 +173,8 @@ export interface MetalCrudDtoOptions {
   paramsInclude?: string[];
   /** Immutable fields */
   immutable?: string[];
+  /** Whether to throw errors instead of warnings for invalid metadata (default: false) */
+  strict?: boolean;
 }
 
 /**
@@ -203,6 +207,8 @@ export interface MetalCrudDtoClassOptions extends MetalCrudDtoOptions {
   baseName?: string;
   /** Custom class names */
   names?: MetalCrudDtoClassNames;
+  /** Whether to throw errors instead of warnings for invalid metadata (default: false) */
+  strict?: boolean;
 }
 
 /**

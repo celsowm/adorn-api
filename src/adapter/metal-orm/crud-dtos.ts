@@ -1,11 +1,11 @@
-
+ 
 import type { DtoConstructor } from "../../core/types";
 import { MetalDto } from "./dto";
 import type {
   MetalCrudDtoOptions,
   MetalCrudDtoClassOptions,
-  MetalCrudDtoClasses,
   MetalCrudDtoDecorators,
+  MetalCrudDtoClasses,
   NestedCreateDtoOptions
 } from "./types";
 
@@ -15,22 +15,26 @@ export function createMetalCrudDtos(
 ): MetalCrudDtoDecorators {
   const mutationExclude = options.mutationExclude;
   const immutable = options.immutable;
+  const strict = options.strict ?? false;
 
-  const response = buildCrudOptions(options.response, options.overrides);
+  const response = buildCrudOptions(options.response, options.overrides, { strict });
   const create = buildCrudOptions(options.create, options.overrides, {
     mode: "create",
-    exclude: mergeStringArrays(mutationExclude, options.create?.exclude)
+    exclude: mergeStringArrays(mutationExclude, options.create?.exclude),
+    strict
   });
   const replace = buildCrudOptions(options.replace, options.overrides, {
     mode: "create",
-    exclude: mergeStringArrays(mutationExclude, immutable, options.replace?.exclude)
+    exclude: mergeStringArrays(mutationExclude, immutable, options.replace?.exclude),
+    strict
   });
   const update = buildCrudOptions(options.update, options.overrides, {
     mode: "update",
-    exclude: mergeStringArrays(mutationExclude, immutable, options.update?.exclude)
+    exclude: mergeStringArrays(mutationExclude, immutable, options.update?.exclude),
+    strict
   });
 
-  const params = buildCrudOptions(options.params, options.overrides);
+  const params = buildCrudOptions(options.params, options.overrides, { strict });
   params.include = params.include ?? options.paramsInclude ?? ["id"];
 
   return {

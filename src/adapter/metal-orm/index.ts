@@ -40,6 +40,11 @@ export {
   parseIdOrThrow
 } from "./utils";
 
+export {
+  validateEntityMetadata,
+  hasValidEntityMetadata
+} from "./field-builder";
+
 export type {
   MetalDtoMode,
   MetalDtoOptions,

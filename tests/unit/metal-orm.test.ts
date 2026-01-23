@@ -10,10 +10,10 @@ import {
   createMetalCrudDtos,
   createMetalCrudDtoClasses,
   createMetalDtoOverrides
-} from "./metal-orm/index";
-import { HttpError } from "../core/errors";
+} from "../../src/adapter/metal-orm/index";
+import { HttpError } from "../../src/core/errors";
 import { Column, Entity, PrimaryKey, col } from "metal-orm";
-import { getDtoMeta } from "../core/metadata";
+import { getDtoMeta } from "../../src/core/metadata";
 
 describe("metal-orm helpers", () => {
   describe("parsePagination", () => {
