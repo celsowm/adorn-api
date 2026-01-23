@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { Dto, Field, MergeDto, OmitDto, PartialDto, PickDto } from "../decorators";
-import { getDtoMeta } from "../metadata";
-import { t } from "../schema";
+import { Dto, Field, MergeDto, OmitDto, PartialDto, PickDto } from "../../src/core/decorators";
+import { getDtoMeta } from "../../src/core/metadata";
+import { t } from "../../src/core/schema";
 
 @Dto()
 class BaseDto {

@@ -5,7 +5,7 @@ import {
   parseId,
   parseInteger,
   parseNumber
-} from "../coerce";
+} from "../../src/core/coerce";
 
 describe("coerce helpers", () => {
   it("normalizes single values", () => {

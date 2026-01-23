@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { t, type SchemaNode } from "../schema";
+import { t, type SchemaNode } from "../../src/core/schema";
 import {
   buildSchemaFromNode,
   buildSchemaFromDto,
   createSchemaContext
-} from "../schema-builder";
-import { registerDto } from "../metadata";
+} from "../../src/core/schema-builder";
+import { registerDto } from "../../src/core/metadata";
 
 describe("schema builder", () => {
   it("maps primitive string options", () => {

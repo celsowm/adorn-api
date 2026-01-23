@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeAll } from "vitest";
 import request from "supertest";
+import type { Express } from "express";
 import { Controller, Get, createExpressApp } from "../../src/index";
 
 @Controller("/test")
@@ -12,7 +13,11 @@ class TestController {
 
 describe("CORS middleware", () => {
   describe("cors: true (permissive defaults)", () => {
-    const app = createExpressApp({ controllers: [TestController], cors: true });
+    let app: Express;
+
+    beforeAll(async () => {
+      app = await createExpressApp({ controllers: [TestController], cors: true });
+    });
 
     it("allows all origins with wildcard", async () => {
       const res = await request(app)
@@ -33,9 +38,13 @@ describe("CORS middleware", () => {
   });
 
   describe("cors with specific origin", () => {
-    const app = createExpressApp({
-      controllers: [TestController],
-      cors: { origin: "https://allowed.com" }
+    let app: Express;
+
+    beforeAll(async () => {
+      app = await createExpressApp({
+        controllers: [TestController],
+        cors: { origin: "https://allowed.com" }
+      });
     });
 
     it("allows matching origin", async () => {
@@ -54,9 +63,13 @@ describe("CORS middleware", () => {
   });
 
   describe("cors with origin array", () => {
-    const app = createExpressApp({
-      controllers: [TestController],
-      cors: { origin: ["https://a.com", "https://b.com"] }
+    let app: Express;
+
+    beforeAll(async () => {
+      app = await createExpressApp({
+        controllers: [TestController],
+        cors: { origin: ["https://a.com", "https://b.com"] }
+      });
     });
 
     it("allows origins in the list", async () => {
@@ -75,9 +88,13 @@ describe("CORS middleware", () => {
   });
 
   describe("cors with dynamic origin function", () => {
-    const app = createExpressApp({
-      controllers: [TestController],
-      cors: { origin: (origin) => origin?.endsWith(".trusted.com") ?? false }
+    let app: Express;
+
+    beforeAll(async () => {
+      app = await createExpressApp({
+        controllers: [TestController],
+        cors: { origin: (origin) => origin?.endsWith(".trusted.com") ?? false }
+      });
     });
 
     it("allows origins matching the function", async () => {
@@ -96,9 +113,13 @@ describe("CORS middleware", () => {
   });
 
   describe("cors with credentials", () => {
-    const app = createExpressApp({
-      controllers: [TestController],
-      cors: { origin: "https://app.com", credentials: true }
+    let app: Express;
+
+    beforeAll(async () => {
+      app = await createExpressApp({
+        controllers: [TestController],
+        cors: { origin: "https://app.com", credentials: true }
+      });
     });
 
     it("sets credentials header", async () => {
@@ -117,9 +138,13 @@ describe("CORS middleware", () => {
   });
 
   describe("cors with exposed headers", () => {
-    const app = createExpressApp({
-      controllers: [TestController],
-      cors: { exposedHeaders: ["X-Custom-Header", "X-Request-Id"] }
+    let app: Express;
+
+    beforeAll(async () => {
+      app = await createExpressApp({
+        controllers: [TestController],
+        cors: { exposedHeaders: ["X-Custom-Header", "X-Request-Id"] }
+      });
     });
 
     it("sets exposed headers", async () => {
@@ -131,13 +156,17 @@ describe("CORS middleware", () => {
   });
 
   describe("cors with custom methods and headers", () => {
-    const app = createExpressApp({
-      controllers: [TestController],
-      cors: {
-        methods: ["GET", "POST"],
-        allowedHeaders: ["X-API-Key"],
-        maxAge: 3600
-      }
+    let app: Express;
+
+    beforeAll(async () => {
+      app = await createExpressApp({
+        controllers: [TestController],
+        cors: {
+          methods: ["GET", "POST"],
+          allowedHeaders: ["X-API-Key"],
+          maxAge: 3600
+        }
+      });
     });
 
     it("uses custom methods in preflight", async () => {

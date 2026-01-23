@@ -4,9 +4,9 @@ import {
   databaseIndicator,
   memoryIndicator,
   customIndicator
-} from "../health";
-import { getControllerMeta } from "../metadata";
-import type { RequestContext } from "../../adapter/express/types";
+} from "../../src/core/health";
+import { getControllerMeta } from "../../src/core/metadata";
+import type { RequestContext } from "../../src/core/../adapter/express/types";
 
 const mockContext = {} as RequestContext;
 

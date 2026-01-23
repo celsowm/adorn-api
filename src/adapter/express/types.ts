@@ -1,6 +1,25 @@
 import type { Request, Response } from "express";
 import type { Constructor } from "../../core/types";
 import type { OpenApiInfo, OpenApiServer } from "../../core/openapi";
+import type { SseEmitter, StreamWriter } from "../../core/streaming";
+
+/**
+ * Uploaded file information from multipart form data.
+ */
+export interface UploadedFileInfo {
+  /** Original filename as provided by the client */
+  originalName: string;
+  /** MIME type of the file */
+  mimeType: string;
+  /** Size of the file in bytes */
+  size: number;
+  /** File buffer (when using memory storage) */
+  buffer?: Buffer;
+  /** Path to the file on disk (when using disk storage) */
+  path?: string;
+  /** Field name from the form */
+  fieldName: string;
+}
 
 /**
  * Request context provided to route handlers.
@@ -9,7 +28,8 @@ export interface RequestContext<
   TBody = unknown,
   TQuery extends object | undefined = Record<string, unknown>,
   TParams extends object | undefined = Record<string, string | number | boolean | undefined>,
-  THeaders extends object | undefined = Record<string, string | string[] | undefined>
+  THeaders extends object | undefined = Record<string, string | string[] | undefined>,
+  TFiles extends Record<string, UploadedFileInfo | UploadedFileInfo[]> | undefined = undefined
 > {
   /** Express request object */
   req: Request;
@@ -23,6 +43,18 @@ export interface RequestContext<
   params: TParams;
   /** Request headers */
   headers: THeaders;
+  /** Uploaded files (when using multipart handling) */
+  files: TFiles;
+  /**
+   * Server-Sent Events emitter for streaming events to client.
+   * Only available on routes marked with @Sse decorator.
+   */
+  sse?: SseEmitter;
+  /**
+   * Stream writer for streaming responses.
+   * Available on routes marked with @Streaming or @Sse decorator.
+   */
+  stream?: StreamWriter;
 }
 
 /**
@@ -80,6 +112,20 @@ export interface OpenApiExpressOptions {
 }
 
 /**
+ * Multipart file upload configuration.
+ */
+export interface MultipartOptions {
+  /** Storage type: 'memory' or 'disk' */
+  storage?: "memory" | "disk";
+  /** Directory for disk storage (defaults to OS temp directory) */
+  dest?: string;
+  /** Maximum file size in bytes (defaults to 10MB) */
+  maxFileSize?: number;
+  /** Maximum number of files per field (defaults to 10) */
+  maxFiles?: number;
+}
+
+/**
  * Options for creating an Express application adapter.
  */
 export interface ExpressAdapterOptions {
@@ -93,4 +139,6 @@ export interface ExpressAdapterOptions {
   inputCoercion?: InputCoercionSetting;
   /** CORS configuration. Set to true for permissive defaults, or provide options. */
   cors?: boolean | CorsOptions;
+  /** Multipart file upload configuration. Set to true for defaults, or provide options. */
+  multipart?: boolean | MultipartOptions;
 }

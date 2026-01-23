@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeAll } from "vitest";
 import request from "supertest";
 import {
   Controller,
@@ -39,7 +39,11 @@ class DemoController {
 }
 
 describe("http error handling", () => {
-  const app = createExpressApp({ controllers: [DemoController] });
+  let app: Awaited<ReturnType<typeof createExpressApp>>;
+
+  beforeAll(async () => {
+    app = await createExpressApp({ controllers: [DemoController] });
+  });
 
   it("serializes HttpError responses", async () => {
     const response = await request(app).get("/demo/bad").expect(400);

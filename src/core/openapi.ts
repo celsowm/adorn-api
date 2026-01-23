@@ -1,5 +1,5 @@
 import type { JsonSchema, SchemaBuildContext } from "./schema-builder";
-import type { ControllerMeta, InputMeta, ResponseMeta } from "./metadata";
+import type { ControllerMeta, InputMeta, ResponseMeta, UploadedFileMeta } from "./metadata";
 import type { Constructor, DtoConstructor } from "./types";
 import {
   createSchemaContext,
@@ -122,13 +122,19 @@ export function buildOpenApi(options: OpenApiOptions): OpenApiDocument {
 
       const responses = buildResponses(route.responses, context);
 
+      // Determine request body: file uploads use multipart, otherwise use regular body
+      const hasFiles = route.files && route.files.length > 0;
+      const requestBody = hasFiles
+        ? buildMultipartRequestBody(route.files!, route.body, context)
+        : buildRequestBody(route.body, context);
+
       pathItem[route.httpMethod] = {
         operationId: `${controller.meta.controller.name}.${String(route.handlerName)}`,
         summary: route.summary,
         description: route.description,
         tags: route.tags ?? tagFallback,
         parameters: parameters.length ? parameters : undefined,
-        requestBody: buildRequestBody(route.body, context),
+        requestBody,
         responses
       };
     }
@@ -163,6 +169,88 @@ function buildRequestBody(
       [contentType]: { schema }
     }
   };
+}
+
+function buildMultipartRequestBody(
+  files: UploadedFileMeta[],
+  body: InputMeta | undefined,
+  context: SchemaBuildContext
+): Record<string, unknown> {
+  const properties: Record<string, unknown> = {};
+  const required: string[] = [];
+
+  // Add file fields
+  for (const file of files) {
+    // Get description from file options first, then from schema
+    const fileSchema = isSchemaNode(file.schema) ? file.schema : undefined;
+    const description = file.description ?? fileSchema?.description;
+
+    if (file.multiple) {
+      properties[file.fieldName] = {
+        type: "array",
+        items: { type: "string", format: "binary" },
+        description
+      };
+    } else {
+      properties[file.fieldName] = {
+        type: "string",
+        format: "binary",
+        description
+      };
+    }
+    if (file.required) {
+      required.push(file.fieldName);
+    }
+  }
+
+  // Add body fields if present
+  if (body) {
+    const bodyFields = extractBodyFields(body.schema, context);
+    for (const field of bodyFields) {
+      properties[field.name] = buildSchemaFromSource(field.schema, context);
+      if (field.required) {
+        required.push(field.name);
+      }
+    }
+  }
+
+  return {
+    required: required.length > 0,
+    content: {
+      "multipart/form-data": {
+        schema: {
+          type: "object",
+          properties,
+          required: required.length > 0 ? required : undefined
+        }
+      }
+    }
+  };
+}
+
+function extractBodyFields(
+  schema: SchemaSource,
+  _context: SchemaBuildContext
+): Array<{ name: string; schema: SchemaSource; required: boolean }> {
+  if (isSchemaNode(schema)) {
+    if (schema.kind === "object" && schema.properties) {
+      const requiredSet = new Set(schema.required ?? []);
+      return Object.entries(schema.properties).map(([name, value]) => ({
+        name,
+        schema: value,
+        required: requiredSet.has(name)
+      }));
+    }
+    return [];
+  }
+
+  // Handle DTO reference
+  const dtoMeta = getDtoMetaSafe(schema);
+  return Object.entries(dtoMeta.fields).map(([name, field]) => ({
+    name,
+    schema: field.schema,
+    required: !(field.optional ?? field.schema.optional ?? false)
+  }));
 }
 
 function buildResponses(

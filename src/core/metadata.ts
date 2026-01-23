@@ -21,6 +21,14 @@ export interface InputMeta {
   contentType?: string;
 }
 
+export interface UploadedFileMeta {
+  fieldName: string;
+  schema: SchemaSource;
+  description?: string;
+  required?: boolean;
+  multiple?: boolean;
+}
+
 export interface ResponseMeta {
   status: number;
   schema?: SchemaSource;
@@ -40,7 +48,12 @@ export interface RouteMeta {
   query?: InputMeta;
   params?: InputMeta;
   headers?: InputMeta;
+  files?: UploadedFileMeta[];
   responses: ResponseMeta[];
+  /** Whether this route uses Server-Sent Events */
+  sse?: boolean;
+  /** Whether this route uses streaming response */
+  streaming?: boolean;
 }
 
 export interface ControllerMeta {

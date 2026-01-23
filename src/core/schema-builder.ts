@@ -200,6 +200,12 @@ export function buildSchemaFromNode(node: SchemaNode, context: SchemaBuildContex
     case "null":
       schema = { type: "null" };
       break;
+    case "file":
+      schema = {
+        type: "string",
+        format: "binary"
+      };
+      break;
     default:
       schema = {};
       break;

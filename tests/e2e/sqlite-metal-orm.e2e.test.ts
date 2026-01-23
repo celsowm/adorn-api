@@ -134,7 +134,7 @@ class UserController {
 }
 
 describe("e2e sqlite memory (metal-orm)", () => {
-  const app = createExpressApp({ controllers: [UserController] });
+  let app: Awaited<ReturnType<typeof createExpressApp>>;
 
   beforeAll(async () => {
     db = new sqlite3.Database(":memory:");
@@ -150,6 +150,7 @@ describe("e2e sqlite memory (metal-orm)", () => {
         dispose: async () => {}
       }
     });
+    app = await createExpressApp({ controllers: [UserController] });
   });
 
   afterAll(async () => {

@@ -98,11 +98,12 @@ class UserController {
 }
 
 describe("e2e sqlite memory", () => {
-  const app = createExpressApp({ controllers: [UserController] });
+  let app: Awaited<ReturnType<typeof createExpressApp>>;
 
   beforeAll(async () => {
     db = new sqlite3.Database(":memory:");
     await run("create table users (id integer primary key autoincrement, name text not null)");
+    app = await createExpressApp({ controllers: [UserController] });
   });
 
   afterAll(async () => {

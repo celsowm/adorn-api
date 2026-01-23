@@ -2,26 +2,39 @@ import type { Express, Request, Response, NextFunction } from "express";
 import type { Constructor } from "../../core/types";
 import { getControllerMeta } from "../../core/metadata";
 import { isHttpError, type HttpError } from "../../core/errors";
-import type { InputCoercionSetting, RequestContext } from "./types";
+import type { InputCoercionSetting, MultipartOptions, RequestContext } from "./types";
 import { createInputCoercer } from "./coercion";
+import {
+  createMultipartMiddleware,
+  extractFiles,
+  hasFileUploads,
+  normalizeMultipartOptions
+} from "./multipart";
+import { lifecycleRegistry } from "../../core/lifecycle";
+import { createSseEmitter, createStreamWriter } from "../../core/streaming";
 
 /**
  * Attaches controllers to an Express application.
  * @param app - Express application instance
  * @param controllers - Array of controller classes
  * @param inputCoercion - Input coercion setting
+ * @param multipart - Multipart file upload configuration
  */
-export function attachControllers(
+export async function attachControllers(
   app: Express,
   controllers: Constructor[],
-  inputCoercion: InputCoercionSetting = "safe"
-): void {
+  inputCoercion: InputCoercionSetting = "safe",
+  multipart?: boolean | MultipartOptions
+): Promise<void> {
+  const multipartOptions = normalizeMultipartOptions(multipart);
   for (const controller of controllers) {
     const meta = getControllerMeta(controller);
     if (!meta) {
       throw new Error(`Controller "${controller.name}" is missing @Controller decorator.`);
     }
     const instance = new controller();
+    lifecycleRegistry.register(instance);
+    await lifecycleRegistry.callOnModuleInit(instance);
     for (const route of meta.routes) {
       const path = joinPaths(meta.basePath, route.path);
       const handler = instance[route.handlerName as keyof typeof instance];
@@ -37,16 +50,30 @@ export function attachControllers(
       const coerceQuery = inputCoercion === false
         ? undefined
         : createInputCoercer<Record<string, unknown>>(route.query, { mode: inputCoercion, location: "query" });
-      app[route.httpMethod](path, async (req: Request, res: Response, next: NextFunction) => {
+
+      // Build middleware chain
+      const middlewares: Array<(req: Request, res: Response, next: NextFunction) => void> = [];
+
+      // Add multipart middleware if route has file uploads
+      if (multipartOptions && hasFileUploads(route.files)) {
+        middlewares.push(createMultipartMiddleware(route.files!, multipartOptions));
+      }
+
+      // Main route handler
+      const routeHandler = async (req: Request, res: Response, next: NextFunction) => {
         try {
-          const ctx: RequestContext = {
+          const files = extractFiles(req);
+          const ctx = {
             req,
             res,
             body: req.body,
             query: coerceQuery ? coerceQuery(req.query as Record<string, unknown>) : req.query,
             params: coerceParams ? coerceParams(req.params) : req.params,
-            headers: req.headers
-          };
+            headers: req.headers,
+            files,
+            sse: route.sse ? createSseEmitter(res) : undefined,
+            stream: route.streaming || route.sse ? createStreamWriter(res) : undefined
+          } as unknown as RequestContext;
           const result = await handler.call(instance, ctx);
           if (res.headersSent) {
             return;
@@ -63,7 +90,10 @@ export function attachControllers(
           }
           next(error);
         }
-      });
+      };
+
+      middlewares.push(routeHandler);
+      app[route.httpMethod](path, ...middlewares);
     }
   }
 }

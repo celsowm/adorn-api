@@ -12,7 +12,8 @@ import {
   type InputMeta,
   type ResponseMeta,
   type RouteMeta,
-  type RouteMetaInput
+  type RouteMetaInput,
+  type UploadedFileMeta
 } from "./metadata";
 
 /**
@@ -97,6 +98,18 @@ export interface InputOptions {
   required?: boolean;
   /** Content type for the input */
   contentType?: string;
+}
+
+/**
+ * Options for file upload parameters.
+ */
+export interface UploadedFileOptions {
+  /** Description of the file */
+  description?: string;
+  /** Whether the file is required */
+  required?: boolean;
+  /** Whether to accept multiple files */
+  multiple?: boolean;
 }
 
 /**
@@ -364,6 +377,40 @@ export function Headers(schema: SchemaSource, options: InputOptions = {}) {
 }
 
 /**
+ * Decorator for defining file upload fields.
+ * @param fieldName - Name of the form field for the file
+ * @param schema - Schema for the file (use t.file())
+ * @param options - Upload options
+ * @returns Method decorator function
+ */
+export function UploadedFile(
+  fieldName: string,
+  schema: SchemaSource,
+  options: UploadedFileOptions = {}
+) {
+  return (_value: unknown, context: ClassMethodDecoratorContext): void => {
+    const route = getRoute(context.metadata as DecoratorMetadata, context.name);
+    const files = route.files ?? (route.files = []);
+    files.push(buildUploadedFileMeta(fieldName, schema, options));
+  };
+}
+
+/**
+ * Decorator for defining multiple file upload fields.
+ * @param fieldName - Name of the form field for the files
+ * @param schema - Schema for each file (use t.file())
+ * @param options - Upload options
+ * @returns Method decorator function
+ */
+export function UploadedFiles(
+  fieldName: string,
+  schema: SchemaSource,
+  options: Omit<UploadedFileOptions, "multiple"> = {}
+) {
+  return UploadedFile(fieldName, schema, { ...options, multiple: true });
+}
+
+/**
  * Decorator for defining successful return responses.
  * @param schemaOrOptions - Response schema or options
  * @param options - Additional response options
@@ -423,6 +470,66 @@ export function Errors(schema: SchemaSource, responses: ErrorResponseOptions[]) 
   };
 }
 
+/**
+ * Options for Server-Sent Events endpoints.
+ */
+export interface SseOptions {
+  /** Description for OpenAPI documentation */
+  description?: string;
+}
+
+/**
+ * Decorator to mark a route as a Server-Sent Events (SSE) endpoint.
+ * SSE routes should return void and use the SseEmitter from the context.
+ * @param options - SSE endpoint options
+ * @returns Method decorator function
+ */
+export function Sse(options: SseOptions = {}) {
+  return (_value: unknown, context: ClassMethodDecoratorContext): void => {
+    const route = getRoute(context.metadata as DecoratorMetadata, context.name);
+    route.sse = true;
+    if (options.description) {
+      route.description = options.description;
+    }
+    route.responses.push({
+      status: 200,
+      contentType: "text/event-stream",
+      description: options.description ?? "Server-Sent Events stream"
+    });
+  };
+}
+
+/**
+ * Options for streaming endpoints.
+ */
+export interface StreamingOptions {
+  /** Content type for the stream (default: application/octet-stream) */
+  contentType?: string;
+  /** Description for OpenAPI documentation */
+  description?: string;
+}
+
+/**
+ * Decorator to mark a route as a streaming endpoint.
+ * Streaming routes should return void and use the StreamWriter from the context.
+ * @param options - Streaming endpoint options
+ * @returns Method decorator function
+ */
+export function Streaming(options: StreamingOptions = {}) {
+  return (_value: unknown, context: ClassMethodDecoratorContext): void => {
+    const route = getRoute(context.metadata as DecoratorMetadata, context.name);
+    route.streaming = true;
+    if (options.description) {
+      route.description = options.description;
+    }
+    route.responses.push({
+      status: 200,
+      contentType: options.contentType ?? "application/octet-stream",
+      description: options.description ?? "Streaming response"
+    });
+  };
+}
+
 function Route(method: HttpMethod, path: string) {
   return (_value: unknown, context: ClassMethodDecoratorContext): void => {
     const route = getRoute(context.metadata as DecoratorMetadata, context.name);
@@ -448,6 +555,20 @@ function buildInputMeta(schema: SchemaSource, options: InputOptions): InputMeta 
     description: options.description,
     required: options.required,
     contentType: options.contentType
+  };
+}
+
+function buildUploadedFileMeta(
+  fieldName: string,
+  schema: SchemaSource,
+  options: UploadedFileOptions
+): UploadedFileMeta {
+  return {
+    fieldName,
+    schema,
+    description: options.description,
+    required: options.required ?? true,
+    multiple: options.multiple ?? false
   };
 }
 

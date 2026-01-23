@@ -184,6 +184,19 @@ export interface NullSchema extends BaseSchemaOptions {
 }
 
 /**
+ * File schema definition for file uploads.
+ * @extends BaseSchemaOptions
+ */
+export interface FileSchema extends BaseSchemaOptions {
+  /** Schema kind identifier */
+  kind: "file";
+  /** Accepted content types (e.g., "image/*", "application/pdf") */
+  accept?: string[];
+  /** Maximum file size in bytes */
+  maxSize?: number;
+}
+
+/**
  * Union type representing all possible schema node types.
  */
 export type SchemaNode =
@@ -198,7 +211,8 @@ export type SchemaNode =
   | RecordSchema
   | RefSchema
   | AnySchema
-  | NullSchema;
+  | NullSchema
+  | FileSchema;
 
 /**
  * Schema source - can be either a schema node or a DTO constructor.
@@ -375,6 +389,16 @@ export const t = {
    */
   null: (opts: Omit<NullSchema, "kind"> = {}): NullSchema => ({
     kind: "null",
+    ...opts
+  }),
+
+  /**
+   * Creates a file schema for file uploads.
+   * @param opts - File schema options
+   * @returns File schema
+   */
+  file: (opts: Omit<FileSchema, "kind"> = {}): FileSchema => ({
+    kind: "file",
     ...opts
   }),
 
