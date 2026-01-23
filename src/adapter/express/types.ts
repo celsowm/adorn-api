@@ -126,6 +126,16 @@ export interface MultipartOptions {
 }
 
 /**
+ * Validation configuration options.
+ */
+export interface ValidationOptions {
+  /** Whether validation is enabled. Defaults to true. */
+  enabled?: boolean;
+  /** Validation mode. 'strict' mode fails on any validation error, 'lax' mode may allow some errors. Defaults to 'strict'. */
+  mode?: 'strict' | 'lax';
+}
+
+/**
  * Options for creating an Express application adapter.
  */
 export interface ExpressAdapterOptions {
@@ -141,4 +151,6 @@ export interface ExpressAdapterOptions {
   cors?: boolean | CorsOptions;
   /** Multipart file upload configuration. Set to true for defaults, or provide options. */
   multipart?: boolean | MultipartOptions;
+  /** Validation configuration. Set to false to disable validation, or provide options. */
+  validation?: boolean | ValidationOptions;
 }

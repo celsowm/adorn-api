@@ -24,7 +24,7 @@ export async function createExpressApp(options: ExpressAdapterOptions): Promise<
     app.use(express.json());
   }
   const inputCoercion = options.inputCoercion ?? "safe";
-  await attachControllers(app, options.controllers, inputCoercion, options.multipart);
+  await attachControllers(app, options.controllers, inputCoercion, options.multipart, options.validation);
   if (options.openApi) {
     attachOpenApi(app, options.controllers, options.openApi);
   }

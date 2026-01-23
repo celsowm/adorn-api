@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import type { Constructor } from "../../core/types";
 import { getControllerMeta } from "../../core/metadata";
 import { isHttpError, type HttpError } from "../../core/errors";
-import type { InputCoercionSetting, MultipartOptions, RequestContext } from "./types";
+import type { InputCoercionSetting, MultipartOptions, RequestContext, ValidationOptions } from "./types";
 import { createInputCoercer } from "./coercion";
 import {
   createMultipartMiddleware,
@@ -12,6 +12,8 @@ import {
 } from "./multipart";
 import { lifecycleRegistry } from "../../core/lifecycle";
 import { createSseEmitter, createStreamWriter } from "../../core/streaming";
+import { validate } from "../../core/validation";
+import { ValidationErrors, isValidationErrors } from "../../core/validation-errors";
 
 /**
  * Attaches controllers to an Express application.
@@ -24,7 +26,8 @@ export async function attachControllers(
   app: Express,
   controllers: Constructor[],
   inputCoercion: InputCoercionSetting = "safe",
-  multipart?: boolean | MultipartOptions
+  multipart?: boolean | MultipartOptions,
+  validation?: boolean | ValidationOptions
 ): Promise<void> {
   const multipartOptions = normalizeMultipartOptions(multipart);
   for (const controller of controllers) {
@@ -59,10 +62,15 @@ export async function attachControllers(
         middlewares.push(createMultipartMiddleware(route.files!, multipartOptions));
       }
 
+      // Determine if validation is enabled for this route
+      const isValidationEnabled = validation !== false && (validation as ValidationOptions)?.enabled !== false;
+
       // Main route handler
       const routeHandler = async (req: Request, res: Response, next: NextFunction) => {
         try {
           const files = extractFiles(req);
+          
+          // Create context
           const ctx = {
             req,
             res,
@@ -74,6 +82,37 @@ export async function attachControllers(
             sse: route.sse ? createSseEmitter(res) : undefined,
             stream: route.streaming || route.sse ? createStreamWriter(res) : undefined
           } as unknown as RequestContext;
+
+          // Validate inputs if validation is enabled
+          if (isValidationEnabled) {
+            const validationErrors = [];
+            
+            if (route.body) {
+              const bodyErrors = validate(ctx.body, route.body.schema);
+              validationErrors.push(...bodyErrors);
+            }
+            
+            if (route.query) {
+              const queryErrors = validate(ctx.query, route.query.schema);
+              validationErrors.push(...queryErrors);
+            }
+            
+            if (route.params) {
+              const paramsErrors = validate(ctx.params, route.params.schema);
+              validationErrors.push(...paramsErrors);
+            }
+            
+            if (route.headers) {
+              const headersErrors = validate(ctx.headers, route.headers.schema);
+              validationErrors.push(...headersErrors);
+            }
+            
+            if (validationErrors.length > 0) {
+              throw new ValidationErrors(validationErrors);
+            }
+          }
+
+          // Call handler
           const result = await handler.call(instance, ctx);
           if (res.headersSent) {
             return;
@@ -84,6 +123,10 @@ export async function attachControllers(
           }
           res.status(defaultStatus(route)).json(result);
         } catch (error) {
+          if (isValidationErrors(error)) {
+            sendValidationError(res, error);
+            return;
+          }
           if (isHttpError(error)) {
             sendHttpError(res, error);
             return;
@@ -106,6 +149,13 @@ function defaultStatus(route: {
     (response) => !response.error && response.status < 400
   );
   return success?.status ?? 200;
+}
+
+function sendValidationError(res: Response, error: ValidationErrors): void {
+  if (res.headersSent) {
+    return;
+  }
+  res.status(error.status).json(error.body);
 }
 
 function sendHttpError(res: Response, error: HttpError): void {

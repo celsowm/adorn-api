@@ -309,6 +309,7 @@ export const t = {
   ): ObjectSchema => ({
     kind: "object",
     properties,
+    additionalProperties: false,
     ...opts
   }),
 
