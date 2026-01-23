@@ -12,7 +12,8 @@ A modern, decorator-first web framework built on Express with built-in OpenAPI 3
 - 📦 **Metal ORM Integration**: First-class support for Metal ORM with auto-generated CRUD DTOs
 - 🚀 **Streaming Support**: Server-Sent Events (SSE) and streaming responses
 - 📝 **Request Validation**: Automatic validation of request bodies, params, query, and headers
-- 🔒 **Error Handling**: Structured error responses with error DTO support
+- 🔧 **Transformers**: Custom field transformations with @Transform decorator and built-in transform functions
+-  **Error Handling**: Structured error responses with error DTO support
 - 💾 **File Uploads**: Easy handling of file uploads with multipart form data
 - 🌐 **CORS Support**: Built-in CORS configuration
 - 🏗️ **Lifecycle Hooks**: Application bootstrap and shutdown lifecycle events
@@ -384,6 +385,10 @@ createExpressApp({
   cors: true, // Enable CORS with default options or configure
   jsonBody: true, // Parse JSON bodies (default: true)
   inputCoercion: "safe", // Input coercion mode ("safe" or "strict")
+  validation: { // Validation configuration
+    enabled: true, // Enable validation (default: true)
+    mode: "strict" // Validation mode: "strict" or "safe"
+  },
   multipart: { // File upload configuration
     dest: "./uploads",
     limits: { fileSize: 50 * 1024 * 1024 }
@@ -483,6 +488,234 @@ import { lifecycleRegistry } from "adorn-api";
 lifecycleRegistry.register(new DatabaseService());
 ```
 
+## Validation
+
+Adorn API provides automatic request validation and a comprehensive validation system for your DTOs and schemas.
+
+### Validation Configuration
+
+```typescript
+createExpressApp({
+  controllers: [UserController],
+  validation: {
+    enabled: true, // Enable validation (default: true)
+    mode: "strict" // Validation mode: "strict" or "safe"
+  }
+});
+```
+
+### Validation Errors
+
+Invalid requests automatically return structured validation errors:
+
+```typescript
+// Example error response
+{
+  "statusCode": 400,
+  "message": "Validation failed",
+  "errors": [
+    {
+      "field": "name",
+      "message": "must be at least 1 character long",
+      "value": "",
+      "code": "STRING_MIN_LENGTH"
+    },
+    {
+      "field": "email",
+      "message": "must be a valid email",
+      "value": "invalid-email",
+      "code": "FORMAT_EMAIL"
+    }
+  ]
+}
+```
+
+### Validation Error Codes
+
+Adorn API provides machine-readable error codes for programmatic error handling:
+
+```typescript
+import { ValidationErrorCode } from "adorn-api";
+
+console.log(ValidationErrorCode.FORMAT_EMAIL); // "FORMAT_EMAIL"
+console.log(ValidationErrorCode.STRING_MIN_LENGTH); // "STRING_MIN_LENGTH"
+```
+
+### Manual Validation
+
+You can also manually validate data using the `validate` function:
+
+```typescript
+import { validate, ValidationErrors, t } from "adorn-api";
+
+const data = { name: "", email: "invalid" };
+const errors = validate(data, t.object({
+  name: t.string({ minLength: 1 }),
+  email: t.string({ format: "email" })
+}));
+
+if (errors.length > 0) {
+  throw new ValidationErrors(errors);
+}
+```
+
+## Transformers
+
+Transform fields during serialization with custom transform functions or built-in transform utilities.
+
+### Basic Transform
+
+```typescript
+import { Dto, Field, Transform, t } from "adorn-api";
+
+@Dto()
+export class UserDto {
+  @Field(t.string())
+  @Transform((value) => value.toUpperCase())
+  name!: string;
+
+  @Field(t.dateTime())
+  @Transform((value) => value.toISOString())
+  createdAt!: Date;
+}
+```
+
+### Built-in Transforms
+
+Adorn API includes common transform functions:
+
+```typescript
+import { Dto, Field, Transform, Transforms, t } from "adorn-api";
+
+@Dto()
+export class UserDto {
+  @Field(t.string())
+  @Transform(Transforms.toLowerCase)
+  email!: string;
+
+  @Field(t.number())
+  @Transform(Transforms.round(2))
+  price!: number;
+
+  @Field(t.string())
+  @Transform(Transforms.mask(4)) // Mask all but last 4 characters
+  creditCard!: string;
+
+  @Field(t.dateTime())
+  @Transform(Transforms.toISOString)
+  birthDate!: Date;
+}
+```
+
+### Conditional Transforms with Groups
+
+Apply transforms only to specific serialization groups:
+
+```typescript
+import { Dto, Field, Transform, Expose, t } from "adorn-api";
+
+@Dto()
+export class UserDto {
+  @Field(t.string())
+  name!: string;
+
+  @Field(t.string())
+  @Expose({ groups: ["admin"] })
+  @Transform((value) => Transforms.mask(2), { groups: ["admin"] })
+  phoneNumber!: string;
+
+  @Field(t.string())
+  @Expose({ groups: ["internal"] })
+  @Transform((value) => "[REDACTED]", { groups: ["external"] })
+  internalNote!: string;
+}
+```
+
+### Custom Transform Functions
+
+Create custom transform functions:
+
+```typescript
+import { Dto, Field, Transform, t } from "adorn-api";
+
+const toCurrency = (value: number, currency: string = "USD") => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency
+  }).format(value);
+};
+
+@Dto()
+export class ProductDto {
+  @Field(t.string())
+  name!: string;
+
+  @Field(t.number())
+  @Transform(toCurrency)
+  price!: number;
+
+  @Field(t.number())
+  @Transform((value) => toCurrency(value, "EUR"))
+  priceEUR!: number;
+}
+```
+
+### Serialization with Options
+
+Control serialization with custom options:
+
+```typescript
+import { serialize, createSerializer } from "adorn-api";
+import { UserDto } from "./user.dtos";
+
+const user = new UserDto();
+user.name = "John Doe";
+user.phoneNumber = "123-456-7890";
+user.internalNote = "This is an internal note";
+
+// Basic serialization
+const basic = serialize(user);
+// Output: { name: "John Doe" }
+
+// Admin group serialization
+const admin = serialize(user, { groups: ["admin"] });
+// Output: { name: "John Doe", phoneNumber: "********90" }
+
+// External group serialization
+const external = serialize(user, { groups: ["external"] });
+// Output: { name: "John Doe", internalNote: "[REDACTED]" }
+
+// Create a preset serializer
+const adminSerializer = createSerializer({ groups: ["admin"] });
+const adminData = adminSerializer(user);
+```
+
+### Exclude Fields
+
+Control which fields are excluded or exposed:
+
+```typescript
+import { Dto, Field, Exclude, Expose, t } from "adorn-api";
+
+@Dto()
+export class UserDto {
+  @Field(t.string())
+  name!: string;
+
+  @Field(t.string())
+  @Exclude() // Always exclude from serialization
+  password!: string;
+
+  @Field(t.string())
+  @Expose({ name: "email_address" }) // Rename field in output
+  email!: string;
+
+  @Field(t.string())
+  @Exclude({ groups: ["public"] }) // Exclude from public group
+  internalComment!: string;
+}
+```
+
 ## Examples
 
 Check out the `examples/` directory for more comprehensive examples:
@@ -493,6 +726,7 @@ Check out the `examples/` directory for more comprehensive examples:
 - `metal-orm-sqlite-music/` - Complex relations with Metal ORM
 - `streaming/` - SSE and streaming responses
 - `openapi/` - OpenAPI documentation customization
+- `validation/` - Comprehensive validation examples with various schema types
 
 ## Testing
 
