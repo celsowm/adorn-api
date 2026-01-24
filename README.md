@@ -9,7 +9,7 @@ A modern, decorator-first web framework built on Express with built-in OpenAPI 3
 - 🔌 **Express Integration**: Built on top of Express for familiarity and extensibility
 - 🎯 **Type-Safe Data Transfer Objects**: Define schemas with TypeScript for compile-time checks
 - 🔄 **DTO Composition**: Reuse and compose DTOs with PickDto, OmitDto, PartialDto, and MergeDto
-- 📦 **Metal ORM Integration**: First-class support for Metal ORM with auto-generated CRUD DTOs
+- 📦 **Metal ORM Integration**: First-class support for Metal ORM with auto-generated CRUD DTOs, including transformer-aware schema generation
 - 🚀 **Streaming Support**: Server-Sent Events (SSE) and streaming responses
 - 📝 **Request Validation**: Automatic validation of request bodies, params, query, and headers
 - 🔧 **Transformers**: Custom field transformations with @Transform decorator and built-in transform functions
@@ -264,6 +264,7 @@ class UploadController {
 ## Metal ORM Integration
 
 Adorn API has first-class support for Metal ORM, providing automatic CRUD DTO generation.
+Transformer decorators such as `@Email`, `@Length`, `@Pattern`, and `@Alphanumeric` are reflected in the generated DTO schemas (validation + OpenAPI).
 
 ### 1. Define Entities
 

@@ -12,7 +12,7 @@ import {
   createMetalDtoOverrides
 } from "../../src/adapter/metal-orm/index";
 import { HttpError } from "../../src/core/errors";
-import { Column, Entity, PrimaryKey, col } from "metal-orm";
+import { Alphanumeric, Column, Email, Entity, Length, Pattern, PrimaryKey, col } from "metal-orm";
 import { getDtoMeta } from "../../src/core/metadata";
 
 describe("metal-orm helpers", () => {
@@ -279,6 +279,42 @@ describe("metal-orm helpers", () => {
       expect(createMeta?.fields.id).toBeUndefined();
       expect(updateMeta?.fields.name?.optional).toBe(true);
       expect(Object.keys(paramsMeta?.fields ?? {})).toEqual(["id"]);
+    });
+
+    @Entity({ tableName: "transformer_entities" })
+    class TransformerEntity {
+      @PrimaryKey(col.autoIncrement(col.int()))
+      id!: number;
+
+      @Column(col.varchar(50))
+      @Length({ min: 2, max: 10 })
+      name!: string;
+
+      @Column(col.text())
+      @Pattern({ pattern: /^[A-Z]+$/ })
+      code!: string;
+
+      @Column(col.text())
+      @Email()
+      email!: string;
+
+      @Column(col.text())
+      @Alphanumeric({ allowHyphens: true })
+      slug!: string;
+    }
+
+    it("maps transformer validators into string schemas", () => {
+      const crud = createMetalCrudDtos(TransformerEntity);
+
+      @crud.create
+      class CreateTransformerDto {}
+
+      const meta = getDtoMeta(CreateTransformerDto);
+      expect((meta?.fields.email?.schema as any).format).toBe("email");
+      expect((meta?.fields.name?.schema as any).minLength).toBe(2);
+      expect((meta?.fields.name?.schema as any).maxLength).toBe(10);
+      expect((meta?.fields.code?.schema as any).pattern).toBe("^[A-Z]+$");
+      expect((meta?.fields.slug?.schema as any).pattern).toBe("^[a-zA-Z0-9-]*$");
     });
   });
 

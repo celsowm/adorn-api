@@ -1,3 +1,9 @@
+// Ensure standard decorator metadata is available for metal-orm transformers.
+const symbolMetadata = (Symbol as { metadata?: symbol }).metadata;
+if (!symbolMetadata) {
+  (Symbol as { metadata?: symbol }).metadata = Symbol("Symbol.metadata");
+}
+
 export {
   MetalDto
 } from "./dto";

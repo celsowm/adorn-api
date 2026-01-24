@@ -1,10 +1,12 @@
-import type { ColumnDef } from "metal-orm";
 import {
   columnTypeToOpenApiFormat,
   columnTypeToOpenApiType,
-  getColumnMap
+  getColumnMap,
+  getDecoratorMetadata,
+  type ColumnDef,
+  type TransformerMetadata
 } from "metal-orm";
-import type { SchemaNode } from "../../core/schema";
+import type { SchemaNode, StringSchema } from "../../core/schema";
 import { t } from "../../core/schema";
 import type { FieldMeta } from "../../core/metadata";
 import type { FieldOverride } from "../../core/decorators";
@@ -46,6 +48,7 @@ export function buildFields(
   const include = options.include ? new Set(options.include) : undefined;
   const exclude = options.exclude ? new Set(options.exclude) : undefined;
   const mode = options.mode ?? "response";
+  const transformerMetadata = getTransformerMetadata(target);
   const fields: Record<string, FieldMeta> = {};
 
   for (const [name, col] of Object.entries(columns)) {
@@ -59,7 +62,7 @@ export function buildFields(
       continue;
     }
 
-    fields[name] = buildFieldMeta(col, mode);
+    fields[name] = buildFieldMeta(col, mode, transformerMetadata?.[name]);
   }
 
   if (options.overrides) {
@@ -69,11 +72,16 @@ export function buildFields(
   return fields;
 }
 
-export function buildFieldMeta(col: any, mode: MetalDtoMode): FieldMeta {
+export function buildFieldMeta(
+  col: any,
+  mode: MetalDtoMode,
+  transformer?: TransformerMetadata
+): FieldMeta {
   let schema = columnToSchemaNode(col);
   if (!col.notNull) {
     schema = t.nullable(schema);
   }
+  schema = applyTransformerMetadata(schema, transformer, mode);
 
   const optional = isOptional(col, mode);
   const field: FieldMeta = { schema };
@@ -204,6 +212,141 @@ function normalizeOverride(field: FieldMeta, override: FieldOverride): FieldMeta
 
 function isSchemaNode(value: unknown): value is SchemaNode {
   return !!value && typeof value === "object" && "kind" in (value as SchemaNode);
+}
+
+function getTransformerMetadata(
+  target: any
+): Record<string, TransformerMetadata> | undefined {
+  if (typeof target !== "function") {
+    return undefined;
+  }
+  const meta = getDecoratorMetadata(target);
+  if (!meta?.transformers?.length) {
+    return undefined;
+  }
+  const output: Record<string, TransformerMetadata> = {};
+  for (const entry of meta.transformers) {
+    output[entry.propertyName] = entry.metadata;
+  }
+  return output;
+}
+
+function applyTransformerMetadata(
+  schema: SchemaNode,
+  transformer: TransformerMetadata | undefined,
+  mode: MetalDtoMode
+): SchemaNode {
+  if (!transformer || !shouldApplyTransformers(transformer, mode)) {
+    return schema;
+  }
+  if (schema.kind !== "string") {
+    return schema;
+  }
+  const stringSchema = schema as StringSchema;
+  for (const validator of transformer.validators ?? []) {
+    applyStringValidator(stringSchema, validator);
+  }
+  return stringSchema;
+}
+
+function shouldApplyTransformers(
+  transformer: TransformerMetadata,
+  mode: MetalDtoMode
+): boolean {
+  if (transformer.executionOrder === "both") {
+    return true;
+  }
+  if (mode === "response") {
+    return transformer.executionOrder === "after-load";
+  }
+  return transformer.executionOrder === "before-save";
+}
+
+function applyStringValidator(
+  schema: StringSchema,
+  validator: { name?: string }
+): void {
+  const name = validator.name?.toLowerCase();
+  switch (name) {
+    case "email":
+      if (!schema.format || schema.format === "email") {
+        schema.format = "email";
+      }
+      break;
+    case "length":
+      applyLengthValidator(schema, validator);
+      break;
+    case "pattern":
+      applyPatternValidator(schema, validator);
+      break;
+    case "alphanumeric":
+      applyAlphanumericValidator(schema, validator);
+      break;
+    default:
+      break;
+  }
+}
+
+function applyLengthValidator(
+  schema: StringSchema,
+  validator: { [key: string]: unknown }
+): void {
+  const options = (validator as { options?: { min?: number; max?: number; exact?: number } }).options;
+  if (!options) {
+    return;
+  }
+  if (typeof options.exact === "number") {
+    schema.minLength = options.exact;
+    schema.maxLength = options.exact;
+    return;
+  }
+  if (typeof options.min === "number") {
+    schema.minLength = schema.minLength !== undefined
+      ? Math.max(schema.minLength, options.min)
+      : options.min;
+  }
+  if (typeof options.max === "number") {
+    schema.maxLength = schema.maxLength !== undefined
+      ? Math.min(schema.maxLength, options.max)
+      : options.max;
+  }
+}
+
+function applyPatternValidator(
+  schema: StringSchema,
+  validator: { [key: string]: unknown }
+): void {
+  if (schema.pattern) {
+    return;
+  }
+  const options = (validator as { options?: { pattern?: RegExp } }).options;
+  if (!options?.pattern) {
+    return;
+  }
+  schema.pattern = options.pattern.source;
+}
+
+function applyAlphanumericValidator(
+  schema: StringSchema,
+  validator: { [key: string]: unknown }
+): void {
+  if (schema.pattern) {
+    return;
+  }
+  const options = (validator as {
+    options?: { allowSpaces?: boolean; allowUnderscores?: boolean; allowHyphens?: boolean }
+  }).options;
+  const extras: string[] = [];
+  if (options?.allowSpaces) {
+    extras.push(" ");
+  }
+  if (options?.allowUnderscores) {
+    extras.push("_");
+  }
+  if (options?.allowHyphens) {
+    extras.push("-");
+  }
+  schema.pattern = `^[a-zA-Z0-9${extras.join("")}]*$`;
 }
 
 /**
