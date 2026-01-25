@@ -3,6 +3,7 @@ import {
   createValidationError,
   getCachedRegex,
   isValidDateString,
+  isValidDateOnlyString,
   isValidUUID,
   isValidEmail,
   isValidURI,
@@ -20,6 +21,27 @@ export function validateString(
   path: string
 ): ValidationError[] {
   const errors: ValidationError[] = [];
+
+  if (value instanceof Date) {
+    if (schema.format === "date" || schema.format === "date-time") {
+      if (Number.isNaN(value.getTime())) {
+        const message = schema.format === "date"
+          ? "must be a valid date"
+          : "must be a valid date-time";
+        errors.push(createValidationError(
+          path,
+          message,
+          value,
+          (schema.format === "date"
+            ? "FORMAT_DATE"
+            : "FORMAT_DATE_TIME") as ValidationErrorCode
+        ));
+      }
+      return errors;
+    }
+    errors.push(createValidationError(path, "must be a string", value, "TYPE_STRING" as ValidationErrorCode));
+    return errors;
+  }
 
   if (typeof value !== "string") {
     errors.push(createValidationError(path, "must be a string", value, "TYPE_STRING" as ValidationErrorCode));
@@ -68,6 +90,11 @@ function validateFormat(
     case "date-time":
       if (!isValidDateString(value)) {
         errors.push(createValidationError(path, "must be a valid date-time", value, "FORMAT_DATE_TIME" as ValidationErrorCode));
+      }
+      break;
+    case "date":
+      if (!isValidDateOnlyString(value)) {
+        errors.push(createValidationError(path, "must be a valid date", value, "FORMAT_DATE" as ValidationErrorCode));
       }
       break;
     case "email":

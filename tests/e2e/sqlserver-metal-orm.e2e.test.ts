@@ -95,6 +95,7 @@ type CreateNotaVersaoDtoType = InstanceType<typeof CreateNotaVersaoDto>;
 type ReplaceNotaVersaoDtoType = InstanceType<typeof ReplaceNotaVersaoDto>;
 type UpdateNotaVersaoDtoType = InstanceType<typeof UpdateNotaVersaoDto>;
 type NotaVersaoParams = InstanceType<typeof NotaVersaoParamsDto>;
+type NotaVersaoPayload = Partial<Pick<NotaVersao, "data" | "sprint" | "ativo" | "mensagem">>;
 
 function parseNotaVersaoId(value: unknown): number {
   const provided =
@@ -105,12 +106,22 @@ function parseNotaVersaoId(value: unknown): number {
   return provided;
 }
 
-function parseNotaVersaoDate(value: string | Date): Date {
-  const parsed = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    throw new HttpError(400, "Invalid date for nota de versão.");
+function applyNotaVersaoPayload(
+  entity: NotaVersao,
+  body: NotaVersaoPayload
+): void {
+  if (body.data !== undefined) {
+    entity.data = body.data;
   }
-  return parsed;
+  if (body.sprint !== undefined) {
+    entity.sprint = body.sprint;
+  }
+  if (body.ativo !== undefined) {
+    entity.ativo = body.ativo;
+  }
+  if (body.mensagem !== undefined) {
+    entity.mensagem = body.mensagem;
+  }
 }
 
 async function getNotaVersaoOrThrow(session: OrmSession, id: number): Promise<NotaVersao> {
@@ -139,16 +150,10 @@ class NotaVersaoController {
   @Returns({ status: 201, schema: NotaVersaoDto })
   async create(ctx: RequestContext<CreateNotaVersaoDtoType>): Promise<NotaVersao> {
     return withSession(async (session) => {
-      const parsedData = parseNotaVersaoDate(ctx.body.data);
       const nota = new NotaVersao();
-      const dbDate = parsedData.toISOString();
-      (nota as any).data = dbDate;
-      nota.sprint = ctx.body.sprint;
-      nota.ativo = ctx.body.ativo;
-      nota.mensagem = ctx.body.mensagem;
+      applyNotaVersaoPayload(nota, ctx.body);
       await session.persist(nota);
       await session.commit();
-      nota.data = parsedData;
       return nota;
     });
   }
@@ -169,14 +174,8 @@ class NotaVersaoController {
     const id = parseNotaVersaoId(ctx.params.id);
     return withSession(async (session) => {
       const entity = await getNotaVersaoOrThrow(session, id);
-      const parsedData = parseNotaVersaoDate(ctx.body.data);
-      const dbDate = parsedData.toISOString();
-      (entity as any).data = dbDate;
-      entity.sprint = ctx.body.sprint;
-      entity.ativo = ctx.body.ativo;
-      entity.mensagem = ctx.body.mensagem;
+      applyNotaVersaoPayload(entity, ctx.body);
       await session.commit();
-      entity.data = parsedData;
       return entity;
     });
   }
@@ -189,24 +188,8 @@ class NotaVersaoController {
     const id = parseNotaVersaoId(ctx.params.id);
     return withSession(async (session) => {
       const entity = await getNotaVersaoOrThrow(session, id);
-      let parsedData: Date | undefined;
-      if (ctx.body.data !== undefined) {
-        parsedData = parseNotaVersaoDate(ctx.body.data);
-        (entity as any).data = parsedData.toISOString();
-      }
-      if (ctx.body.sprint !== undefined) {
-        entity.sprint = ctx.body.sprint;
-      }
-      if (ctx.body.ativo !== undefined) {
-        entity.ativo = ctx.body.ativo;
-      }
-      if (ctx.body.mensagem !== undefined) {
-        entity.mensagem = ctx.body.mensagem;
-      }
+      applyNotaVersaoPayload(entity, ctx.body);
       await session.commit();
-      if (parsedData) {
-        entity.data = parsedData;
-      }
       return entity;
     });
   }

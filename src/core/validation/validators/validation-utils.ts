@@ -230,6 +230,22 @@ export function isValidDateString(value: string): boolean {
 }
 
 /**
+ * Checks if a value is a valid date-only string (YYYY-MM-DD).
+ * @param value - Value to check
+ * @returns True if value is a valid date-only string
+ */
+export function isValidDateOnlyString(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const date = new Date(value);
+  if (isNaN(date.getTime())) {
+    return false;
+  }
+  return date.toISOString().slice(0, 10) === value;
+}
+
+/**
  * Checks if a value is a valid UUID (v1-v5).
  * @param value - Value to check
  * @returns True if value is a valid UUID

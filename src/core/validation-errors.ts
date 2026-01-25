@@ -16,6 +16,7 @@ export enum ValidationErrorCode {
 
   // String format errors
   FORMAT_UUID = "FORMAT_UUID",
+  FORMAT_DATE = "FORMAT_DATE",
   FORMAT_DATE_TIME = "FORMAT_DATE_TIME",
   FORMAT_EMAIL = "FORMAT_EMAIL",
   FORMAT_URI = "FORMAT_URI",

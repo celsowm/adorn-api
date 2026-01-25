@@ -147,7 +147,7 @@ function columnToSchemaNode(col: ColumnDef): SchemaNode {
 }
 
 function buildStringSchema(col: ColumnDef): SchemaNode {
-  const format = columnTypeToOpenApiFormat(col);
+  const format = columnTypeToOpenApiFormat(col) ?? inferDateFormat(col.type);
   const type = col.type.toUpperCase();
   const length = col.args?.[0];
   if ((type === "VARCHAR" || type === "CHAR") && typeof length === "number") {
@@ -158,6 +158,24 @@ function buildStringSchema(col: ColumnDef): SchemaNode {
     });
   }
   return t.string({ format });
+}
+
+function inferDateFormat(columnType: string): string | undefined {
+  const normalized = columnType.toUpperCase();
+  if (normalized === "DATE" || normalized === "DATEONLY") {
+    return "date";
+  }
+  if ([
+    "DATETIME",
+    "DATETIME2",
+    "DATETIMEOFFSET",
+    "SMALLDATETIME",
+    "TIMESTAMP",
+    "TIMESTAMPTZ"
+  ].includes(normalized)) {
+    return "date-time";
+  }
+  return undefined;
 }
 
 function getEnumValues(col: ColumnDef): string[] | undefined {

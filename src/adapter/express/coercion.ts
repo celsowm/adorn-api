@@ -3,6 +3,7 @@ import { getDtoMeta, type InputMeta } from "../../core/metadata";
 import type {
   SchemaNode,
   SchemaSource,
+  StringSchema,
   ArraySchema,
   NumberSchema,
   ObjectSchema,
@@ -14,7 +15,7 @@ import { coerce } from "../../core/coerce";
 import { HttpError } from "../../core/errors";
 import type { InputCoercionMode } from "./types";
 
-export type InputLocation = "params" | "query";
+export type InputLocation = "params" | "query" | "body";
 
 interface CoerceInputOptions {
   mode: InputCoercionMode;
@@ -103,7 +104,7 @@ function coerceValue(
       return coerceBoolean(value);
     }
     case "string": {
-      return coerceString(value);
+      return coerceString(value, schema);
     }
     case "array":
       return coerceArrayValue(value, schema, mode);
@@ -150,12 +151,37 @@ function coerceBoolean(value: unknown): CoerceOutcome {
   return { value: parsed, ok: true, changed: parsed !== value };
 }
 
-function coerceString(value: unknown): CoerceOutcome {
+function coerceString(value: unknown, schema: StringSchema): CoerceOutcome {
+  if (!isPresent(value)) {
+    return { value, ok: true, changed: false };
+  }
+  if (schema.format === "date" || schema.format === "date-time") {
+    const parsed = parseDateValue(value);
+    if (!parsed) {
+      return { value, ok: false, changed: false };
+    }
+    return { value: parsed, ok: true, changed: parsed !== value };
+  }
   const parsed = coerce.string(value);
   if (parsed === undefined) {
     return { value, ok: true, changed: false };
   }
   return { value: parsed, ok: true, changed: parsed !== value };
+}
+
+function parseDateValue(value: unknown): Date | undefined {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? undefined : value;
+  }
+  const text = coerce.string(value);
+  if (text === undefined) {
+    return undefined;
+  }
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+  return parsed;
 }
 
 function coerceArrayValue(
@@ -322,7 +348,12 @@ function isPresent(value: unknown): boolean {
 }
 
 function buildInvalidMessage(location: InputLocation, fields: string[]): string {
-  const label = location === "params" ? "path parameter" : "query parameter";
+  let label = "query parameter";
+  if (location === "params") {
+    label = "path parameter";
+  } else if (location === "body") {
+    label = "request body field";
+  }
   const suffix = fields.length > 1 ? "s" : "";
   return `Invalid ${label}${suffix}: ${fields.join(", ")}.`;
 }

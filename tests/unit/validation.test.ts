@@ -114,6 +114,19 @@ describe("Validation", () => {
         { field: "", message: "must be a valid date-time", value: "invalid-date", code: ValidationErrorCode.FORMAT_DATE_TIME }
       ]);
     });
+
+    it("should validate date format", () => {
+      const errors1 = validate("2024-01-15", t.string({ format: "date" }));
+      expect(errors1).toEqual([]);
+
+      const errors2 = validate("2024-13-40", t.string({ format: "date" }));
+      expect(errors2).toEqual([
+        { field: "", message: "must be a valid date", value: "2024-13-40", code: ValidationErrorCode.FORMAT_DATE }
+      ]);
+
+      const errors3 = validate(new Date("2024-01-15T00:00:00Z"), t.string({ format: "date" }));
+      expect(errors3).toEqual([]);
+    });
   });
 
   describe("Number Constraints", () => {

@@ -1,9 +1,11 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import type { Constructor } from "../../core/types";
+import type { SchemaSource } from "../../core/schema";
 import { getControllerMeta } from "../../core/metadata";
 import { isHttpError, type HttpError } from "../../core/errors";
 import type { InputCoercionSetting, MultipartOptions, RequestContext, ValidationOptions } from "./types";
 import { createInputCoercer } from "./coercion";
+import { serializeResponse } from "./response-serializer";
 import {
   createMultipartMiddleware,
   extractFiles,
@@ -53,6 +55,9 @@ export async function attachControllers(
       const coerceQuery = inputCoercion === false
         ? undefined
         : createInputCoercer<Record<string, unknown>>(route.query, { mode: inputCoercion, location: "query" });
+      const coerceBody = inputCoercion === false
+        ? undefined
+        : createInputCoercer<Record<string, unknown>>(route.body, { mode: inputCoercion, location: "body" });
 
       // Build middleware chain
       const middlewares: Array<(req: Request, res: Response, next: NextFunction) => void> = [];
@@ -74,7 +79,7 @@ export async function attachControllers(
           const ctx = {
             req,
             res,
-            body: req.body,
+            body: coerceBody ? coerceBody(req.body) : req.body,
             query: coerceQuery ? coerceQuery(req.query as Record<string, unknown>) : req.query,
             params: coerceParams ? coerceParams(req.params) : req.params,
             headers: req.headers,
@@ -121,7 +126,9 @@ export async function attachControllers(
             res.status(defaultStatus(route)).end();
             return;
           }
-          res.status(defaultStatus(route)).json(result);
+          const responseSchema = getResponseSchema(route);
+          const output = responseSchema ? serializeResponse(result, responseSchema) : result;
+          res.status(defaultStatus(route)).json(output);
         } catch (error) {
           if (isValidationErrors(error)) {
             sendValidationError(res, error);
@@ -149,6 +156,14 @@ function defaultStatus(route: {
     (response) => !response.error && response.status < 400
   );
   return success?.status ?? 200;
+}
+
+function getResponseSchema(route: {
+  responses?: Array<{ status: number; error?: boolean; schema?: SchemaSource }>;
+}): SchemaSource | undefined {
+  const responses = route.responses ?? [];
+  const success = responses.find((response) => !response.error && response.status < 400);
+  return success?.schema;
 }
 
 function sendValidationError(res: Response, error: ValidationErrors): void {
