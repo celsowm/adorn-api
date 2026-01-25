@@ -1,0 +1,231 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpError,
+  Params,
+  Patch,
+  Post,
+  Put,
+  Query,
+  Returns,
+  parsePagination,
+  t,
+  type RequestContext
+} from "../../src";
+import { applyFilter, toPagedResponse } from "metal-orm";
+import type { SimpleWhereInput } from "metal-orm";
+import { entityRef, selectFromEntity } from "metal-orm";
+import { createSession } from "./db";
+import {
+  CreateUserDto,
+  ReplaceUserDto,
+  UpdateUserDto,
+  UserDto,
+  UserErrors,
+  UserParamsDto,
+  UserWithPostsPagedResponseDto,
+  UserQueryDto,
+  UserQueryDtoClass
+} from "./user.dtos";
+import { CreateUserPostDto, CreateUserPostDtoClass, PostDto } from "./post.dtos";
+import { User } from "./user.entity";
+
+type IntegerOptions = {
+  min?: number;
+  max?: number;
+  clamp?: boolean;
+};
+
+function parseInteger(value: unknown, options: IntegerOptions = {}): number | undefined {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return undefined;
+  }
+  const result = value;
+  if (options.min !== undefined && result < options.min) {
+    return options.clamp ? options.min : undefined;
+  }
+  if (options.max !== undefined && result > options.max) {
+    return options.clamp ? options.max : undefined;
+  }
+  return result;
+}
+
+function requireUserId(value: unknown): number {
+  const id = parseInteger(value, { min: 1 });
+  if (id === undefined) {
+    throw new HttpError(400, "Invalid user id.");
+  }
+  return id;
+}
+
+const userRef = entityRef(User);
+
+type UserFilter = SimpleWhereInput<typeof User, "name" | "email">;
+type OrmSession = ReturnType<typeof createSession>;
+
+async function withSession<T>(handler: (session: OrmSession) => Promise<T>) {
+  const session = createSession();
+  try {
+    return await handler(session);
+  } finally {
+    await session.dispose();
+  }
+}
+
+async function getUserOrThrow(session: OrmSession, id: number): Promise<User> {
+  const user = await session.find(User, id);
+  if (!user) {
+    throw new HttpError(404, "User not found.");
+  }
+  return user;
+}
+
+function buildUserFilter(query?: UserQueryDto): UserFilter | undefined {
+  if (!query) {
+    return undefined;
+  }
+  const filter: UserFilter = {};
+  if (query.nameContains) {
+    filter.name = { contains: query.nameContains };
+  }
+  if (query.emailContains) {
+    filter.email = { contains: query.emailContains };
+  }
+  return Object.keys(filter).length ? filter : undefined;
+}
+
+@Controller("/users")
+export class UserController {
+  @Get("/")
+  @Query(UserQueryDtoClass)
+  @Returns(UserWithPostsPagedResponseDto)
+  async list(ctx: RequestContext<unknown, UserQueryDto>) {
+    const paginationQuery = (ctx.query ?? {}) as Record<string, unknown>;
+    const { page, pageSize } = parsePagination(paginationQuery);
+    return withSession(async (session) => {
+      const filters = buildUserFilter(ctx.query);
+      const query = applyFilter(
+        selectFromEntity(User)
+          .orderBy(userRef.id, "ASC")
+          .include("posts", {
+            columns: ["id", "title", "body", "userId", "createdAt"]
+          }),
+        User,
+        filters
+      );
+      const paged = await query.executePaged(session, { page, pageSize });
+      return toPagedResponse(paged);
+    });
+  }
+
+  @Get("/:id")
+  @Params(UserParamsDto)
+  @Returns(UserDto)
+  @UserErrors
+  async getOne(ctx: RequestContext<unknown, undefined, UserParamsDto>) {
+    const id = requireUserId(ctx.params.id);
+    return withSession(async (session) => {
+      const user = await getUserOrThrow(session, id);
+      return user as UserDto;
+    });
+  }
+
+  @Post("/")
+  @Body(CreateUserDto)
+  @Returns({ status: 201, schema: UserDto })
+  async create(ctx: RequestContext<CreateUserDto>) {
+    return withSession(async (session) => {
+      const user = new User();
+      user.name = ctx.body.name;
+      user.email = ctx.body.email ?? null;
+      user.createdAt = new Date();
+      await session.persist(user);
+      await session.commit();
+      return user as UserDto;
+    });
+  }
+
+  @Put("/:id")
+  @Params(UserParamsDto)
+  @Body(ReplaceUserDto)
+  @Returns(UserDto)
+  @UserErrors
+  async replace(ctx: RequestContext<ReplaceUserDto, undefined, UserParamsDto>) {
+    const id = requireUserId(ctx.params.id);
+    return withSession(async (session) => {
+      const entity = await getUserOrThrow(session, id);
+      entity.name = ctx.body.name;
+      entity.email = ctx.body.email ?? null;
+      await session.commit();
+      return entity as UserDto;
+    });
+  }
+
+  @Patch("/:id")
+  @Params(UserParamsDto)
+  @Body(UpdateUserDto)
+  @Returns(UserDto)
+  @UserErrors
+  async update(ctx: RequestContext<UpdateUserDto, undefined, UserParamsDto>) {
+    const id = requireUserId(ctx.params.id);
+    return withSession(async (session) => {
+      const entity = await getUserOrThrow(session, id);
+      if (ctx.body.name !== undefined) {
+        entity.name = ctx.body.name;
+      }
+      if (ctx.body.email !== undefined) {
+        entity.email = ctx.body.email ?? null;
+      }
+      await session.commit();
+      return entity as UserDto;
+    });
+  }
+
+  @Get("/:id/posts")
+  @Params(UserParamsDto)
+  @Returns(t.array(t.ref(PostDto)))
+  @UserErrors
+  async listPosts(ctx: RequestContext<unknown, undefined, UserParamsDto>) {
+    const id = requireUserId(ctx.params.id);
+    return withSession(async (session) => {
+      const user = await getUserOrThrow(session, id);
+      return (await user.posts.load()) as PostDto[];
+    });
+  }
+
+  @Post("/:id/posts")
+  @Params(UserParamsDto)
+  @Body(CreateUserPostDtoClass)
+  @Returns({ status: 201, schema: PostDto })
+  @UserErrors
+  async createPost(
+    ctx: RequestContext<CreateUserPostDto, undefined, UserParamsDto>
+  ) {
+    const id = requireUserId(ctx.params.id);
+    return withSession(async (session) => {
+      const user = await getUserOrThrow(session, id);
+      const post = user.posts.add({
+        title: ctx.body.title,
+        body: ctx.body.body ?? null,
+        createdAt: new Date()
+      });
+      await session.commit();
+      return post as PostDto;
+    });
+  }
+
+  @Delete("/:id")
+  @Params(UserParamsDto)
+  @Returns({ status: 204 })
+  @UserErrors
+  async remove(ctx: RequestContext<unknown, undefined, UserParamsDto>) {
+    const id = requireUserId(ctx.params.id);
+    return withSession(async (session) => {
+      const user = await getUserOrThrow(session, id);
+      await session.remove(user);
+      await session.commit();
+    });
+  }
+}
