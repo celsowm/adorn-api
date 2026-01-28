@@ -43,7 +43,10 @@ export {
 
 export {
   withSession,
-  parseIdOrThrow
+  parseIdOrThrow,
+  compactUpdates,
+  applyInput,
+  getEntityOrThrow
 } from "./utils";
 
 export {

@@ -111,7 +111,8 @@ function applyNotaVersaoPayload(
   body: NotaVersaoPayload
 ): void {
   if (body.data !== undefined) {
-    entity.data = body.data;
+    // Convert Date to ISO string for SQL Server compatibility
+    entity.data = body.data instanceof Date ? body.data.toISOString() as any : body.data;
   }
   if (body.sprint !== undefined) {
     entity.sprint = body.sprint;
