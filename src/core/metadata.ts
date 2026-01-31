@@ -1,6 +1,12 @@
 import type { SchemaNode, SchemaSource } from "./schema";
 import type { Constructor, DtoConstructor, HttpMethod } from "./types";
 
+// Ensure standard decorator metadata is available for Stage 3 decorators.
+const symbolMetadata = (Symbol as { metadata?: symbol }).metadata;
+if (!symbolMetadata) {
+  (Symbol as { metadata?: symbol }).metadata = Symbol("Symbol.metadata");
+}
+
 export interface FieldMeta {
   schema: SchemaNode;
   optional?: boolean;

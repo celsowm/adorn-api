@@ -24,6 +24,8 @@ A modern, decorator-first web framework built on Express with built-in OpenAPI 3
 npm install adorn-api
 ```
 
+Note: Adorn uses Stage 3 decorator metadata (`Symbol.metadata`). If the runtime does not provide it, Adorn polyfills `Symbol.metadata` on import to keep decorator metadata consistent.
+
 ## Quick Start
 
 ### 1. Define DTOs
@@ -171,6 +173,10 @@ export class UserDto {
   name!: string;
 }
 ```
+
+### Stage 3 Decorator Metadata
+
+Adorn relies on Stage 3 decorator metadata (`Symbol.metadata`) to connect information across decorators (DTO fields, routes, params, etc.). If the runtime does not provide it, Adorn polyfills `Symbol.metadata` on import so decorators share a consistent metadata object.
 
 ### Request Context
 
