@@ -19,17 +19,18 @@ function serializeWithDto(value: unknown, dto: DtoConstructor): unknown {
   if (Array.isArray(value)) {
     return value.map((entry) => serializeWithDto(entry, dto));
   }
-  if (!isPlainObject(value)) {
+  const plainValue = toPlainObject(value);
+  if (!plainValue) {
     return value;
   }
   const meta = getDtoMeta(dto);
   if (!meta) {
-    return value;
+    return plainValue;
   }
-  const output: Record<string, unknown> = { ...value };
+  const output: Record<string, unknown> = { ...plainValue };
   for (const [name, field] of Object.entries(meta.fields)) {
-    if (name in value) {
-      output[name] = serializeWithSchema((value as Record<string, unknown>)[name], field.schema);
+    if (name in plainValue) {
+      output[name] = serializeWithSchema(plainValue[name], field.schema);
     }
   }
   return output;
@@ -83,16 +84,17 @@ function serializeObject(
   value: unknown,
   properties: Record<string, SchemaNode> | undefined
 ): unknown {
-  if (!isPlainObject(value)) {
+  const plainValue = toPlainObject(value);
+  if (!plainValue) {
     return value;
   }
-  const output: Record<string, unknown> = { ...value };
+  const output: Record<string, unknown> = { ...plainValue };
   if (!properties) {
     return output;
   }
   for (const [key, schema] of Object.entries(properties)) {
-    if (key in value) {
-      output[key] = serializeWithSchema((value as Record<string, unknown>)[key], schema);
+    if (key in plainValue) {
+      output[key] = serializeWithSchema(plainValue[key], schema);
     }
   }
   return output;
@@ -130,4 +132,36 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
     !Array.isArray(value) &&
     !(value instanceof Date)
   );
+}
+
+function toPlainObject(value: unknown): Record<string, unknown> | null {
+  // 1. Handle lazy-load wrappers (BelongsToReference)
+  if (typeof value === "object" && typeof (value as Record<string, unknown>).load === "function") {
+    const wrapper = value as { current: unknown; loaded: boolean; load: () => unknown };
+    if (wrapper.current !== undefined && wrapper.current !== null) {
+      return toPlainObject(wrapper.current);
+    }
+    if (wrapper.loaded) {
+      return null;
+    }
+    return null;
+  }
+  // 2. Handle plain objects
+  if (isPlainObject(value)) {
+    return value;
+  }
+  // 3. Convert class instances to plain objects
+  if (typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    for (const key of Object.getOwnPropertyNames(value)) {
+      if (key.startsWith('_') || key === 'constructor' || key === 'prototype') continue;
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (descriptor && descriptor.enumerable) {
+        const propertyValue = (value as Record<string, unknown>)[key];
+        result[key] = propertyValue;
+      }
+    }
+    return result;
+  }
+  return null;
 }
