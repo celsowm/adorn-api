@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import request from "supertest";
 import {
   Controller,
+  Get,
   Post,
   UploadedFile,
   UploadedFiles,
@@ -145,5 +146,81 @@ describe("File Upload E2E", () => {
       format: "binary",
       description: "The file to upload"
     });
+  });
+
+  it("should pretty print OpenAPI JSON when enabled", async () => {
+    @Controller("/api")
+    class PrettyPrintController {
+      @Get("/test")
+      @Returns({ status: 200, description: "Success" })
+      async test() {
+        return { success: true };
+      }
+    }
+
+    const app = await createExpressApp({
+      controllers: [PrettyPrintController],
+      openApi: {
+        info: { title: "Test API", version: "1.0.0" },
+        path: "/openapi.json",
+        prettyPrint: true
+      }
+    });
+
+    const response = await request(app).get("/openapi.json");
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("application/json");
+    expect(response.text).toContain('  "openapi": "3.1.0"');
+    expect(response.text).toContain('  "info": {');
+    expect(response.text).toContain('    "title": "Test API"');
+  });
+
+  it("should return minified JSON when prettyPrint is disabled", async () => {
+    @Controller("/api")
+    class MinifiedController {
+      @Get("/test")
+      @Returns({ status: 200, description: "Success" })
+      async test() {
+        return { success: true };
+      }
+    }
+
+    const app = await createExpressApp({
+      controllers: [MinifiedController],
+      openApi: {
+        info: { title: "Test API", version: "1.0.0" },
+        path: "/openapi.json",
+        prettyPrint: false
+      }
+    });
+
+    const response = await request(app).get("/openapi.json");
+    expect(response.status).toBe(200);
+    expect(response.text).not.toContain('  "openapi": "3.1.0"');
+    expect(response.text).toContain('"openapi":"3.1.0"');
+  });
+
+  it("should return minified JSON by default when prettyPrint is not set", async () => {
+    @Controller("/api")
+    class DefaultController {
+      @Get("/test")
+      @Returns({ status: 200, description: "Success" })
+      async test() {
+        return { success: true };
+      }
+    }
+
+    const app = await createExpressApp({
+      controllers: [DefaultController],
+      openApi: {
+        info: { title: "Test API", version: "1.0.0" },
+        path: "/openapi.json"
+      }
+    });
+
+    const response = await request(app).get("/openapi.json");
+    expect(response.status).toBe(200);
+    expect(response.text).not.toContain('  "openapi": "3.1.0"');
+    expect(response.text).toContain('"openapi":"3.1.0"');
   });
 });

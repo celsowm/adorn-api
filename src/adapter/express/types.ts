@@ -107,6 +107,8 @@ export interface OpenApiExpressOptions {
   servers?: OpenApiServer[];
   /** Path for OpenAPI JSON endpoint */
   path?: string;
+  /** Whether to pretty-print the JSON output (defaults to false for minified output) */
+  prettyPrint?: boolean;
   /** Documentation UI configuration */
   docs?: boolean | OpenApiDocsOptions;
 }

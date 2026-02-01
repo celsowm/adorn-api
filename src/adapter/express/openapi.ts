@@ -22,7 +22,12 @@ export function attachOpenApi(
   });
 
   app.get(openApiPath, (_req, res) => {
-    res.json(document);
+    if (options.prettyPrint) {
+      res.setHeader("Content-Type", "application/json");
+      res.send(JSON.stringify(document, null, 2));
+    } else {
+      res.json(document);
+    }
   });
 
   if (!options.docs) {
