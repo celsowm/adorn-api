@@ -30,6 +30,10 @@ export {
 } from "./crud-dtos";
 
 export {
+  createMetalTreeDtoClasses
+} from "./tree-dtos";
+
+export {
   createMetalDtoOverrides,
   type CreateMetalDtoOverridesOptions
 } from "./convention-overrides";
@@ -75,6 +79,10 @@ export type {
   MetalCrudDtoClasses,
   MetalCrudDtoClassNames,
   NestedCreateDtoOptions,
+  MetalTreeDtoClassOptions,
+  MetalTreeDtoClasses,
+  MetalTreeDtoClassNames,
+  MetalTreeListEntryOptions,
   ErrorDtoOptions,
   CreateSessionFn
 } from "./types";

@@ -228,6 +228,72 @@ export interface MetalCrudDtoClasses {
 }
 
 /**
+ * Metal Tree DTO class names.
+ */
+export interface MetalTreeDtoClassNames {
+  /** Entity DTO class name */
+  entity?: string;
+  /** Tree node DTO class name */
+  node?: string;
+  /** Tree node result DTO class name */
+  nodeResult?: string;
+  /** Threaded tree node DTO class name */
+  threadedNode?: string;
+  /** Tree list entry DTO class name */
+  treeListEntry?: string;
+}
+
+/**
+ * Options for tree list entry DTOs.
+ */
+export interface MetalTreeListEntryOptions {
+  /** Schema for list entry key */
+  keySchema?: SchemaNode;
+  /** Schema for list entry value */
+  valueSchema?: SchemaNode;
+}
+
+/**
+ * Options for Metal Tree DTO classes.
+ */
+export interface MetalTreeDtoClassOptions {
+  /** Base name for DTO classes */
+  baseName?: string;
+  /** Custom class names */
+  names?: MetalTreeDtoClassNames;
+  /** Reuse an existing entity DTO class */
+  entityDto?: DtoConstructor;
+  /** Options for generated entity DTO when entityDto is not provided */
+  entity?: MetalDtoOptions;
+  /** Whether to include depth metadata (default: true) */
+  includeTreeMetadata?: boolean;
+  /** Override the parent key column name */
+  parentKey?: string;
+  /** Tree list entry options */
+  treeListEntry?: MetalTreeListEntryOptions;
+}
+
+/**
+ * Metal Tree DTO classes.
+ */
+export interface MetalTreeDtoClasses {
+  /** Entity DTO class */
+  entity: DtoConstructor;
+  /** Tree node DTO class */
+  node: DtoConstructor;
+  /** Tree node result DTO class */
+  nodeResult: DtoConstructor;
+  /** Threaded tree node DTO class */
+  threadedNode: DtoConstructor;
+  /** Tree list entry DTO class */
+  treeListEntry: DtoConstructor;
+  /** Tree list schema */
+  treeListSchema: SchemaNode;
+  /** Threaded tree schema */
+  threadedTreeSchema: SchemaNode;
+}
+
+/**
  * Options for nested create DTOs.
  * @extends MetalDtoOptions
  */

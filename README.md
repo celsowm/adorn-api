@@ -9,7 +9,7 @@ A modern, decorator-first web framework built on Express with built-in OpenAPI 3
 - 🔌 **Express Integration**: Built on top of Express for familiarity and extensibility
 - 🎯 **Type-Safe Data Transfer Objects**: Define schemas with TypeScript for compile-time checks
 - 🔄 **DTO Composition**: Reuse and compose DTOs with PickDto, OmitDto, PartialDto, and MergeDto
-- 📦 **Metal ORM Integration**: First-class support for Metal ORM with auto-generated CRUD DTOs, including transformer-aware schema generation
+- 📦 **Metal ORM Integration**: First-class support for Metal ORM with auto-generated CRUD DTOs, transformer-aware schema generation, and tree DTOs for nested set (MPTT) models
 - 🚀 **Streaming Support**: Server-Sent Events (SSE) and streaming responses
 - 📝 **Request Validation**: Automatic validation of request bodies, params, query, and headers
 - 🔧 **Transformers**: Custom field transformations with @Transform decorator and built-in transform functions
@@ -379,6 +379,44 @@ export class UserController {
 }
 ```
 
+### Tree DTOs (Nested Set / MPTT)
+
+Metal ORM's tree helpers map cleanly into Adorn. Use `createMetalTreeDtoClasses` to generate DTOs for tree nodes,
+node results, threaded trees, and tree lists. These schemas are included in OpenAPI automatically.
+
+```typescript
+// category.dtos.ts
+import { createMetalTreeDtoClasses } from "adorn-api";
+import { CategoryDto } from "./category.dtos";
+import { Category } from "./category.entity";
+
+export const {
+  node: CategoryNodeDto,
+  nodeResult: CategoryNodeResultDto,
+  threadedNode: CategoryThreadedNodeDto,
+  treeListEntry: CategoryTreeListEntryDto,
+  treeListSchema: CategoryTreeListSchema,
+  threadedTreeSchema: CategoryThreadedTreeSchema
+} = createMetalTreeDtoClasses(Category, {
+  entityDto: CategoryDto
+});
+```
+
+```typescript
+// category.controller.ts
+import { Controller, Get, Returns } from "adorn-api";
+import { CategoryThreadedTreeSchema } from "./category.dtos";
+
+@Controller("/categories")
+class CategoryController {
+  @Get("/tree")
+  @Returns(CategoryThreadedTreeSchema)
+  async tree() {
+    // return threaded tree data
+  }
+}
+```
+
 ## Configuration
 
 ### Express App Options
@@ -730,6 +768,7 @@ Check out the `examples/` directory for more comprehensive examples:
 - `basic/` - Simple API with controllers and DTOs
 - `restful/` - RESTful API with complete CRUD operations
 - `metal-orm-sqlite/` - Metal ORM integration with SQLite
+- `metal-orm-tree/` - Metal ORM tree (nested set) DTO + OpenAPI integration
 - `metal-orm-sqlite-music/` - Complex relations with Metal ORM
 - `streaming/` - SSE and streaming responses
 - `openapi/` - OpenAPI documentation customization

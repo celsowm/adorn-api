@@ -8,7 +8,7 @@ import { startExampleServer } from "../utils/start-server";
 export async function start() {
   await initializeDatabase();
 
-  const app = createExpressApp({
+  const app = await createExpressApp({
     controllers: [ArtistController, AlbumController, TrackController],
     openApi: {
       info: { title: "Music Library API", version: "1.0.0" },

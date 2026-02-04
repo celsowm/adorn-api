@@ -7,7 +7,7 @@ import { startExampleServer } from "../utils/start-server";
 export async function start() {
   await initializeDatabase();
 
-  const app = createExpressApp({
+  const app = await createExpressApp({
     controllers: [UserController, PostController],
     openApi: {
       info: { title: "SQLite + MetalORM REST example", version: "1.0.0" },

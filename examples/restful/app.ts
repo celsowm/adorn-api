@@ -1,7 +1,7 @@
 import { createExpressApp } from "../../src";
 import { TaskController } from "./task.controller";
 
-export function createApp() {
+export async function createApp() {
   return createExpressApp({
     controllers: [TaskController],
     openApi: {
