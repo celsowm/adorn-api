@@ -256,6 +256,19 @@ export const t = {
   }),
 
   /**
+   * Creates a bytes (base64-encoded binary) string schema.
+   * Maps to OpenAPI type: "string" with format: "byte".
+   * Buffer values are automatically base64-encoded during response serialization.
+   * @param opts - String schema options
+   * @returns Bytes string schema
+   */
+  bytes: (opts: Omit<StringSchema, "kind" | "format"> = {}): StringSchema => ({
+    kind: "string",
+    format: "byte",
+    ...opts
+  }),
+
+  /**
    * Creates a number schema.
    * @param opts - Number schema options
    * @returns Number schema

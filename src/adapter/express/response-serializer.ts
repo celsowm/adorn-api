@@ -65,6 +65,9 @@ function serializeWithSchema(value: unknown, schema: SchemaNode): unknown {
 }
 
 function serializeString(value: unknown, format: string | undefined): unknown {
+  if (format === "byte" && Buffer.isBuffer(value)) {
+    return value.toString("base64");
+  }
   if (!(value instanceof Date)) {
     return value;
   }
