@@ -3,6 +3,7 @@ import {
   Get,
   Query,
   Returns,
+  type FilterMapping,
   parseFilter,
   parsePagination,
   withSession,
@@ -23,7 +24,7 @@ const alphaRef = entityRef(Alpha);
 
 const ALPHA_FILTER_MAPPINGS = {
   deltaNameContains: {
-    field: "bravos.some.charlies.some.delta.name",
+    field: "bravos.some.charlies.some.delta.some.name",
     operator: "contains"
   },
   charlieScoreGte: {
@@ -34,7 +35,7 @@ const ALPHA_FILTER_MAPPINGS = {
     field: "bravos.some.charlies.some.delta",
     operator: "isEmpty"
   }
-} as const;
+} as const satisfies Record<string, FilterMapping<Alpha>>;
 
 @Controller("/alphas")
 export class AlphaController {

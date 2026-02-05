@@ -1,4 +1,5 @@
 
+import type { BelongsToReference, HasManyCollection, HasOneReference, ManyToManyCollection } from "metal-orm";
 import type { DtoOptions, FieldOverride } from "../../core/decorators";
 import type { SchemaNode } from "../../core/schema";
 import type { DtoConstructor } from "../../core/types";
@@ -71,11 +72,59 @@ export interface FilterFieldMapping {
 }
 
 /**
+ * Relation quantifiers for to-many filters.
+ */
+export type RelationQuantifier = "some" | "every" | "none";
+
+type ExtractManyRelationTarget<T> =
+  T extends HasManyCollection<infer Child> ? Child
+  : T extends ManyToManyCollection<infer Child, any> ? Child
+  : never;
+
+type ExtractOneRelationTarget<T> =
+  T extends BelongsToReference<infer Child> ? Child
+  : T extends HasOneReference<infer Child> ? Child
+  : never;
+
+type FilterFieldPathSegments<T> = {
+  [K in keyof T & string]: ExtractManyRelationTarget<T[K]> extends never
+    ? ExtractOneRelationTarget<T[K]> extends never
+      ? [K]
+      : [K] | [K, RelationQuantifier] | [K, RelationQuantifier, ...FilterFieldPathSegments<ExtractOneRelationTarget<T[K]>>]
+    : [K]
+      | [K, RelationQuantifier]
+      | [K, RelationQuantifier, ...FilterFieldPathSegments<ExtractManyRelationTarget<T[K]>>]
+}[keyof T & string];
+
+/**
+ * Valid filter path strings for an entity, with relation quantifiers enforced.
+ */
+export type FilterFieldPath<T> = {
+  [K in keyof T & string]: ExtractManyRelationTarget<T[K]> extends never
+    ? ExtractOneRelationTarget<T[K]> extends never
+      ? K
+      : K | `${K}.${RelationQuantifier}` | `${K}.${RelationQuantifier}.${FilterFieldPath<ExtractOneRelationTarget<T[K]>>}`
+    : K
+      | `${K}.${RelationQuantifier}`
+      | `${K}.${RelationQuantifier}.${FilterFieldPath<ExtractManyRelationTarget<T[K]>>}`
+}[keyof T & string];
+
+/**
+ * Valid filter path arrays for an entity, with relation quantifiers enforced.
+ */
+export type FilterFieldPathArray<T> = FilterFieldPathSegments<T>;
+
+/**
+ * Supported filter field input types.
+ */
+export type FilterFieldInput<T> = FilterFieldPath<T> | FilterFieldPathArray<T>;
+
+/**
  * Filter mapping configuration.
  */
-export interface FilterMapping {
+export interface FilterMapping<T = Record<string, unknown>> {
   /** Field name */
-  field: string | string[];
+  field: FilterFieldInput<T>;
   /** Filter operator */
   operator: FilterOperator;
 }
@@ -83,11 +132,11 @@ export interface FilterMapping {
 /**
  * Options for parsing filters.
  */
-export interface ParseFilterOptions {
+export interface ParseFilterOptions<T = Record<string, unknown>> {
   /** Query parameters */
   query?: Record<string, unknown>;
   /** Field mappings */
-  fieldMappings?: Record<string, FilterMapping>;
+  fieldMappings?: Record<string, FilterMapping<T>>;
 }
 
 /**

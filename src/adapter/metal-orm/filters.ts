@@ -1,4 +1,4 @@
-import type { Filter, FilterMapping, FilterOperator, ParseFilterOptions } from "./types";
+import type { Filter, FilterFieldInput, FilterMapping, FilterOperator, ParseFilterOptions } from "./types";
 
 /**
  * Parses filter parameters from query parameters.
@@ -8,16 +8,16 @@ import type { Filter, FilterMapping, FilterOperator, ParseFilterOptions } from "
  */
 export function parseFilter<T, K extends keyof T>(
   query: Record<string, unknown> | undefined,
-  mappings: Record<string, FilterMapping>
+  mappings: Record<string, FilterMapping<T>>
 ): Filter<T, K> | undefined;
 export function parseFilter<T, K extends keyof T>(
-  options: ParseFilterOptions
+  options: ParseFilterOptions<T>
 ): Filter<T, K> | undefined;
 export function parseFilter<T, K extends keyof T>(
-  queryOrOptions: Record<string, unknown> | ParseFilterOptions | undefined,
-  mappings?: Record<string, FilterMapping>
+  queryOrOptions: Record<string, unknown> | ParseFilterOptions<T> | undefined,
+  mappings?: Record<string, FilterMapping<T>>
 ): Filter<T, K> | undefined {
-  const options = mappings ? undefined : (queryOrOptions as ParseFilterOptions | undefined);
+  const options = mappings ? undefined : (queryOrOptions as ParseFilterOptions<T> | undefined);
   const query = mappings
     ? (queryOrOptions as Record<string, unknown> | undefined)
     : options?.query;
@@ -39,7 +39,7 @@ export function parseFilter<T, K extends keyof T>(
       continue;
     }
     const operator = mapping.operator ?? "equals";
-    const fieldPath = normalizePath(mapping.field);
+    const fieldPath = normalizePath(mapping.field as string | string[]);
     if (!fieldPath.length) {
       continue;
     }
@@ -58,9 +58,9 @@ export function parseFilter<T, K extends keyof T>(
  */
 export function createFilterMappings<T extends Record<string, unknown>>(
   _entity: T,
-  fields: Array<{ queryKey: string; field: (keyof T & string) | string[]; operator?: FilterOperator }>
-): Record<string, FilterMapping> {
-  const mappings: Record<string, FilterMapping> = {};
+  fields: Array<{ queryKey: string; field: FilterFieldInput<T>; operator?: FilterOperator }>
+): Record<string, FilterMapping<T>> {
+  const mappings: Record<string, FilterMapping<T>> = {};
 
   for (const { queryKey, field, operator = "equals" } of fields) {
     mappings[queryKey] = { field, operator };

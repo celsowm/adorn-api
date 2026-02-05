@@ -381,7 +381,9 @@ export class UserController {
 
 ### Deep Relation Filters
 
-`parseFilter` now accepts nested relation paths, so you can filter deep chains like Alpha → Bravo → Charlie → Delta.
+`parseFilter` now accepts nested relation paths, so you can filter deep chains like Alpha → Bravo → Charlie → Delta. If
+you type your filter mappings with `FilterMapping`, VS Code will enforce relation quantifiers like `some`, `every`, or
+`none` for relation filters, matching Metal ORM's runtime rules.
 
 ```typescript
 // alpha.entity.ts
@@ -451,13 +453,13 @@ export class Delta {
 
 ```typescript
 // alpha.controller.ts (filtering)
-import { parseFilter } from "adorn-api";
+import { parseFilter, type FilterMapping } from "adorn-api";
 import { applyFilter, selectFromEntity, type WhereInput } from "metal-orm";
 import { Alpha } from "./alpha.entity";
 
 const ALPHA_FILTERS = {
   deltaNameContains: {
-    field: "bravos.some.charlies.some.delta.name",
+    field: "bravos.some.charlies.some.delta.some.name",
     operator: "contains"
   },
   deltaIsMissing: {
@@ -468,7 +470,7 @@ const ALPHA_FILTERS = {
     field: "bravos.some.charlies.some.score",
     operator: "gte"
   }
-};
+} as const satisfies Record<string, FilterMapping<Alpha>>;
 
 const filters = parseFilter(
   (ctx.query ?? {}) as Record<string, unknown>,

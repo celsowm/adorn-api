@@ -61,8 +61,13 @@ describe("metal-orm deep filters", () => {
   it("filters by deep delta name", async () => {
     const response = await request(app)
       .get("/alphas")
-      .query({ deltaNameContains: "Core" })
-      .expect(200);
+      .query({ deltaNameContains: "Core" });
+
+    if (response.status !== 200) {
+      throw new Error(
+        `Expected 200 from /alphas?deltaNameContains=Core, got ${response.status}: ${response.text}`
+      );
+    }
 
     const names = response.body.items.map((item: { name: string }) => item.name).sort();
     expect(names).toEqual(["Alpha One", "Alpha Two"]);
