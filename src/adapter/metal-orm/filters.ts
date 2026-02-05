@@ -58,7 +58,7 @@ export function parseFilter<T, K extends keyof T>(
  */
 export function createFilterMappings<T extends Record<string, unknown>>(
   _entity: T,
-  fields: Array<{ queryKey: string; field: keyof T | string | string[]; operator?: FilterOperator }>
+  fields: Array<{ queryKey: string; field: (keyof T & string) | string[]; operator?: FilterOperator }>
 ): Record<string, FilterMapping> {
   const mappings: Record<string, FilterMapping> = {};
 
