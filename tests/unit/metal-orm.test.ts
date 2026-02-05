@@ -143,6 +143,110 @@ describe("metal-orm helpers", () => {
       expect(result).toEqual({ posts: { isEmpty: true } });
     });
 
+    it("Acervo -> procuradorTitular (BelongsTo) -> nome: no 'some' needed", () => {
+      // Real scenario from user's codebase:
+      // Acervo has @BelongsTo procuradorTitular -> Usuario
+      // Usuario has nome field
+      // BelongsTo is a to-one relation, so NO "some" quantifier is needed
+      const mappings = {
+        procuradorNomeContains: {
+          field: "procuradorTitular.nome",  // Correct: no "some" for BelongsTo
+          operator: "contains" as const
+        }
+      };
+      const result = parseFilter<{ procuradorTitular: unknown }, "procuradorTitular">(
+        { procuradorNomeContains: "João" },
+        mappings
+      );
+      // Correct filter structure for BelongsTo relation
+      expect(result).toEqual({
+        procuradorTitular: {
+          nome: { contains: "João" }
+        }
+      });
+    });
+
+    it("Acervo -> processosAdministrativos (HasMany) -> titulo: needs 'some'", () => {
+      // Acervo has @HasMany processosAdministrativos -> ProcessoAdministrativo
+      // HasMany is a to-many relation, so "some" quantifier IS needed
+      const mappings = {
+        processoTituloContains: {
+          field: "processosAdministrativos.some.titulo",  // "some" required for HasMany
+          operator: "contains" as const
+        }
+      };
+      const result = parseFilter<{ processosAdministrativos: unknown }, "processosAdministrativos">(
+        { processoTituloContains: "Processo" },
+        mappings
+      );
+      expect(result).toEqual({
+        processosAdministrativos: {
+          some: {
+            titulo: { contains: "Processo" }
+          }
+        }
+      });
+    });
+
+    it("auto-inserting 'some' breaks BelongsTo: procuradorTitular.some.nome is INVALID", () => {
+      // This proves the AI suggestion is WRONG
+      // If we auto-inserted "some" for procuradorTitular.nome, we'd get:
+      // procuradorTitular.some.nome - INVALID because BelongsTo doesn't support "some"
+      
+      // Correct: BelongsTo uses direct nesting
+      const correctMappings = {
+        procuradorNome: { field: "procuradorTitular.nome", operator: "equals" as const }
+      };
+      const correctResult = parseFilter<{ procuradorTitular: unknown }, "procuradorTitular">(
+        { procuradorNome: "Maria" },
+        correctMappings
+      );
+      expect(correctResult).toEqual({
+        procuradorTitular: { nome: { equals: "Maria" } }
+      });
+
+      // WRONG: What the AI suggestion would produce (auto-inserting "some")
+      // This would cause Metal-ORM runtime error: "some" is not valid for BelongsTo
+      const wrongResult = {
+        procuradorTitular: { some: { nome: { equals: "Maria" } } }
+      };
+      expect(correctResult).not.toEqual(wrongResult);
+    });
+
+    it("Usuario -> especializada (BelongsTo) -> nome: no 'some' needed", () => {
+      // Usuario has @BelongsTo especializada -> Especializada
+      const mappings = {
+        especializadaNome: { field: "especializada.nome", operator: "equals" as const }
+      };
+      const result = parseFilter<{ especializada: unknown }, "especializada">(
+        { especializadaNome: "Criminal" },
+        mappings
+      );
+      // BelongsTo: direct nesting, no "some"
+      expect(result).toEqual({
+        especializada: { nome: { equals: "Criminal" } }
+      });
+      // NOT this (what auto-insert would produce):
+      expect(result).not.toEqual({
+        especializada: { some: { nome: { equals: "Criminal" } } }
+      });
+    });
+
+    it("Usuario -> perfis (BelongsToMany) -> nome: needs 'some'", () => {
+      // Usuario has @BelongsToMany perfis -> Perfil (many-to-many via pivot table)
+      // BelongsToMany is also a to-many relation, so "some" IS needed
+      const mappings = {
+        perfilNome: { field: "perfis.some.nome", operator: "equals" as const }
+      };
+      const result = parseFilter<{ perfis: unknown }, "perfis">(
+        { perfilNome: "Admin" },
+        mappings
+      );
+      expect(result).toEqual({
+        perfis: { some: { nome: { equals: "Admin" } } }
+      });
+    });
+
     it("ignores empty string values", () => {
       const mappings = { nameContains: { field: "name" as const, operator: "contains" as const } };
       const result = parseFilter<{ name: string }, "name">({ nameContains: "" }, mappings);
