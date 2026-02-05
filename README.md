@@ -379,6 +379,111 @@ export class UserController {
 }
 ```
 
+### Deep Relation Filters
+
+`parseFilter` now accepts nested relation paths, so you can filter deep chains like Alpha → Bravo → Charlie → Delta.
+
+```typescript
+// alpha.entity.ts
+import { BelongsTo, Column, Entity, HasMany, PrimaryKey, col } from "metal-orm";
+import type { BelongsToReference, HasManyCollection } from "metal-orm";
+
+@Entity({ tableName: "alphas" })
+export class Alpha {
+  @PrimaryKey(col.autoIncrement(col.int()))
+  id!: number;
+
+  @Column(col.notNull(col.text()))
+  name!: string;
+
+  @HasMany({ target: () => Bravo, foreignKey: "alphaId" })
+  bravos!: HasManyCollection<Bravo>;
+}
+
+@Entity({ tableName: "bravos" })
+export class Bravo {
+  @PrimaryKey(col.autoIncrement(col.int()))
+  id!: number;
+
+  @Column(col.notNull(col.text()))
+  code!: string;
+
+  @Column(col.notNull(col.int()))
+  alphaId!: number;
+
+  @BelongsTo({ target: () => Alpha, foreignKey: "alphaId" })
+  alpha!: BelongsToReference<Alpha>;
+
+  @HasMany({ target: () => Charlie, foreignKey: "bravoId" })
+  charlies!: HasManyCollection<Charlie>;
+}
+
+@Entity({ tableName: "charlies" })
+export class Charlie {
+  @PrimaryKey(col.autoIncrement(col.int()))
+  id!: number;
+
+  @Column(col.notNull(col.int()))
+  score!: number;
+
+  @Column(col.notNull(col.int()))
+  bravoId!: number;
+
+  @Column(col.int())
+  deltaId?: number | null;
+
+  @BelongsTo({ target: () => Bravo, foreignKey: "bravoId" })
+  bravo!: BelongsToReference<Bravo>;
+
+  @BelongsTo({ target: () => Delta, foreignKey: "deltaId" })
+  delta?: BelongsToReference<Delta>;
+}
+
+@Entity({ tableName: "deltas" })
+export class Delta {
+  @PrimaryKey(col.autoIncrement(col.int()))
+  id!: number;
+
+  @Column(col.notNull(col.text()))
+  name!: string;
+}
+```
+
+```typescript
+// alpha.controller.ts (filtering)
+import { parseFilter } from "adorn-api";
+import { applyFilter, selectFromEntity, type WhereInput } from "metal-orm";
+import { Alpha } from "./alpha.entity";
+
+const ALPHA_FILTERS = {
+  deltaNameContains: {
+    field: "bravos.some.charlies.some.delta.name",
+    operator: "contains"
+  },
+  deltaIsMissing: {
+    field: "bravos.some.charlies.some.delta",
+    operator: "isEmpty"
+  },
+  charlieScoreGte: {
+    field: "bravos.some.charlies.some.score",
+    operator: "gte"
+  }
+};
+
+const filters = parseFilter(
+  (ctx.query ?? {}) as Record<string, unknown>,
+  ALPHA_FILTERS
+);
+
+const query = applyFilter(
+  selectFromEntity(Alpha),
+  Alpha,
+  filters as WhereInput<typeof Alpha>
+);
+```
+
+Example query string: `?deltaNameContains=core&charlieScoreGte=90`
+
 ### Tree DTOs (Nested Set / MPTT)
 
 Metal ORM's tree helpers map cleanly into Adorn. Use `createMetalTreeDtoClasses` to generate DTOs for tree nodes,
@@ -769,6 +874,7 @@ Check out the `examples/` directory for more comprehensive examples:
 - `restful/` - RESTful API with complete CRUD operations
 - `metal-orm-sqlite/` - Metal ORM integration with SQLite
 - `metal-orm-tree/` - Metal ORM tree (nested set) DTO + OpenAPI integration
+- `metal-orm-deep-filters/` - Deep relation filtering example (Alpha → Bravo → Charlie → Delta)
 - `metal-orm-sqlite-music/` - Complex relations with Metal ORM
 - `streaming/` - SSE and streaming responses
 - `openapi/` - OpenAPI documentation customization

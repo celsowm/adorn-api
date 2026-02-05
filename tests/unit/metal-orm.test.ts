@@ -115,6 +115,34 @@ describe("metal-orm helpers", () => {
       expect(result).toEqual({ name: { contains: "John" }, userId: { equals: 123 } });
     });
 
+    it("builds nested relation filters from field paths", () => {
+      const mappings = {
+        postTitleContains: { field: "posts.some.title", operator: "contains" as const }
+      };
+      const result = parseFilter<{ posts: unknown }, "posts">(
+        { postTitleContains: "Hello" },
+        mappings
+      );
+      expect(result).toEqual({ posts: { some: { title: { contains: "Hello" } } } });
+    });
+
+    it("reads nested query values by path", () => {
+      const mappings = {
+        "posts.titleContains": { field: "posts.some.title", operator: "contains" as const }
+      };
+      const result = parseFilter<{ posts: unknown }, "posts">(
+        { posts: { titleContains: "Hello" } },
+        mappings
+      );
+      expect(result).toEqual({ posts: { some: { title: { contains: "Hello" } } } });
+    });
+
+    it("supports relation-level operators", () => {
+      const mappings = { postsEmpty: { field: "posts", operator: "isEmpty" as const } };
+      const result = parseFilter<{ posts: unknown }, "posts">({ postsEmpty: true }, mappings);
+      expect(result).toEqual({ posts: { isEmpty: true } });
+    });
+
     it("ignores empty string values", () => {
       const mappings = { nameContains: { field: "name" as const, operator: "contains" as const } };
       const result = parseFilter<{ name: string }, "name">({ nameContains: "" }, mappings);

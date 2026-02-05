@@ -75,9 +75,9 @@ export interface FilterFieldMapping {
  */
 export interface FilterMapping {
   /** Field name */
-  field: string;
+  field: string | string[];
   /** Filter operator */
-  operator: "equals" | "contains" | "startsWith" | "endsWith" | "gt" | "gte" | "lt" | "lte";
+  operator: FilterOperator;
 }
 
 /**
@@ -91,11 +91,32 @@ export interface ParseFilterOptions {
 }
 
 /**
+ * Filter operator.
+ */
+export type FilterOperator =
+  | "equals"
+  | "not"
+  | "in"
+  | "notIn"
+  | "contains"
+  | "startsWith"
+  | "endsWith"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "isEmpty"
+  | "isNotEmpty";
+
+/**
  * Filter type for querying.
  */
 export type Filter<T, K extends keyof T> = {
   [P in K]?: {
     equals?: T[P];
+    not?: T[P];
+    in?: Array<T[P]>;
+    notIn?: Array<T[P]>;
     contains?: T[P];
     startsWith?: T[P];
     endsWith?: T[P];
@@ -103,6 +124,7 @@ export type Filter<T, K extends keyof T> = {
     gte?: T[P];
     lt?: T[P];
     lte?: T[P];
+    mode?: "default" | "insensitive";
   };
 };
 
