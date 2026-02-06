@@ -2,6 +2,7 @@ export * from "./core/decorators";
 export * from "./core/schema";
 export * from "./core/openapi";
 export * from "./core/errors";
+export * from "./core/response";
 export * from "./core/validation";
 export * from "./core/validation-errors";
 export * from "./core/coerce";

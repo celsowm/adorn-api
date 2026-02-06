@@ -3,6 +3,7 @@ import type { Constructor } from "../../core/types";
 import type { SchemaSource } from "../../core/schema";
 import { getControllerMeta } from "../../core/metadata";
 import { isHttpError, type HttpError } from "../../core/errors";
+import { isHttpResponse } from "../../core/response";
 import type { InputCoercionSetting, MultipartOptions, RequestContext, ValidationOptions } from "./types";
 import { createInputCoercer } from "./coercion";
 import { serializeResponse } from "./response-serializer";
@@ -74,7 +75,7 @@ export async function attachControllers(
       const routeHandler = async (req: Request, res: Response, next: NextFunction) => {
         try {
           const files = extractFiles(req);
-          
+
           // Create context
           const ctx = {
             req,
@@ -91,27 +92,27 @@ export async function attachControllers(
           // Validate inputs if validation is enabled
           if (isValidationEnabled) {
             const validationErrors = [];
-            
+
             if (route.body) {
               const bodyErrors = validate(ctx.body, route.body.schema);
               validationErrors.push(...bodyErrors);
             }
-            
+
             if (route.query) {
               const queryErrors = validate(ctx.query, route.query.schema);
               validationErrors.push(...queryErrors);
             }
-            
+
             if (route.params) {
               const paramsErrors = validate(ctx.params, route.params.schema);
               validationErrors.push(...paramsErrors);
             }
-            
+
             if (route.headers) {
               const headersErrors = validate(ctx.headers, route.headers.schema);
               validationErrors.push(...headersErrors);
             }
-            
+
             if (validationErrors.length > 0) {
               throw new ValidationErrors(validationErrors);
             }
@@ -122,6 +123,23 @@ export async function attachControllers(
           if (res.headersSent) {
             return;
           }
+
+          if (isHttpResponse(result)) {
+            if (result.headers) {
+              for (const [key, value] of Object.entries(result.headers)) {
+                res.setHeader(key, value);
+              }
+            }
+            if (result.body === undefined) {
+              res.status(result.status).end();
+            } else {
+              const responseSchema = getResponseSchemaForStatus(route, result.status);
+              const output = responseSchema ? serializeResponse(result.body, responseSchema) : result.body;
+              res.status(result.status).json(output);
+            }
+            return;
+          }
+
           if (result === undefined) {
             res.status(defaultStatus(route)).end();
             return;
@@ -164,6 +182,17 @@ function getResponseSchema(route: {
   const responses = route.responses ?? [];
   const success = responses.find((response) => !response.error && response.status < 400);
   return success?.schema;
+}
+
+function getResponseSchemaForStatus(
+  route: {
+    responses?: Array<{ status: number; error?: boolean; schema?: SchemaSource }>;
+  },
+  status: number
+): SchemaSource | undefined {
+  const responses = route.responses ?? [];
+  const response = responses.find((r) => r.status === status);
+  return response?.schema;
 }
 
 function sendValidationError(res: Response, error: ValidationErrors): void {
