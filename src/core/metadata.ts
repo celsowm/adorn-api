@@ -60,6 +60,8 @@ export interface RouteMeta {
   sse?: boolean;
   /** Whether this route uses streaming response */
   streaming?: boolean;
+  /** Whether this route returns raw (non-JSON) responses */
+  raw?: boolean;
 }
 
 export interface ControllerMeta {

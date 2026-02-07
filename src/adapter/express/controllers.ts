@@ -132,6 +132,12 @@ export async function attachControllers(
             }
             if (result.body === undefined) {
               res.status(result.status).end();
+            } else if (route.raw) {
+              if (!res.getHeader("Content-Type")) {
+                const ct = getResponseContentType(route) ?? "application/octet-stream";
+                res.type(ct);
+              }
+              res.status(result.status).send(result.body as any);
             } else {
               const responseSchema = getResponseSchemaForStatus(route, result.status);
               const output = responseSchema ? serializeResponse(result.body, responseSchema) : result.body;
@@ -144,9 +150,18 @@ export async function attachControllers(
             res.status(defaultStatus(route)).end();
             return;
           }
-          const responseSchema = getResponseSchema(route);
-          const output = responseSchema ? serializeResponse(result, responseSchema) : result;
-          res.status(defaultStatus(route)).json(output);
+
+          if (route.raw) {
+            if (!res.getHeader("Content-Type")) {
+              const ct = getResponseContentType(route) ?? "application/octet-stream";
+              res.type(ct);
+            }
+            res.status(defaultStatus(route)).send(result as any);
+          } else {
+            const responseSchema = getResponseSchema(route);
+            const output = responseSchema ? serializeResponse(result, responseSchema) : result;
+            res.status(defaultStatus(route)).json(output);
+          }
         } catch (error) {
           if (isValidationErrors(error)) {
             sendValidationError(res, error);
@@ -182,6 +197,14 @@ function getResponseSchema(route: {
   const responses = route.responses ?? [];
   const success = responses.find((response) => !response.error && response.status < 400);
   return success?.schema;
+}
+
+function getResponseContentType(route: {
+  responses?: Array<{ status: number; error?: boolean; contentType?: string }>;
+}): string | undefined {
+  const responses = route.responses ?? [];
+  const success = responses.find((r) => !r.error && r.status < 400);
+  return success?.contentType;
 }
 
 function getResponseSchemaForStatus(

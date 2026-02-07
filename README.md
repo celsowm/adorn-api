@@ -11,6 +11,7 @@ A modern, decorator-first web framework built on Express with built-in OpenAPI 3
 - 🔄 **DTO Composition**: Reuse and compose DTOs with PickDto, OmitDto, PartialDto, and MergeDto
 - 📦 **Metal ORM Integration**: First-class support for Metal ORM with auto-generated CRUD DTOs, transformer-aware schema generation, and tree DTOs for nested set (MPTT) models
 - 🚀 **Streaming Support**: Server-Sent Events (SSE) and streaming responses
+- 🔧 **Raw Responses**: Return binary data, files, and non-JSON content with the `@Raw` decorator
 - 📝 **Request Validation**: Automatic validation of request bodies, params, query, and headers
 - 🔧 **Transformers**: Custom field transformations with @Transform decorator and built-in transform functions
 -  **Error Handling**: Structured error responses with error DTO support
@@ -247,6 +248,47 @@ class StreamingController {
     
     writer.close();
   }
+}
+```
+
+### Raw Responses
+
+Use the `@Raw()` decorator to return binary data (files, images, PDFs, etc.) without JSON serialization. The response body is sent with `res.send()` instead of `res.json()`.
+
+```typescript
+import { Controller, Get, Raw, Params, ok, type RequestContext } from "adorn-api";
+import fs from "fs/promises";
+
+@Controller("/files")
+class FileController {
+  @Get("/report.pdf")
+  @Raw({ contentType: "application/pdf", description: "Download PDF report" })
+  async downloadPdf(ctx: RequestContext) {
+    const buffer = await fs.readFile("report.pdf");
+    return ok(buffer);
+  }
+
+  @Get("/avatar/:id")
+  @Raw({ contentType: "image/png" })
+  async getAvatar(ctx: RequestContext) {
+    const image = await fs.readFile(`avatars/${ctx.params.id}.png`);
+    return image;
+  }
+}
+```
+
+You can also set custom headers (e.g. `Content-Disposition`) via `HttpResponse`:
+
+```typescript
+import { HttpResponse } from "adorn-api";
+
+@Get("/download/:filename")
+@Raw({ contentType: "application/octet-stream" })
+async download(ctx: RequestContext) {
+  const buffer = await fs.readFile(`uploads/${ctx.params.filename}`);
+  return new HttpResponse(200, buffer, {
+    "Content-Disposition": `attachment; filename="${ctx.params.filename}"`
+  });
 }
 ```
 

@@ -530,6 +530,38 @@ export function Streaming(options: StreamingOptions = {}) {
   };
 }
 
+/**
+ * Options for raw (non-JSON) response endpoints.
+ */
+export interface RawOptions {
+  /** Response content type (default: application/octet-stream) */
+  contentType?: string;
+  /** Description for OpenAPI documentation */
+  description?: string;
+}
+
+/**
+ * Decorator to mark a route as returning a raw (non-JSON) response.
+ * When applied, the response body is sent with res.send() instead of res.json(),
+ * preserving binary data such as Buffer, Uint8Array, or plain strings.
+ * @param options - Raw endpoint options
+ * @returns Method decorator function
+ */
+export function Raw(options: RawOptions = {}) {
+  return (_value: unknown, context: ClassMethodDecoratorContext): void => {
+    const route = getRoute(context.metadata as DecoratorMetadata, context.name);
+    route.raw = true;
+    if (options.description) {
+      route.description = options.description;
+    }
+    route.responses.push({
+      status: 200,
+      contentType: options.contentType ?? "application/octet-stream",
+      description: options.description ?? "Raw response"
+    });
+  };
+}
+
 function Route(method: HttpMethod, path: string) {
   return (_value: unknown, context: ClassMethodDecoratorContext): void => {
     const route = getRoute(context.metadata as DecoratorMetadata, context.name);
