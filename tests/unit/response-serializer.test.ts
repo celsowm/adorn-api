@@ -179,7 +179,7 @@ describe("serializeResponse with toJSON", () => {
       @Field(t.string())
       name!: string;
 
-      @Field(t.object())
+      @Field(t.object({}))
       nested!: { value: string };
     }
 
