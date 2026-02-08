@@ -138,7 +138,16 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function toPlainObject(value: unknown): Record<string, unknown> | null {
-  // 1. Handle lazy-load wrappers (BelongsToReference)
+  // 1. Check if value has custom toJSON method (e.g., metal-orm entities)
+  if (value !== null &&
+      typeof value === "object" &&
+      typeof (value as { toJSON?: () => unknown }).toJSON === "function") {
+    // Use the custom toJSON which handles circular refs and includes properly
+    const jsonResult = (value as { toJSON: () => unknown }).toJSON();
+    return jsonResult as Record<string, unknown>;
+  }
+
+  // 2. Handle lazy-load wrappers (BelongsToReference)
   if (typeof value === "object" && typeof (value as Record<string, unknown>).load === "function") {
     const wrapper = value as { current: unknown; loaded: boolean; load: () => unknown };
     if (wrapper.current !== undefined && wrapper.current !== null) {
@@ -149,11 +158,11 @@ function toPlainObject(value: unknown): Record<string, unknown> | null {
     }
     return null;
   }
-  // 2. Handle plain objects
+  // 3. Handle plain objects
   if (isPlainObject(value)) {
     return value;
   }
-  // 3. Convert class instances to plain objects
+  // 4. Convert class instances to plain objects
   if (typeof value === "object") {
     const result: Record<string, unknown> = {};
     for (const key of Object.getOwnPropertyNames(value)) {

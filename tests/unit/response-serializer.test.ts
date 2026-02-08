@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { serializeResponse } from "../../src/adapter/express/response-serializer";
 import { t } from "../../src/core/schema";
+import { Dto, Field } from "../../src/core/decorators";
 
 describe("serializeResponse", () => {
   describe("Buffer with format: byte", () => {
@@ -142,6 +143,52 @@ describe("t.bytes() helper", () => {
       kind: "string",
       format: "byte",
       description: "Binary data",
+    });
+  });
+});
+
+describe("serializeResponse with toJSON", () => {
+  it("should use toJSON method when available", () => {
+    // Create an object with non-enumerable properties and custom toJSON
+    const entity = {
+      id: 1,
+      name: "Test",
+      // toJSON is the standard way to customize JSON serialization
+      toJSON() {
+        return {
+          id: this.id,
+          name: this.name,
+          nested: { value: "included" } // This is non-enumerable in real entity
+        };
+      }
+    };
+
+    // Make nested non-enumerable to simulate metal-orm
+    Object.defineProperty(entity, 'nested', {
+      value: { value: "included" },
+      enumerable: false,
+      writable: true,
+      configurable: true
+    });
+
+    @Dto({})
+    class TestDto {
+      @Field(t.integer())
+      id!: number;
+
+      @Field(t.string())
+      name!: string;
+
+      @Field(t.object())
+      nested!: { value: string };
+    }
+
+    const result = serializeResponse(entity, TestDto);
+
+    expect(result).toEqual({
+      id: 1,
+      name: "Test",
+      nested: { value: "included" }
     });
   });
 });
