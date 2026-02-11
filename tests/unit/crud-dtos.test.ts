@@ -3,7 +3,9 @@ import {
   createMetalCrudDtos,
   createMetalCrudDtoClasses
 } from "../../src/adapter/metal-orm/index";
+import type { FilterMapping } from "../../src/adapter/metal-orm/index";
 import { getDtoMeta } from "../../src/core/metadata";
+import { t } from "../../src/core/schema";
 import { Alphanumeric, Column, Email, Entity, Length, Pattern, PrimaryKey, col } from "metal-orm";
 
 describe("createMetalCrudDtos", () => {
@@ -105,11 +107,25 @@ describe("createMetalCrudDtoClasses", () => {
     const responseMeta = getDtoMeta(classes.response);
     const createMeta = getDtoMeta(classes.create);
     const paramsMeta = getDtoMeta(classes.params);
+    const pagedResponseMeta = getDtoMeta(classes.pagedResponseDto);
+    const optionsMeta = getDtoMeta(classes.optionsDto);
 
     expect(classes.response.name).toBe("CrudDtoClassEntityDto");
+    expect(classes.queryDto.name).toBe("CrudDtoClassEntityQueryDto");
+    expect(classes.optionsQueryDto.name).toBe("CrudDtoClassEntityOptionsQueryDto");
+    expect(classes.optionDto.name).toBe("CrudDtoClassEntityOptionDto");
+    expect(pagedResponseMeta?.name).toBe("CrudDtoClassEntityPagedResponseDto");
+    expect(optionsMeta?.name).toBe("CrudDtoClassEntityOptionsDto");
     expect(responseMeta?.fields.id).toBeDefined();
     expect(createMeta?.fields.id).toBeUndefined();
     expect(paramsMeta?.fields).toEqual({ id: expect.any(Object) });
+    expect(classes.filterMappings).toEqual({
+      search: {
+        field: "nome",
+        operator: "contains"
+      }
+    });
+    expect(classes.sortableColumns).toEqual({});
   });
 
   it("applies custom name overrides", () => {
@@ -124,5 +140,61 @@ describe("createMetalCrudDtoClasses", () => {
     expect(classes.response.name).toBe("PersonDto");
     expect(classes.params.name).toBe("PersonIdDto");
     expect(classes.create.name).toBe("CreatePersonDto");
+  });
+
+  it("generates query/options artifacts and execution-ready metadata from one config", () => {
+    const classes = createMetalCrudDtoClasses(CrudDtoClassEntity, {
+      query: {
+        filters: {
+          nameContains: {
+            schema: t.string({ minLength: 1 }),
+            field: "name",
+            operator: "contains"
+          },
+          nickname: {
+            schema: t.string({ minLength: 1 }),
+            field: "nickname"
+          }
+        },
+        sortableColumns: {
+          name: "name",
+          nickname: "nickname"
+        },
+        options: {
+          labelField: "name",
+          searchKey: "labelContains"
+        }
+      },
+      errors: true
+    });
+
+    const queryMeta = getDtoMeta(classes.queryDto);
+    const optionsQueryMeta = getDtoMeta(classes.optionsQueryDto);
+    const optionMeta = getDtoMeta(classes.optionDto);
+
+    expect(queryMeta?.fields.page).toBeDefined();
+    expect(queryMeta?.fields.pageSize).toBeDefined();
+    expect(queryMeta?.fields.nameContains).toBeDefined();
+    expect(queryMeta?.fields.nickname).toBeDefined();
+    expect(queryMeta?.fields.sortBy).toBeDefined();
+    expect(queryMeta?.fields.sortDirection).toBeDefined();
+
+    expect(optionsQueryMeta?.fields.labelContains).toBeDefined();
+    expect(optionMeta?.fields.id).toBeDefined();
+    expect(optionMeta?.fields.name).toBeDefined();
+
+    expect(classes.filterMappings).toEqual({
+      nameContains: { field: "name", operator: "contains" },
+      nickname: { field: "nickname", operator: "equals" },
+      labelContains: { field: "name", operator: "contains" }
+    });
+
+    const typedMappings: Record<string, FilterMapping<CrudDtoClassEntity>> = classes.filterMappings;
+    expect(typedMappings.nameContains.field).toBe("name");
+    expect(classes.sortableColumns).toEqual({
+      name: "name",
+      nickname: "nickname"
+    });
+    expect(typeof classes.errors).toBe("function");
   });
 });

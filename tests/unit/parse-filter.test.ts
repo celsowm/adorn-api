@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseFilter } from "../../src/adapter/metal-orm/index";
-import type { FilterMapping } from "../../src/adapter/metal-orm/types";
+import type { FilterMapping } from "../../src/adapter/metal-orm/index";
 
 describe("parseFilter", () => {
   it("returns undefined when query is undefined", () => {

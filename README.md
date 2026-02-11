@@ -337,17 +337,49 @@ export class User {
 
 ```typescript
 // user.dtos.ts
-import { createMetalCrudDtoClasses } from "adorn-api";
+import { createMetalCrudDtoClasses, t } from "adorn-api";
 import { User } from "./user.entity";
 
 export const {
-  GetUserDto,
-  CreateUserDto,
-  UpdateUserDto,
-  ReplaceUserDto,
-  UserQueryDto,
-  UserPagedResponseDto
-} = createMetalCrudDtoClasses(User);
+  response: UserDto,
+  create: CreateUserDto,
+  replace: ReplaceUserDto,
+  update: UpdateUserDto,
+  params: UserParamsDto,
+  queryDto: UserQueryDto,
+  optionsQueryDto: UserOptionsQueryDto,
+  pagedResponseDto: UserPagedResponseDto,
+  optionDto: UserOptionDto,
+  optionsDto: UserOptionsDto,
+  errors: UserErrors,
+  filterMappings: USER_FILTER_MAPPINGS,
+  sortableColumns: USER_SORTABLE_COLUMNS
+} = createMetalCrudDtoClasses(User, {
+  mutationExclude: ["id", "createdAt"],
+  query: {
+    filters: {
+      nameContains: {
+        schema: t.string({ minLength: 1 }),
+        field: "name",
+        operator: "contains"
+      },
+      emailContains: {
+        schema: t.string({ minLength: 1 }),
+        field: "email",
+        operator: "contains"
+      }
+    },
+    sortableColumns: {
+      id: "id",
+      name: "name",
+      createdAt: "createdAt"
+    },
+    options: {
+      labelField: "name"
+    }
+  },
+  errors: true
+});
 ```
 
 ### 3. Create a CRUD Controller
@@ -365,19 +397,28 @@ import {
   Body,
   Query,
   Returns,
+  parseFilter,
   parsePagination,
+  parseSort,
+  t,
   type RequestContext
 } from "adorn-api";
 import { applyFilter, toPagedResponse } from "metal-orm";
 import { createSession } from "./db";
 import { User } from "./user.entity";
 import {
-  GetUserDto,
+  UserDto,
   CreateUserDto,
-  UpdateUserDto,
   ReplaceUserDto,
+  UpdateUserDto,
+  UserParamsDto,
   UserQueryDto,
-  UserPagedResponseDto
+  UserOptionsQueryDto,
+  UserPagedResponseDto,
+  UserOptionsDto,
+  UserErrors,
+  USER_FILTER_MAPPINGS,
+  USER_SORTABLE_COLUMNS
 } from "./user.dtos";
 
 @Controller("/users")
@@ -386,26 +427,52 @@ export class UserController {
   @Query(UserQueryDto)
   @Returns(UserPagedResponseDto)
   async list(ctx: RequestContext<unknown, UserQueryDto>) {
-    const { page, pageSize } = parsePagination(ctx.query);
+    const query = (ctx.query ?? {}) as Record<string, unknown>;
+    const { page, pageSize } = parsePagination(query);
+    const filters = parseFilter(query, USER_FILTER_MAPPINGS);
+    const sort = parseSort(query, USER_SORTABLE_COLUMNS, {
+      defaultSortBy: "id"
+    });
+    const direction = sort?.sortDirection === "desc" ? "DESC" : "ASC";
     const session = createSession();
     
     try {
-      const query = applyFilter(
-        User.select().orderBy(User.id, "ASC"),
+      const ormQuery = applyFilter(
+        User.select().orderBy(User.id, direction),
         User,
-        ctx.query
+        filters
       );
       
-      const paged = await query.executePaged(session, { page, pageSize });
+      const paged = await ormQuery.executePaged(session, { page, pageSize });
       return toPagedResponse(paged);
     } finally {
       await session.dispose();
     }
   }
 
+  @Get("/options")
+  @Query(UserOptionsQueryDto)
+  @Returns(UserOptionsDto)
+  async options(ctx: RequestContext<unknown, UserOptionsQueryDto>) {
+    const query = (ctx.query ?? {}) as Record<string, unknown>;
+    const { page, pageSize } = parsePagination(query);
+    const filters = parseFilter(query, USER_FILTER_MAPPINGS);
+    // run your options query using the same mappings + generated DTOs
+    return {
+      items: [],
+      totalItems: 0,
+      page,
+      pageSize,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPrevPage: false
+    };
+  }
+
   @Get("/:id")
   @Params({ id: t.integer() })
-  @Returns(GetUserDto)
+  @Returns(UserDto)
+  @UserErrors
   async getOne(ctx: RequestContext<unknown, undefined, { id: string }>) {
     const session = createSession();
     
@@ -420,6 +487,48 @@ export class UserController {
   // Other CRUD operations...
 }
 ```
+
+### Migration Guide (Breaking)
+
+Before (duplicated config):
+
+```typescript
+const UserQueryDto = createPagedFilterQueryDtoClass({
+  filters: {
+    nameContains: { schema: t.string(), operator: "contains" }
+  }
+});
+
+const USER_FILTER_MAPPINGS = {
+  nameContains: { field: "name", operator: "contains" as const }
+};
+```
+
+After (single source of truth):
+
+```typescript
+const {
+  queryDto: UserQueryDto,
+  filterMappings: USER_FILTER_MAPPINGS
+} = createMetalCrudDtoClasses(User, {
+  query: {
+    filters: {
+      nameContains: {
+        schema: t.string({ minLength: 1 }),
+        field: "name",
+        operator: "contains"
+      }
+    }
+  }
+});
+```
+
+Breaking changes summary:
+- `createMetalCrudDtoClasses` now generates query/options/paged/error artifacts directly.
+- Query filter definitions now include schema + operator + field mapping in one `query.filters` block.
+- Sort allowlist now lives in `query.sortableColumns` and feeds both DTO schemas and runtime metadata.
+- Generated outputs now include `queryDto`, `optionsQueryDto`, `pagedResponseDto`, `optionDto`, `optionsDto`, `errors`, `filterMappings`, and `sortableColumns`.
+- Consumers no longer need internal `dist/...` imports for query/filter metadata types; all relevant types/utilities are publicly exported from `adorn-api`.
 
 ### Deep Relation Filters
 

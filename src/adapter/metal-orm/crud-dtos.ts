@@ -1,17 +1,31 @@
- 
+import type { ErrorResponseOptions, FieldOverride } from "../../core/decorators";
+import { Errors } from "../../core/decorators";
+import { registerDto, type FieldMeta } from "../../core/metadata";
+import { t } from "../../core/schema";
 import type { DtoConstructor } from "../../core/types";
 import { MetalDto } from "./dto";
+import { createErrorDtoClass } from "./error-dtos";
+import { createPagedResponseDtoClass } from "./paged-dtos";
 import type {
-  MetalCrudDtoOptions,
+  FilterMapping,
+  MetalCrudDtoClassNameKey,
   MetalCrudDtoClassOptions,
-  MetalCrudDtoDecorators,
   MetalCrudDtoClasses,
-  NestedCreateDtoOptions
+  MetalCrudDtoDecorators,
+  MetalCrudDtoOptions,
+  MetalCrudQueryFilterDef,
+  MetalCrudSortableColumns,
+  MetalCrudStandardErrorsOptions,
+  MetalDtoOptions,
+  MetalDtoTarget,
+  NestedCreateDtoOptions,
+  RouteErrorsDecorator,
+  SortDirection
 } from "./types";
 
-export function createMetalCrudDtos(
-  target: any,
-  options: MetalCrudDtoOptions = {}
+export function createMetalCrudDtos<TEntity extends Record<string, unknown>>(
+  target: MetalDtoTarget,
+  options: MetalCrudDtoOptions<TEntity> = {}
 ): MetalCrudDtoDecorators {
   const mutationExclude = options.mutationExclude;
   const immutable = options.immutable;
@@ -46,32 +60,132 @@ export function createMetalCrudDtos(
   };
 }
 
-export function createMetalCrudDtoClasses(
-  target: any,
-  options: MetalCrudDtoClassOptions = {}
-): MetalCrudDtoClasses {
-  const { baseName, names, ...crudOptions } = options;
+export function createMetalCrudDtoClasses<TEntity extends Record<string, unknown>>(
+  target: MetalDtoTarget,
+  options: MetalCrudDtoClassOptions<TEntity> = {}
+): MetalCrudDtoClasses<TEntity> {
+  const { baseName, names, query, errors: errorOptions, ...crudOptions } = options;
   const decorators = createMetalCrudDtos(target, crudOptions);
   const entityName = baseName ?? getTargetName(target);
-  const defaultNames: Record<keyof MetalCrudDtoDecorators, string> = {
+
+  const defaultNames: Record<MetalCrudDtoClassNameKey, string> = {
     response: `${entityName}Dto`,
     create: `Create${entityName}Dto`,
     replace: `Replace${entityName}Dto`,
     update: `Update${entityName}Dto`,
-    params: `${entityName}ParamsDto`
+    params: `${entityName}ParamsDto`,
+    queryDto: `${entityName}QueryDto`,
+    optionsQueryDto: `${entityName}OptionsQueryDto`,
+    pagedResponseDto: `${entityName}PagedResponseDto`,
+    optionDto: `${entityName}OptionDto`,
+    optionsDto: `${entityName}OptionsDto`
   };
 
-  const classes: Partial<MetalCrudDtoClasses> = {};
+  const crudClasses: Partial<MetalCrudDtoClasses<TEntity>> = {};
   for (const key of Object.keys(decorators) as Array<keyof MetalCrudDtoDecorators>) {
     const name = names?.[key] ?? defaultNames[key];
-    classes[key] = buildDtoClass(name, decorators[key]);
+    crudClasses[key] = buildDtoClass(name, decorators[key]);
   }
-  return classes as MetalCrudDtoClasses;
+
+  const strict = options.strict ?? false;
+  const queryOptions = query ?? {};
+  const sortByKey = queryOptions.sortByKey ?? "sortBy";
+  const sortDirectionKey = queryOptions.sortDirectionKey ?? "sortDirection";
+  const defaultPageSize = queryOptions.defaultPageSize ?? 25;
+  const maxPageSize = queryOptions.maxPageSize ?? 100;
+  const filters = queryOptions.filters ?? {};
+  const sortableColumns = cloneSortableColumns(queryOptions.sortableColumns ?? {});
+  const filterMappings = buildFilterMappings(filters);
+
+  const optionsQueryConfig = queryOptions.options ?? {};
+  const optionsEnabled = optionsQueryConfig.enabled ?? true;
+  const optionsSearchKey = optionsQueryConfig.searchKey ?? "search";
+  const optionsLabelField = (optionsQueryConfig.labelField ?? "nome") as keyof TEntity & string;
+  const optionsValueField = (optionsQueryConfig.valueField ?? "id") as keyof TEntity & string;
+  const optionsSearchOperator = optionsQueryConfig.searchOperator ?? "contains";
+  const optionsDefaultPageSize = optionsQueryConfig.defaultPageSize ?? defaultPageSize;
+  const optionsMaxPageSize = optionsQueryConfig.maxPageSize ?? maxPageSize;
+
+  if (optionsEnabled && !(optionsSearchKey in filterMappings)) {
+    filterMappings[optionsSearchKey] = {
+      field: optionsLabelField,
+      operator: optionsSearchOperator
+    };
+  }
+
+  const queryDtoName = names?.queryDto ?? defaultNames.queryDto;
+  const optionsQueryDtoName = names?.optionsQueryDto ?? defaultNames.optionsQueryDto;
+  const pagedResponseDtoName = names?.pagedResponseDto ?? defaultNames.pagedResponseDto;
+  const optionDtoName = names?.optionDto ?? defaultNames.optionDto;
+  const optionsDtoName = names?.optionsDto ?? defaultNames.optionsDto;
+
+  const queryDto = createQueryDtoClass({
+    name: queryDtoName,
+    filters,
+    sortableColumns,
+    sortByKey,
+    sortDirectionKey,
+    defaultSortBy: queryOptions.defaultSortBy,
+    defaultSortDirection: queryOptions.defaultSortDirection ?? "asc",
+    defaultPageSize,
+    maxPageSize
+  });
+
+  const optionsQueryDto = createOptionsQueryDtoClass({
+    name: optionsQueryDtoName,
+    filters,
+    sortableColumns,
+    sortByKey,
+    sortDirectionKey,
+    defaultSortBy: queryOptions.defaultSortBy,
+    defaultSortDirection: queryOptions.defaultSortDirection ?? "asc",
+    defaultPageSize: optionsDefaultPageSize,
+    maxPageSize: optionsMaxPageSize,
+    searchKey: optionsEnabled ? optionsSearchKey : undefined
+  });
+
+  const optionDto = buildDtoClass(
+    optionDtoName,
+    MetalDto(target, {
+      include: Array.from(new Set([optionsValueField, optionsLabelField])),
+      strict
+    })
+  );
+
+  const responseDto = crudClasses.response as DtoConstructor;
+  const pagedResponseDto = createPagedResponseDtoClass({
+    name: pagedResponseDtoName,
+    itemDto: responseDto,
+    description: `Paged ${entityName} response.`
+  });
+  const optionsDto = createPagedResponseDtoClass({
+    name: optionsDtoName,
+    itemDto: optionDto,
+    description: `${entityName} options response.`
+  });
+
+  const errors = buildStandardCrudErrors(entityName, errorOptions);
+
+  return {
+    response: crudClasses.response as DtoConstructor,
+    create: crudClasses.create as DtoConstructor,
+    replace: crudClasses.replace as DtoConstructor,
+    update: crudClasses.update as DtoConstructor,
+    params: crudClasses.params as DtoConstructor,
+    queryDto,
+    optionsQueryDto,
+    pagedResponseDto,
+    optionDto,
+    optionsDto,
+    errors,
+    filterMappings,
+    sortableColumns
+  };
 }
 
 export function createNestedCreateDtoClass(
-  target: any,
-  overrides: Record<string, any>,
+  target: MetalDtoTarget,
+  overrides: Record<string, FieldOverride>,
   options: NestedCreateDtoOptions
 ): DtoConstructor {
   const { additionalExclude, name, parentEntity: _parentEntity, ...metalDtoOptions } = options;
@@ -95,14 +209,170 @@ export function createNestedCreateDtoClass(
   return NestedCreateDto;
 }
 
+interface CreateQueryDtoClassOptions<TEntity extends Record<string, unknown>> {
+  name: string;
+  filters: Record<string, MetalCrudQueryFilterDef<TEntity>>;
+  sortableColumns: MetalCrudSortableColumns<TEntity>;
+  sortByKey: string;
+  sortDirectionKey: string;
+  defaultSortBy?: string;
+  defaultSortDirection: SortDirection;
+  defaultPageSize: number;
+  maxPageSize: number;
+}
+
+interface CreateOptionsQueryDtoClassOptions<TEntity extends Record<string, unknown>>
+  extends CreateQueryDtoClassOptions<TEntity> {
+  searchKey?: string;
+}
+
+function createQueryDtoClass<TEntity extends Record<string, unknown>>(
+  options: CreateQueryDtoClassOptions<TEntity>
+): DtoConstructor {
+  const fields = buildQueryFields(options);
+  return createRegisteredDtoClass(options.name, fields);
+}
+
+function createOptionsQueryDtoClass<TEntity extends Record<string, unknown>>(
+  options: CreateOptionsQueryDtoClassOptions<TEntity>
+): DtoConstructor {
+  const fields = buildQueryFields(options);
+  if (options.searchKey) {
+    fields[options.searchKey] = {
+      schema: t.optional(t.string({ minLength: 1 })),
+      optional: true
+    };
+  }
+  return createRegisteredDtoClass(options.name, fields);
+}
+
+function buildQueryFields<TEntity extends Record<string, unknown>>(
+  options: CreateQueryDtoClassOptions<TEntity>
+): Record<string, FieldMeta> {
+  const fields: Record<string, FieldMeta> = {
+    page: {
+      schema: t.optional(t.integer({ minimum: 1, default: 1 })),
+      optional: true
+    },
+    pageSize: {
+      schema: t.optional(
+        t.integer({
+          minimum: 1,
+          maximum: options.maxPageSize,
+          default: options.defaultPageSize
+        })
+      ),
+      optional: true
+    }
+  };
+
+  for (const [queryKey, def] of Object.entries(options.filters)) {
+    fields[queryKey] = { schema: t.optional(def.schema), optional: true };
+  }
+
+  const sortableKeys = Object.keys(options.sortableColumns);
+  if (sortableKeys.length > 0) {
+    const sortByOptions = options.defaultSortBy
+      ? { default: options.defaultSortBy }
+      : {};
+    fields[options.sortByKey] = {
+      schema: t.optional(t.enum(sortableKeys, sortByOptions)),
+      optional: true
+    };
+    fields[options.sortDirectionKey] = {
+      schema: t.optional(
+        t.enum(["asc", "desc"], { default: options.defaultSortDirection })
+      ),
+      optional: true
+    };
+  }
+
+  return fields;
+}
+
+function createRegisteredDtoClass(
+  name: string,
+  fields: Record<string, FieldMeta>
+): DtoConstructor {
+  const DtoClass = class {};
+  Object.defineProperty(DtoClass, "name", { value: name, configurable: true });
+  registerDto(DtoClass, { name, fields });
+  return DtoClass as DtoConstructor;
+}
+
+function buildFilterMappings<TEntity extends Record<string, unknown>>(
+  filters: Record<string, MetalCrudQueryFilterDef<TEntity>>
+): Record<string, FilterMapping<TEntity>> {
+  const mappings: Record<string, FilterMapping<TEntity>> = {};
+  for (const [queryKey, def] of Object.entries(filters)) {
+    mappings[queryKey] = {
+      field: def.field,
+      operator: def.operator ?? "equals"
+    };
+  }
+  return mappings;
+}
+
+function cloneSortableColumns<TEntity extends Record<string, unknown>>(
+  sortableColumns: MetalCrudSortableColumns<TEntity>
+): MetalCrudSortableColumns<TEntity> {
+  return Object.fromEntries(
+    Object.entries(sortableColumns).map(([key, value]) => [key, value])
+  ) as MetalCrudSortableColumns<TEntity>;
+}
+
+function buildStandardCrudErrors(
+  entityName: string,
+  options: boolean | MetalCrudStandardErrorsOptions | undefined
+): RouteErrorsDecorator | undefined {
+  if (!options) {
+    return undefined;
+  }
+
+  const config: MetalCrudStandardErrorsOptions =
+    typeof options === "boolean" ? {} : options;
+  if (config.enabled === false) {
+    return undefined;
+  }
+
+  const responses: ErrorResponseOptions[] = [];
+  const invalidId = config.invalidId;
+  const notFound = config.notFound;
+
+  if (invalidId !== false) {
+    responses.push({
+      status: 400,
+      description: invalidId?.description ?? `Invalid ${entityName} id.`,
+      contentType: invalidId?.contentType
+    });
+  }
+  if (notFound !== false) {
+    responses.push({
+      status: 404,
+      description: notFound?.description ?? `${entityName} not found.`,
+      contentType: notFound?.contentType
+    });
+  }
+
+  if (!responses.length) {
+    return undefined;
+  }
+
+  const schema = config.schema ?? createErrorDtoClass({
+    withDetails: config.withDetails ?? false,
+    includeTraceId: config.includeTraceId ?? true
+  });
+  return Errors(schema, responses);
+}
+
 function buildDtoClass(name: string, decorator: (target: DtoConstructor) => void): DtoConstructor {
   const DtoClass = class {};
   Object.defineProperty(DtoClass, "name", { value: name, configurable: true });
   decorator(DtoClass);
-  return DtoClass;
+  return DtoClass as DtoConstructor;
 }
 
-function getTargetName(target: any): string {
+function getTargetName(target: unknown): string {
   if (typeof target === "function" && target.name) {
     return target.name;
   }
@@ -110,9 +380,9 @@ function getTargetName(target: any): string {
 }
 
 function mergeOverrides(
-  base?: Record<string, any>,
-  override?: Record<string, any>
-): Record<string, any> | undefined {
+  base?: Record<string, FieldOverride>,
+  override?: Record<string, FieldOverride>
+): Record<string, FieldOverride> | undefined {
   if (!base && !override) {
     return undefined;
   }
@@ -132,12 +402,12 @@ function mergeStringArrays(
 }
 
 function buildCrudOptions(
-  base: any | undefined,
-  overrides: Record<string, any> | undefined,
-  extra: any = {}
-): any {
+  base: MetalDtoOptions | undefined,
+  overrides: Record<string, FieldOverride> | undefined,
+  extra: Partial<MetalDtoOptions> = {}
+): MetalDtoOptions {
   const mergedOverrides = mergeOverrides(overrides, base?.overrides);
-  const output: any = { ...base, ...extra };
+  const output: MetalDtoOptions = { ...(base ?? {}), ...extra };
   if (mergedOverrides) {
     output.overrides = mergedOverrides;
   }

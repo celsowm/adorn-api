@@ -8,8 +8,6 @@ import {
   Query,
   buildOpenApi,
   createMetalCrudDtoClasses,
-  createPagedResponseDtoClass,
-  createPagedFilterQueryDtoClass,
   t,
   type RequestContext
 } from "../../src/index";
@@ -40,28 +38,33 @@ class NotaVersao {
 }
 
 const notaVersaoCrud = createMetalCrudDtoClasses(NotaVersao, {
-  mutationExclude: ["id", "data_exclusao", "data_inativacao"]
+  mutationExclude: ["id", "data_exclusao", "data_inativacao"],
+  query: {
+    filters: {
+      sprint: { schema: t.integer({ minimum: 1 }), field: "sprint", operator: "equals" },
+      ativo: { schema: t.boolean(), field: "ativo", operator: "equals" },
+      mensagemContains: { schema: t.string({ minLength: 1 }), field: "mensagem", operator: "contains" }
+    },
+    sortableColumns: {
+      id: "id",
+      sprint: "sprint",
+      data: "data"
+    },
+    options: {
+      labelField: "mensagem"
+    }
+  },
+  errors: true
 });
 
 const {
   response: NotaVersaoDto,
-  create: CreateNotaVersaoDto
+  create: CreateNotaVersaoDto,
+  queryDto: NotaVersaoQueryDtoClass,
+  pagedResponseDto: NotaVersaoPagedResponseDto,
+  filterMappings: NotaVersaoFilterMappings,
+  sortableColumns: NotaVersaoSortableColumns
 } = notaVersaoCrud;
-
-const NotaVersaoQueryDtoClass = createPagedFilterQueryDtoClass({
-  name: "NotaVersaoQueryDto",
-  filters: {
-    sprint: { schema: t.integer({ minimum: 1 }), operator: "equals" },
-    ativo: { schema: t.boolean(), operator: "equals" },
-    mensagemContains: { schema: t.string({ minLength: 1 }), operator: "contains" }
-  }
-});
-
-const NotaVersaoPagedResponseDto = createPagedResponseDtoClass({
-  name: "NotaVersaoPagedResponseDto",
-  itemDto: NotaVersaoDto,
-  description: "Lista paginada de notas de versão."
-});
 
 @Controller({ path: "/nota-versao", tags: ["Nota Versão"] })
 class NotaVersaoController {
@@ -81,6 +84,20 @@ class NotaVersaoController {
 }
 
 describe("e2e metal-orm CRUD DTOs to OpenAPI", () => {
+  it("provides execution-ready query metadata", () => {
+    expect(NotaVersaoFilterMappings).toEqual({
+      sprint: { field: "sprint", operator: "equals" },
+      ativo: { field: "ativo", operator: "equals" },
+      mensagemContains: { field: "mensagem", operator: "contains" },
+      search: { field: "mensagem", operator: "contains" }
+    });
+    expect(NotaVersaoSortableColumns).toEqual({
+      id: "id",
+      sprint: "sprint",
+      data: "data"
+    });
+  });
+
   it("generates OpenAPI schemas with properties from createMetalCrudDtoClasses", () => {
     const doc = buildOpenApi({
       info: { title: "Test API", version: "1.0.0" },

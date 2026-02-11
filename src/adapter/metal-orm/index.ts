@@ -18,6 +18,10 @@ export {
 } from "./filters";
 
 export {
+  parseSort
+} from "./sort";
+
+export {
   createPagedQueryDtoClass,
   createPagedResponseDtoClass,
   createPagedFilterQueryDtoClass
@@ -73,15 +77,25 @@ export type {
   FilterFieldInput,
   RelationQuantifier,
   ParseFilterOptions,
+  ParseSortOptions,
+  ParsedSort,
+  SortDirection,
   PagedQueryDtoOptions,
   PagedResponseDtoOptions,
   PagedFilterQueryDtoOptions,
   FilterFieldDef,
+  MetalCrudQueryFilterDef,
+  MetalCrudSortableColumns,
+  MetalCrudOptionsQueryOptions,
+  MetalCrudQueryOptions,
+  MetalCrudStandardErrorsOptions,
   MetalCrudDtoOptions,
   MetalCrudDtoClassOptions,
   MetalCrudDtoDecorators,
   MetalCrudDtoClasses,
+  MetalCrudDtoClassNameKey,
   MetalCrudDtoClassNames,
+  RouteErrorsDecorator,
   NestedCreateDtoOptions,
   MetalTreeDtoClassOptions,
   MetalTreeDtoClasses,

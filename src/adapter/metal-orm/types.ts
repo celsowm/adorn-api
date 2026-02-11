@@ -1,6 +1,6 @@
 
 import type { BelongsToReference, HasManyCollection, HasOneReference, ManyToManyCollection } from "metal-orm";
-import type { DtoOptions, FieldOverride } from "../../core/decorators";
+import type { DtoOptions, ErrorResponseOptions, FieldOverride } from "../../core/decorators";
 import type { SchemaNode } from "../../core/schema";
 import type { DtoConstructor } from "../../core/types";
 
@@ -140,6 +140,41 @@ export interface ParseFilterOptions<T = Record<string, unknown>> {
 }
 
 /**
+ * Sort direction.
+ */
+export type SortDirection = "asc" | "desc";
+
+/**
+ * Sort parsing options.
+ */
+export interface ParseSortOptions<T = Record<string, unknown>> {
+  /** Query parameters */
+  query?: Record<string, unknown>;
+  /** Allowed sortable columns */
+  sortableColumns?: Record<string, FilterFieldInput<T>>;
+  /** Sort field query key */
+  sortByKey?: string;
+  /** Sort direction query key */
+  sortDirectionKey?: string;
+  /** Default sort field */
+  defaultSortBy?: string;
+  /** Default sort direction */
+  defaultSortDirection?: SortDirection;
+}
+
+/**
+ * Parsed sort result.
+ */
+export interface ParsedSort<T = Record<string, unknown>> {
+  /** Requested sort key */
+  sortBy?: string;
+  /** Direction */
+  sortDirection: SortDirection;
+  /** Resolved entity field */
+  field?: FilterFieldInput<T>;
+}
+
+/**
  * Filter operator.
  */
 export type FilterOperator =
@@ -212,6 +247,81 @@ export interface FilterFieldDef {
 }
 
 /**
+ * Single filter definition for CRUD query generation.
+ */
+export interface MetalCrudQueryFilterDef<T = Record<string, unknown>> {
+  /** Field schema for query validation/OpenAPI */
+  schema: SchemaNode;
+  /** Entity field path mapping */
+  field: FilterFieldInput<T>;
+  /** Filter operator (default: equals) */
+  operator?: FilterOperator;
+}
+
+/**
+ * Sortable columns mapping for CRUD query generation.
+ * Key is accepted `sortBy` value and value is mapped entity field path.
+ */
+export type MetalCrudSortableColumns<T = Record<string, unknown>> =
+  Record<string, FilterFieldInput<T>>;
+
+/**
+ * Options-query generation options.
+ */
+export interface MetalCrudOptionsQueryOptions<T = Record<string, unknown>>
+  extends PaginationConfig {
+  /** Whether options query artifacts are generated (default: true) */
+  enabled?: boolean;
+  /** Query key used for label search (default: "search") */
+  searchKey?: string;
+  /** Entity field used as option label (default: "nome") */
+  labelField?: keyof T & string;
+  /** Entity field used as option value (default: "id") */
+  valueField?: keyof T & string;
+  /** Operator used for label search (default: "contains") */
+  searchOperator?: FilterOperator;
+}
+
+/**
+ * Query generation options for CRUD DTO factory.
+ */
+export interface MetalCrudQueryOptions<T = Record<string, unknown>>
+  extends PaginationConfig {
+  /** Filters in one place: schema + mapping + operator */
+  filters?: Record<string, MetalCrudQueryFilterDef<T>>;
+  /** Allowed sortBy values mapped to entity fields */
+  sortableColumns?: MetalCrudSortableColumns<T>;
+  /** Query key for sort field (default: "sortBy") */
+  sortByKey?: string;
+  /** Query key for sort direction (default: "sortDirection") */
+  sortDirectionKey?: string;
+  /** Default sort field key */
+  defaultSortBy?: string;
+  /** Default sort direction */
+  defaultSortDirection?: SortDirection;
+  /** Options endpoint query generation options */
+  options?: MetalCrudOptionsQueryOptions<T>;
+}
+
+/**
+ * Standard CRUD errors generation options.
+ */
+export interface MetalCrudStandardErrorsOptions {
+  /** Enable generation (default: false) */
+  enabled?: boolean;
+  /** Reuse a specific error DTO schema */
+  schema?: DtoConstructor;
+  /** Generate default schema with details */
+  withDetails?: boolean;
+  /** Include traceId in generated schema */
+  includeTraceId?: boolean;
+  /** 400 invalid id error config (set false to disable) */
+  invalidId?: false | ErrorResponseOptions;
+  /** 404 not found error config (set false to disable) */
+  notFound?: false | ErrorResponseOptions;
+}
+
+/**
  * Options for paged filter query DTOs.
  * @extends PagedQueryDtoOptions
  */
@@ -225,7 +335,7 @@ export interface PagedFilterQueryDtoOptions extends PagedQueryDtoOptions {
 /**
  * Options for Metal CRUD DTOs.
  */
-export interface MetalCrudDtoOptions {
+export interface MetalCrudDtoOptions<T = Record<string, unknown>> {
   /** Field overrides */
   overrides?: Record<string, FieldOverride>;
   /** Response DTO options */
@@ -244,6 +354,10 @@ export interface MetalCrudDtoOptions {
   paramsInclude?: string[];
   /** Immutable fields */
   immutable?: string[];
+  /** Query/options/paged artifact generation */
+  query?: MetalCrudQueryOptions<T>;
+  /** Standard CRUD errors generation */
+  errors?: boolean | MetalCrudStandardErrorsOptions;
   /** Whether to throw errors instead of warnings for invalid metadata (default: false) */
   strict?: boolean;
 }
@@ -267,13 +381,32 @@ export interface MetalCrudDtoDecorators {
 /**
  * Metal CRUD DTO class names.
  */
-export type MetalCrudDtoClassNames = Partial<Record<keyof MetalCrudDtoDecorators, string>>;
+export type RouteErrorsDecorator = (
+  value: unknown,
+  context: ClassMethodDecoratorContext
+) => void;
+
+/**
+ * Metal CRUD generated class names.
+ */
+export type MetalCrudDtoClassNameKey =
+  keyof MetalCrudDtoDecorators
+  | "queryDto"
+  | "optionsQueryDto"
+  | "pagedResponseDto"
+  | "optionDto"
+  | "optionsDto";
+
+/**
+ * Metal CRUD DTO class names.
+ */
+export type MetalCrudDtoClassNames = Partial<Record<MetalCrudDtoClassNameKey, string>>;
 
 /**
  * Options for Metal CRUD DTO classes.
  * @extends MetalCrudDtoOptions
  */
-export interface MetalCrudDtoClassOptions extends MetalCrudDtoOptions {
+export interface MetalCrudDtoClassOptions<T = Record<string, unknown>> extends MetalCrudDtoOptions<T> {
   /** Base name for DTO classes */
   baseName?: string;
   /** Custom class names */
@@ -285,7 +418,7 @@ export interface MetalCrudDtoClassOptions extends MetalCrudDtoOptions {
 /**
  * Metal CRUD DTO classes.
  */
-export interface MetalCrudDtoClasses {
+export interface MetalCrudDtoClasses<T = Record<string, unknown>> {
   /** Response DTO class */
   response: DtoConstructor;
   /** Create DTO class */
@@ -296,6 +429,22 @@ export interface MetalCrudDtoClasses {
   update: DtoConstructor;
   /** Params DTO class */
   params: DtoConstructor;
+  /** Query DTO class (paged + filters + sort) */
+  queryDto: DtoConstructor;
+  /** Options query DTO class */
+  optionsQueryDto: DtoConstructor;
+  /** Paged response DTO class for main list endpoints */
+  pagedResponseDto: DtoConstructor;
+  /** Option DTO class (value + label fields) */
+  optionDto: DtoConstructor;
+  /** Paged response DTO class for options endpoints */
+  optionsDto: DtoConstructor;
+  /** Prebuilt CRUD error decorator (400 invalid id, 404 not found) */
+  errors?: RouteErrorsDecorator;
+  /** Execution-ready filter mappings for parseFilter */
+  filterMappings: Record<string, FilterMapping<T>>;
+  /** Execution-ready sortable column mappings */
+  sortableColumns: MetalCrudSortableColumns<T>;
 }
 
 /**
