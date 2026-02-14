@@ -398,13 +398,10 @@ import {
   Body,
   Query,
   Returns,
-  parseFilter,
-  parsePagination,
-  parseSort,
+  runPagedList,
   t,
   type RequestContext
 } from "adorn-api";
-import { applyFilter, toPagedResponse } from "metal-orm";
 import { createSession } from "./db";
 import { User } from "./user.entity";
 import {
@@ -428,24 +425,18 @@ export class UserController {
   @Query(UserQueryDto)
   @Returns(UserPagedResponseDto)
   async list(ctx: RequestContext<unknown, UserQueryDto>) {
-    const query = (ctx.query ?? {}) as Record<string, unknown>;
-    const { page, pageSize } = parsePagination(query);
-    const filters = parseFilter(query, USER_FILTER_MAPPINGS);
-    const sort = parseSort(query, USER_SORTABLE_COLUMNS, {
-      defaultSortBy: "id"
-    });
-    const direction = sort?.sortDirection === "desc" ? "DESC" : "ASC";
     const session = createSession();
-    
+
     try {
-      const ormQuery = applyFilter(
-        User.select().orderBy(User.id, direction),
-        User,
-        filters
-      );
-      
-      const paged = await ormQuery.executePaged(session, { page, pageSize });
-      return toPagedResponse(paged);
+      return await runPagedList({
+        query: (ctx.query ?? {}) as Record<string, unknown>,
+        target: User,
+        qb: () => User.select(),
+        session,
+        filterMappings: USER_FILTER_MAPPINGS,
+        sortableColumns: USER_SORTABLE_COLUMNS,
+        defaultSortBy: "id"
+      });
     } finally {
       await session.dispose();
     }
@@ -613,10 +604,9 @@ Breaking changes summary:
 // user.controller.ts — using listConfig directly
 import {
   Controller, Get, Query, Returns,
-  parseFilter, parsePagination, parseSort,
+  runPagedList,
   type RequestContext
 } from "adorn-api";
-import { applyFilter, toPagedResponse } from "metal-orm";
 import { createSession } from "./db";
 import { User } from "./user.entity";
 import {
@@ -631,24 +621,15 @@ export class UserController {
   @Query(UserQueryDto)
   @Returns(UserPagedResponseDto)
   async list(ctx: RequestContext<unknown, UserQueryDto>) {
-    const query = (ctx.query ?? {}) as Record<string, unknown>;
-    const { page, pageSize } = parsePagination(query, USER_LIST_CONFIG);
-    const filters = parseFilter(query, USER_LIST_CONFIG.filterMappings);
-    const sort = parseSort(query, USER_LIST_CONFIG.sortableColumns, {
-      defaultSortBy: USER_LIST_CONFIG.defaultSortBy,
-      defaultSortDirection: USER_LIST_CONFIG.defaultSortDirection
-    });
-    const direction = sort?.sortDirection === "desc" ? "DESC" : "ASC";
-
     const session = createSession();
     try {
-      const ormQuery = applyFilter(
-        User.select().orderBy(User.id, direction),
-        User,
-        filters
-      );
-      const paged = await ormQuery.executePaged(session, { page, pageSize });
-      return toPagedResponse(paged);
+      return await runPagedList({
+        query: (ctx.query ?? {}) as Record<string, unknown>,
+        target: User,
+        qb: () => User.select(),
+        session,
+        ...USER_LIST_CONFIG
+      });
     } finally {
       await session.dispose();
     }
@@ -657,6 +638,51 @@ export class UserController {
 ```
 
 The `listConfig` object contains: `filterMappings`, `sortableColumns`, `defaultSortBy`, `defaultSortDirection`, `defaultPageSize`, `maxPageSize`, `sortByKey`, and `sortDirectionKey`.
+
+### `BaseService.list` Before/After (Boilerplate Reduction)
+
+Before:
+
+```typescript
+async list(query: Record<string, unknown>) {
+  const { page, pageSize } = parsePagination(query, this.listConfig);
+  const filters = parseFilter(query, this.listConfig.filterMappings);
+  const sort = parseSort(query, this.listConfig.sortableColumns, {
+    defaultSortBy: this.listConfig.defaultSortBy,
+    defaultSortDirection: this.listConfig.defaultSortDirection,
+    sortByKey: this.listConfig.sortByKey,
+    sortDirectionKey: this.listConfig.sortDirectionKey
+  });
+  const direction = sort?.sortDirection === "desc" ? "DESC" : "ASC";
+
+  return withSession(this.createSession, async (session) => {
+    const qb = applyFilter(this.baseQuery().orderBy(this.ref.id, direction), this.entity, filters);
+    const paged = await qb.executePaged(session, { page, pageSize });
+    return toPagedResponse(paged);
+  });
+}
+```
+
+After:
+
+```typescript
+async list(query: Record<string, unknown>) {
+  return withSession(this.createSession, async (session) =>
+    runPagedList({
+      query,
+      target: this.entity,
+      qb: () => this.baseQuery(),
+      session,
+      ...this.listConfig
+    })
+  );
+}
+```
+
+Migration note:
+- Existing `parsePagination`, `parseFilter`, and `parseSort` remain unchanged and can still be used manually.
+- `runPagedList`/`executeCrudList` is additive and optional; no breaking API changes.
+- For sortable fields that are not direct columns of the base table, pass `allowedSortColumns` with explicit metal-orm sort terms.
 
 ### Sort Order Compatibility (`sortOrder` / `sortDirection`)
 

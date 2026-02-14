@@ -22,6 +22,11 @@ export {
 } from "./sort";
 
 export {
+  runPagedList,
+  executeCrudList
+} from "./list";
+
+export {
   createPagedQueryDtoClass,
   createPagedResponseDtoClass,
   createPagedFilterQueryDtoClass
@@ -84,6 +89,10 @@ export type {
   ParseSortOptions,
   ParsedSort,
   SortDirection,
+  CrudListSortTerm,
+  RunPagedListOptions,
+  ExecuteCrudListOptions,
+  CrudPagedResponse,
   ListConfig,
   PagedQueryDtoOptions,
   PagedResponseDtoOptions,

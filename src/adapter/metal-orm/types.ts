@@ -1,5 +1,15 @@
 
-import type { BelongsToReference, HasManyCollection, HasOneReference, ManyToManyCollection } from "metal-orm";
+import type {
+  BelongsToReference,
+  ColumnDef,
+  HasManyCollection,
+  HasOneReference,
+  ManyToManyCollection,
+  OrmSession,
+  PagedResponse,
+  SelectQueryBuilder,
+  TableDef
+} from "metal-orm";
 import type { DtoOptions, ErrorResponseOptions, FieldOverride } from "../../core/decorators";
 import type { SchemaNode } from "../../core/schema";
 import type { DtoConstructor } from "../../core/types";
@@ -178,6 +188,11 @@ export interface ParsedSort<T = Record<string, unknown>> {
 }
 
 /**
+ * Sort terms accepted by metal-orm execution helpers.
+ */
+export type CrudListSortTerm = ColumnDef | Record<string, unknown>;
+
+/**
  * Ready-to-use list/query configuration extracted from CRUD DTO class generation.
  * Eliminates the need for consumers to reassemble filter/sort/pagination config
  * in their service or repository layer.
@@ -200,6 +215,58 @@ export interface ListConfig<T = Record<string, unknown>> {
   /** Sort direction query key */
   sortDirectionKey: string;
 }
+
+/**
+ * Unified paged list execution options for metal-orm adapter.
+ */
+export interface RunPagedListOptions<
+  TResult,
+  TTable extends TableDef = TableDef,
+  TTarget = unknown,
+  TFilterTarget = Record<string, unknown>
+> extends PaginationConfig {
+  /** Raw request query */
+  query?: Record<string, unknown>;
+  /** Entity class or table used by applyFilter */
+  target: TTarget;
+  /** Base query builder or factory to create one */
+  qb: SelectQueryBuilder<TResult, TTable> | (() => SelectQueryBuilder<TResult, TTable>);
+  /** Active ORM session */
+  session: OrmSession;
+  /** Query key -> filter mapping */
+  filterMappings: Record<string, FilterMapping<TFilterTarget>>;
+  /** Query key -> field path mapping used by parseSort */
+  sortableColumns: Record<string, FilterFieldInput<TFilterTarget>>;
+  /** Optional explicit metal-orm sortable terms, overrides inferred table columns */
+  allowedSortColumns?: Record<string, CrudListSortTerm>;
+  /** Default sort field key */
+  defaultSortBy?: string;
+  /** Default sort direction */
+  defaultSortDirection?: SortDirection;
+  /** Sort field query key */
+  sortByKey?: string;
+  /** Sort direction query key */
+  sortDirectionKey?: string;
+  /** Legacy sort order query key (e.g. sortOrder=DESC) */
+  sortOrderKey?: string;
+  /** Optional stable tie-breaker column name */
+  tieBreakerColumn?: string;
+}
+
+/**
+ * Alias for runPagedList options.
+ */
+export type ExecuteCrudListOptions<
+  TResult,
+  TTable extends TableDef = TableDef,
+  TTarget = unknown,
+  TFilterTarget = Record<string, unknown>
+> = RunPagedListOptions<TResult, TTable, TTarget, TFilterTarget>;
+
+/**
+ * Alias for runPagedList response.
+ */
+export type CrudPagedResponse<TResult> = PagedResponse<TResult>;
 
 /**
  * Filter operator.
