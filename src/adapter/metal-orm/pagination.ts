@@ -8,17 +8,18 @@ import { coerce } from "../../core/coerce";
  * @returns Parsed pagination result
  */
 export function parsePagination(
-  query: Record<string, unknown>,
+  query: object,
   config: PaginationConfig = {}
 ): ParsedPagination {
   const { defaultPageSize = 25, maxPageSize = 100 } = config;
+  const q = query as Record<string, unknown>;
 
-  const page = coerce.integer(query.page as string | number, {
+  const page = coerce.integer(q.page as string | number, {
     min: 1,
     clamp: true
   }) ?? 1;
 
-  const pageSize = coerce.integer(query.pageSize as string | number, {
+  const pageSize = coerce.integer(q.pageSize as string | number, {
     min: 1,
     max: maxPageSize,
     clamp: true

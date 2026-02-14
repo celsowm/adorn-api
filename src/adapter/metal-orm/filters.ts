@@ -7,14 +7,14 @@ import type { Filter, FilterFieldInput, FilterMapping, FilterOperator, ParseFilt
  * @returns Parsed filter or undefined
  */
 export function parseFilter<T, K extends keyof T>(
-  query: Record<string, unknown> | undefined,
+  query: object | undefined,
   mappings: Record<string, FilterMapping<T>>
 ): Filter<T, K> | undefined;
 export function parseFilter<T, K extends keyof T>(
   options: ParseFilterOptions<T>
 ): Filter<T, K> | undefined;
 export function parseFilter<T, K extends keyof T>(
-  queryOrOptions: Record<string, unknown> | ParseFilterOptions<T> | undefined,
+  queryOrOptions: object | ParseFilterOptions<T> | undefined,
   mappings?: Record<string, FilterMapping<T>>
 ): Filter<T, K> | undefined {
   const options = mappings ? undefined : (queryOrOptions as ParseFilterOptions<T> | undefined);
