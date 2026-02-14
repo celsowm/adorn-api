@@ -166,6 +166,17 @@ export function createMetalCrudDtoClasses<TEntity extends Record<string, unknown
 
   const errors = buildStandardCrudErrors(entityName, errorOptions);
 
+  const listConfig = {
+    filterMappings,
+    sortableColumns,
+    defaultSortBy: queryOptions.defaultSortBy,
+    defaultSortDirection: queryOptions.defaultSortDirection ?? "asc" as SortDirection,
+    defaultPageSize,
+    maxPageSize,
+    sortByKey,
+    sortDirectionKey
+  };
+
   return {
     response: crudClasses.response as DtoConstructor,
     create: crudClasses.create as DtoConstructor,
@@ -179,7 +190,8 @@ export function createMetalCrudDtoClasses<TEntity extends Record<string, unknown
     optionsDto,
     errors,
     filterMappings,
-    sortableColumns
+    sortableColumns,
+    listConfig
   };
 }
 

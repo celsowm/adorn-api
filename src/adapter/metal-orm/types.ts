@@ -156,6 +156,8 @@ export interface ParseSortOptions<T = Record<string, unknown>> {
   sortByKey?: string;
   /** Sort direction query key */
   sortDirectionKey?: string;
+  /** Query key for legacy sort order param (default: "sortOrder") */
+  sortOrderKey?: string;
   /** Default sort field */
   defaultSortBy?: string;
   /** Default sort direction */
@@ -172,6 +174,30 @@ export interface ParsedSort<T = Record<string, unknown>> {
   sortDirection: SortDirection;
   /** Resolved entity field */
   field?: FilterFieldInput<T>;
+}
+
+/**
+ * Ready-to-use list/query configuration extracted from CRUD DTO class generation.
+ * Eliminates the need for consumers to reassemble filter/sort/pagination config
+ * in their service or repository layer.
+ */
+export interface ListConfig<T = Record<string, unknown>> {
+  /** Execution-ready filter mappings for parseFilter */
+  filterMappings: Record<string, FilterMapping<T>>;
+  /** Execution-ready sortable column mappings for parseSort */
+  sortableColumns: MetalCrudSortableColumns<T>;
+  /** Default sort field key */
+  defaultSortBy?: string;
+  /** Default sort direction */
+  defaultSortDirection: SortDirection;
+  /** Default page size */
+  defaultPageSize: number;
+  /** Maximum page size */
+  maxPageSize: number;
+  /** Sort field query key */
+  sortByKey: string;
+  /** Sort direction query key */
+  sortDirectionKey: string;
 }
 
 /**
@@ -445,6 +471,8 @@ export interface MetalCrudDtoClasses<T = Record<string, unknown>> {
   filterMappings: Record<string, FilterMapping<T>>;
   /** Execution-ready sortable column mappings */
   sortableColumns: MetalCrudSortableColumns<T>;
+  /** Ready-to-use config for list/query endpoints (combines filters, sort, pagination defaults) */
+  listConfig: ListConfig<T>;
 }
 
 /**

@@ -197,4 +197,52 @@ describe("createMetalCrudDtoClasses", () => {
     });
     expect(typeof classes.errors).toBe("function");
   });
+
+  it("exposes listConfig with all query defaults ready for service layer", () => {
+    const classes = createMetalCrudDtoClasses(CrudDtoClassEntity, {
+      query: {
+        filters: {
+          nameContains: {
+            schema: t.string({ minLength: 1 }),
+            field: "name",
+            operator: "contains"
+          }
+        },
+        sortableColumns: {
+          name: "name",
+          nickname: "nickname"
+        },
+        defaultSortBy: "name",
+        defaultSortDirection: "desc",
+        defaultPageSize: 10,
+        maxPageSize: 50
+      }
+    });
+
+    expect(classes.listConfig).toEqual({
+      filterMappings: classes.filterMappings,
+      sortableColumns: { name: "name", nickname: "nickname" },
+      defaultSortBy: "name",
+      defaultSortDirection: "desc",
+      defaultPageSize: 10,
+      maxPageSize: 50,
+      sortByKey: "sortBy",
+      sortDirectionKey: "sortDirection"
+    });
+  });
+
+  it("listConfig uses sensible defaults when query options are minimal", () => {
+    const classes = createMetalCrudDtoClasses(CrudDtoClassEntity);
+
+    expect(classes.listConfig).toEqual({
+      filterMappings: classes.filterMappings,
+      sortableColumns: {},
+      defaultSortBy: undefined,
+      defaultSortDirection: "asc",
+      defaultPageSize: 25,
+      maxPageSize: 100,
+      sortByKey: "sortBy",
+      sortDirectionKey: "sortDirection"
+    });
+  });
 });

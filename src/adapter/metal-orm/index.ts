@@ -80,6 +80,7 @@ export type {
   ParseSortOptions,
   ParsedSort,
   SortDirection,
+  ListConfig,
   PagedQueryDtoOptions,
   PagedResponseDtoOptions,
   PagedFilterQueryDtoOptions,

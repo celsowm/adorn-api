@@ -353,7 +353,8 @@ export const {
   optionsDto: UserOptionsDto,
   errors: UserErrors,
   filterMappings: USER_FILTER_MAPPINGS,
-  sortableColumns: USER_SORTABLE_COLUMNS
+  sortableColumns: USER_SORTABLE_COLUMNS,
+  listConfig: USER_LIST_CONFIG
 } = createMetalCrudDtoClasses(User, {
   mutationExclude: ["id", "createdAt"],
   query: {
@@ -529,6 +530,82 @@ Breaking changes summary:
 - Sort allowlist now lives in `query.sortableColumns` and feeds both DTO schemas and runtime metadata.
 - Generated outputs now include `queryDto`, `optionsQueryDto`, `pagedResponseDto`, `optionDto`, `optionsDto`, `errors`, `filterMappings`, and `sortableColumns`.
 - Consumers no longer need internal `dist/...` imports for query/filter metadata types; all relevant types/utilities are publicly exported from `adorn-api`.
+
+### Using `listConfig` (Zero-Duplication Service Layer)
+
+`createMetalCrudDtoClasses` now exposes a `listConfig` object that bundles all filter/sort/pagination config needed by your service layer. No more re-declaring mappings in your repository:
+
+```typescript
+// user.controller.ts — using listConfig directly
+import {
+  Controller, Get, Query, Returns,
+  parseFilter, parsePagination, parseSort,
+  type RequestContext
+} from "adorn-api";
+import { applyFilter, toPagedResponse } from "metal-orm";
+import { createSession } from "./db";
+import { User } from "./user.entity";
+import {
+  UserQueryDto,
+  UserPagedResponseDto,
+  USER_LIST_CONFIG
+} from "./user.dtos";
+
+@Controller("/users")
+export class UserController {
+  @Get("/")
+  @Query(UserQueryDto)
+  @Returns(UserPagedResponseDto)
+  async list(ctx: RequestContext<unknown, UserQueryDto>) {
+    const query = (ctx.query ?? {}) as Record<string, unknown>;
+    const { page, pageSize } = parsePagination(query, USER_LIST_CONFIG);
+    const filters = parseFilter(query, USER_LIST_CONFIG.filterMappings);
+    const sort = parseSort(query, USER_LIST_CONFIG.sortableColumns, {
+      defaultSortBy: USER_LIST_CONFIG.defaultSortBy,
+      defaultSortDirection: USER_LIST_CONFIG.defaultSortDirection
+    });
+    const direction = sort?.sortDirection === "desc" ? "DESC" : "ASC";
+
+    const session = createSession();
+    try {
+      const ormQuery = applyFilter(
+        User.select().orderBy(User.id, direction),
+        User,
+        filters
+      );
+      const paged = await ormQuery.executePaged(session, { page, pageSize });
+      return toPagedResponse(paged);
+    } finally {
+      await session.dispose();
+    }
+  }
+}
+```
+
+The `listConfig` object contains: `filterMappings`, `sortableColumns`, `defaultSortBy`, `defaultSortDirection`, `defaultPageSize`, `maxPageSize`, `sortByKey`, and `sortDirectionKey`.
+
+### Sort Order Compatibility (`sortOrder` / `sortDirection`)
+
+`parseSort` now accepts both `sortDirection` (lowercase `asc`/`desc`) and `sortOrder` (uppercase `ASC`/`DESC`). This avoids the need for a custom helper when integrating with clients that send uppercase sort orders.
+
+**Precedence**: `sortDirection` > `sortOrder` > default. Direction values are case-insensitive.
+
+```typescript
+// Client sends: ?sortBy=name&sortOrder=DESC
+const sort = parseSort(query, sortableColumns);
+// → { sortBy: "name", sortDirection: "desc", field: "name" }
+
+// Client sends both: ?sortBy=name&sortDirection=asc&sortOrder=DESC
+const sort2 = parseSort(query, sortableColumns);
+// → { sortBy: "name", sortDirection: "asc", field: "name" }  (sortDirection wins)
+
+// Custom sortOrder key:
+const sort3 = parseSort({
+  query,
+  sortableColumns,
+  sortOrderKey: "order"  // reads from query.order instead of query.sortOrder
+});
+```
 
 ### Deep Relation Filters
 

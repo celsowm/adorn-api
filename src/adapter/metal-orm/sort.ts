@@ -31,6 +31,7 @@ export function parseSort<T>(
 
   const sortByKey = resolved.sortByKey ?? "sortBy";
   const sortDirectionKey = resolved.sortDirectionKey ?? "sortDirection";
+  const sortOrderKey = resolved.sortOrderKey ?? "sortOrder";
   const defaultSortBy = resolved.defaultSortBy;
   const defaultDirection = resolved.defaultSortDirection ?? "asc";
 
@@ -40,7 +41,8 @@ export function parseSort<T>(
     return undefined;
   }
 
-  const requestedDirection = toTrimmedString(query[sortDirectionKey]);
+  const requestedDirection = toTrimmedString(query[sortDirectionKey])
+    ?? toTrimmedString(query[sortOrderKey]);
   const sortDirection = normalizeDirection(requestedDirection, defaultDirection);
 
   return {
@@ -72,10 +74,11 @@ function normalizeDirection(
   raw: string | undefined,
   fallback: SortDirection
 ): SortDirection {
-  if (raw === "desc") {
+  const lower = raw?.toLowerCase();
+  if (lower === "desc") {
     return "desc";
   }
-  if (raw === "asc") {
+  if (lower === "asc") {
     return "asc";
   }
   return fallback;
