@@ -34,6 +34,10 @@ export {
 } from "./crud-dtos";
 
 export {
+  createCrudController
+} from "./crud-controller";
+
+export {
   createMetalTreeDtoClasses
 } from "./tree-dtos";
 
@@ -96,6 +100,9 @@ export type {
   MetalCrudDtoClasses,
   MetalCrudDtoClassNameKey,
   MetalCrudDtoClassNames,
+  CrudControllerService,
+  CrudControllerServiceInput,
+  CreateCrudControllerOptions,
   RouteErrorsDecorator,
   NestedCreateDtoOptions,
   MetalTreeDtoClassOptions,

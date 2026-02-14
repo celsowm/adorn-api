@@ -3,6 +3,7 @@ import type { BelongsToReference, HasManyCollection, HasOneReference, ManyToMany
 import type { DtoOptions, ErrorResponseOptions, FieldOverride } from "../../core/decorators";
 import type { SchemaNode } from "../../core/schema";
 import type { DtoConstructor } from "../../core/types";
+import type { RequestContext } from "../express/types";
 
 /**
  * Metal ORM DTO modes.
@@ -473,6 +474,86 @@ export interface MetalCrudDtoClasses<T = Record<string, unknown>> {
   sortableColumns: MetalCrudSortableColumns<T>;
   /** Ready-to-use config for list/query endpoints (combines filters, sort, pagination defaults) */
   listConfig: ListConfig<T>;
+}
+
+/**
+ * Awaitable helper for CRUD service methods.
+ */
+export type Awaitable<T> = T | Promise<T>;
+
+/**
+ * Input for CRUD controller service: class or ready instance.
+ */
+export type CrudControllerServiceInput<TDtos extends MetalCrudDtoClasses<any>> =
+  CrudControllerService<TDtos>
+  | (new () => CrudControllerService<TDtos>);
+
+/**
+ * CRUD controller service contract used by createCrudController.
+ */
+export interface CrudControllerService<TDtos extends MetalCrudDtoClasses<any>> {
+  list(
+    ctx: RequestContext<unknown, InstanceType<TDtos["queryDto"]>>
+  ): Awaitable<InstanceType<TDtos["pagedResponseDto"]>>;
+  options?(
+    ctx: RequestContext<unknown, InstanceType<TDtos["optionsQueryDto"]>>
+  ): Awaitable<InstanceType<TDtos["optionsDto"]>>;
+  getById(
+    id: number,
+    ctx: RequestContext<unknown, undefined, InstanceType<TDtos["params"]>>
+  ): Awaitable<InstanceType<TDtos["response"]>>;
+  create(
+    body: InstanceType<TDtos["create"]>,
+    ctx: RequestContext<InstanceType<TDtos["create"]>>
+  ): Awaitable<InstanceType<TDtos["response"]>>;
+  replace?(
+    id: number,
+    body: InstanceType<TDtos["replace"]>,
+    ctx: RequestContext<
+      InstanceType<TDtos["replace"]>,
+      undefined,
+      InstanceType<TDtos["params"]>
+    >
+  ): Awaitable<InstanceType<TDtos["response"]>>;
+  update?(
+    id: number,
+    body: InstanceType<TDtos["update"]>,
+    ctx: RequestContext<
+      InstanceType<TDtos["update"]>,
+      undefined,
+      InstanceType<TDtos["params"]>
+    >
+  ): Awaitable<InstanceType<TDtos["response"]>>;
+  delete?(
+    id: number,
+    ctx: RequestContext<unknown, undefined, InstanceType<TDtos["params"]>>
+  ): Awaitable<void>;
+}
+
+/**
+ * createCrudController options.
+ */
+export interface CreateCrudControllerOptions<
+  TDtos extends MetalCrudDtoClasses<any>
+> {
+  /** Controller path. */
+  path: string;
+  /** Service instance or class (new () => service). */
+  service: CrudControllerServiceInput<TDtos>;
+  /** DTO bundle produced by createMetalCrudDtoClasses. */
+  dtos: TDtos;
+  /** Entity label used by parseIdOrThrow messages. */
+  entityName: string;
+  /** Generate GET /options route (default: true). */
+  withOptionsRoute?: boolean;
+  /** Generate PUT /:id route (default: true). */
+  withReplace?: boolean;
+  /** Generate PATCH /:id route (default: true). */
+  withPatch?: boolean;
+  /** Generate DELETE /:id route (default: true). */
+  withDelete?: boolean;
+  /** Optional OpenAPI tags for generated controller. */
+  tags?: string[];
 }
 
 /**

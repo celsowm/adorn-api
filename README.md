@@ -491,6 +491,80 @@ export class UserController {
 
 ### Migration Guide (Breaking)
 
+### CRUD Controller Factory (`createCrudController`)
+
+When your controller only wires DTOs + service calls, you can generate the full CRUD controller and remove decorator boilerplate.
+
+```typescript
+// user.controller.ts
+import { createCrudController } from "adorn-api";
+import { userCrudDtos } from "./user.dtos";
+import { UserCrudService } from "./user.service";
+
+export const UserController = createCrudController({
+  path: "/users",
+  service: UserCrudService, // class or instance
+  dtos: userCrudDtos,       // result of createMetalCrudDtoClasses(...)
+  entityName: "User",       // used by parseIdOrThrow messages
+  withOptionsRoute: true,
+  withReplace: true,
+  withPatch: true,
+  withDelete: true
+});
+```
+
+Generated routes:
+- `GET /`
+- `GET /options` (optional)
+- `GET /:id`
+- `POST /`
+- `PUT /:id` (optional)
+- `PATCH /:id` (optional)
+- `DELETE /:id` (optional)
+
+The factory applies the correct `@Query/@Body/@Params/@Returns` schemas and also propagates `dtos.errors` to all `/:id` routes.
+
+Before (manual, repeated decorators/status/schema wiring):
+
+```typescript
+@Controller("/users")
+class UserController {
+  @Get("/")
+  @Query(UserQueryDto)
+  @Returns(UserPagedResponseDto)
+  async list(ctx: RequestContext<unknown, UserQueryDto>) { ... }
+
+  @Get("/:id")
+  @Params(UserParamsDto)
+  @Returns(UserDto)
+  @UserErrors
+  async getById(ctx: RequestContext<unknown, undefined, UserParamsDto>) { ... }
+
+  @Post("/")
+  @Body(CreateUserDto)
+  @Returns({ status: 201, schema: UserDto })
+  async create(ctx: RequestContext<CreateUserDto>) { ... }
+
+  // put/patch/delete/options...
+}
+```
+
+After (factory + service):
+
+```typescript
+export const UserController = createCrudController({
+  path: "/users",
+  service: new UserCrudService(),
+  dtos: userCrudDtos,
+  entityName: "User"
+});
+```
+
+When to use factory vs manual controller:
+- Use `createCrudController` when routes follow standard CRUD and behavior lives in a service.
+- Use a manual controller when route contracts diverge (custom status/body shape, non-standard params, upload/stream/raw endpoints, or route-level auth/doc decorators not shared by all CRUD routes).
+- For extra endpoints, keep the generated CRUD controller and add a second manual controller for custom routes on the same base path.
+
 Before (duplicated config):
 
 ```typescript
