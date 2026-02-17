@@ -317,13 +317,31 @@ function buildParameters(
   if (!fieldEntries.length) {
     return [];
   }
-  return fieldEntries.map((entry) => ({
-    name: entry.name,
-    in: location,
-    required: location === "path" ? true : entry.required,
-    description: entry.description,
-    schema: buildSchemaFromSource(entry.schema, context)
-  }));
+  return fieldEntries.map((entry) => {
+    const param: Record<string, unknown> = {
+      name: entry.name,
+      in: location,
+      required: location === "path" ? true : entry.required,
+      description: entry.description,
+      schema: buildSchemaFromSource(entry.schema, context)
+    };
+
+    if (location === "query" && isSchemaNode(entry.schema)) {
+      if (entry.schema.kind === "array") {
+        param.style = "form";
+        param.explode = true;
+      } else if (entry.schema.kind === "object") {
+        param.style = "deepObject";
+        param.explode = true;
+      }
+
+      if (entry.schema.examples && entry.schema.examples.length > 0) {
+        param.example = entry.schema.examples[0];
+      }
+    }
+
+    return param;
+  });
 }
 
 function extractFields(

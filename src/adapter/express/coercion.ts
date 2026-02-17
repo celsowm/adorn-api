@@ -192,8 +192,18 @@ function coerceArrayValue(
   if (value === undefined || value === null) {
     return { value, ok: true, changed: false };
   }
-  const input = Array.isArray(value) ? value : [value];
-  let changed = !Array.isArray(value);
+  let input: unknown[];
+  let changed: boolean;
+  if (Array.isArray(value)) {
+    input = value;
+    changed = false;
+  } else if (typeof value === "string" && value.includes(",")) {
+    input = value.split(",").map((s) => s.trim());
+    changed = true;
+  } else {
+    input = [value];
+    changed = true;
+  }
   let ok = true;
   const output = input.map((entry) => {
     const result = coerceValue(entry, schema.items, mode);
