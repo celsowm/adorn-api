@@ -145,6 +145,8 @@ export interface ExpressAdapterOptions {
   controllers: Constructor[];
   /** Whether to enable JSON body parsing */
   jsonBody?: boolean;
+  /** Max JSON body size (e.g. "50mb"). Defaults to Express's "100kb". */
+  jsonLimit?: string;
   /** OpenAPI configuration */
   openApi?: OpenApiExpressOptions;
   /** Input coercion setting */

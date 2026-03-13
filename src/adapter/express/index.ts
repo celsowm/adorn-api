@@ -21,7 +21,7 @@ export async function createExpressApp(options: ExpressAdapterOptions): Promise<
     attachCors(app, options.cors === true ? {} : options.cors);
   }
   if (options.jsonBody ?? true) {
-    app.use(express.json());
+    app.use(express.json({ limit: options.jsonLimit }));
   }
   const inputCoercion = options.inputCoercion ?? "safe";
   await attachControllers(app, options.controllers, inputCoercion, options.multipart, options.validation);
