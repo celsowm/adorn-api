@@ -32,5 +32,16 @@ export type {
     FastifyAdapterOptions,
     RequestContext as FastifyRequestContext
 } from "./adapter/fastify/index";
+export {
+    createNativeApp,
+    attachControllers as attachNativeControllers,
+    attachOpenApi as attachNativeOpenApi,
+    shutdownApp as shutdownNativeApp
+} from "./adapter/native/index";
+export type {
+    NativeAdapterOptions,
+    RequestContext as NativeRequestContext,
+    NativeApp
+} from "./adapter/native/index";
 export * from "./adapter/metal-orm/index";
 export * from "./core/types";
