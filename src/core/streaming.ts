@@ -1,4 +1,4 @@
-import type { Response } from "express";
+import type { SseEmitterInterface, StreamWriterInterface } from "./types";
 
 /**
  * Server-Sent Event data structure.
@@ -27,12 +27,12 @@ export interface SseEmitterOptions {
 /**
  * SSE Emitter for sending Server-Sent Events to clients.
  */
-export class SseEmitter {
+export class SseEmitter implements SseEmitterInterface {
   private closed = false;
   private keepAliveTimer?: ReturnType<typeof setInterval>;
 
   constructor(
-    private readonly res: Response,
+    private readonly res: any,
     options: SseEmitterOptions = {}
   ) {
     this.setupSseHeaders();
@@ -42,9 +42,11 @@ export class SseEmitter {
       this.startKeepAlive(keepAliveInterval);
     }
 
-    res.on("close", () => {
-      this.close();
-    });
+    if (res.on) {
+      res.on("close", () => {
+        this.close();
+      });
+    }
   }
 
   /**
@@ -104,11 +106,15 @@ export class SseEmitter {
   }
 
   private setupSseHeaders(): void {
-    this.res.setHeader("Content-Type", "text/event-stream");
-    this.res.setHeader("Cache-Control", "no-cache, no-transform");
-    this.res.setHeader("Connection", "keep-alive");
-    this.res.setHeader("X-Accel-Buffering", "no");
-    this.res.flushHeaders();
+    if (this.res.setHeader) {
+      this.res.setHeader("Content-Type", "text/event-stream");
+      this.res.setHeader("Cache-Control", "no-cache, no-transform");
+      this.res.setHeader("Connection", "keep-alive");
+      this.res.setHeader("X-Accel-Buffering", "no");
+    }
+    if (this.res.flushHeaders) {
+      this.res.flushHeaders();
+    }
   }
 
   private startKeepAlive(interval: number): void {
@@ -166,7 +172,7 @@ export class SseEmitter {
 /**
  * Create an SSE emitter from an Express response.
  */
-export function createSseEmitter(res: Response, options?: SseEmitterOptions): SseEmitter {
+export function createSseEmitter(res: any, options?: SseEmitterOptions): SseEmitter {
   return new SseEmitter(res, options);
 }
 
@@ -183,18 +189,20 @@ export interface StreamOptions {
 /**
  * Stream writer for sending chunked data to clients.
  */
-export class StreamWriter {
+export class StreamWriter implements StreamWriterInterface {
   private closed = false;
 
   constructor(
-    private readonly res: Response,
+    private readonly res: any,
     options: StreamOptions = {}
   ) {
     this.setupHeaders(options);
 
-    res.on("close", () => {
-      this.closed = true;
-    });
+    if (res.on) {
+      res.on("close", () => {
+        this.closed = true;
+      });
+    }
   }
 
   /**
@@ -251,32 +259,36 @@ export class StreamWriter {
 
   private setupHeaders(options: StreamOptions): void {
     const contentType = options.contentType ?? "application/octet-stream";
-    this.res.setHeader("Content-Type", contentType);
-    this.res.setHeader("Transfer-Encoding", "chunked");
-    this.res.setHeader("Cache-Control", "no-cache, no-transform");
-    this.res.setHeader("X-Accel-Buffering", "no");
+    if (this.res.setHeader) {
+      this.res.setHeader("Content-Type", contentType);
+      this.res.setHeader("Transfer-Encoding", "chunked");
+      this.res.setHeader("Cache-Control", "no-cache, no-transform");
+      this.res.setHeader("X-Accel-Buffering", "no");
 
-    if (options.headers) {
-      for (const [key, value] of Object.entries(options.headers)) {
-        this.res.setHeader(key, value);
+      if (options.headers) {
+        for (const [key, value] of Object.entries(options.headers)) {
+          this.res.setHeader(key, value);
+        }
       }
     }
 
-    this.res.flushHeaders();
+    if (this.res.flushHeaders) {
+      this.res.flushHeaders();
+    }
   }
 }
 
 /**
  * Create a stream writer from an Express response.
  */
-export function createStreamWriter(res: Response, options?: StreamOptions): StreamWriter {
+export function createStreamWriter(res: any, options?: StreamOptions): StreamWriter {
   return new StreamWriter(res, options);
 }
 
 /**
  * Create an NDJSON stream writer (newline-delimited JSON).
  */
-export function createNdjsonStream(res: Response): StreamWriter {
+export function createNdjsonStream(res: any): StreamWriter {
   return new StreamWriter(res, { contentType: "application/x-ndjson" });
 }
 
@@ -284,7 +296,7 @@ export function createNdjsonStream(res: Response): StreamWriter {
  * Stream an async iterable to the response.
  */
 export async function streamIterable<T>(
-  res: Response,
+  res: any,
   iterable: AsyncIterable<T>,
   options: StreamOptions & { transform?: (item: T) => string | Buffer } = {}
 ): Promise<void> {
@@ -307,7 +319,7 @@ export async function streamIterable<T>(
  * Stream an async iterable as SSE events.
  */
 export async function streamSseIterable<T>(
-  res: Response,
+  res: any,
   iterable: AsyncIterable<T>,
   options: SseEmitterOptions & { eventType?: string } = {}
 ): Promise<void> {

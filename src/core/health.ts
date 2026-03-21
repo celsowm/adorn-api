@@ -1,7 +1,6 @@
 import { Dto, Field, Controller, Get, Returns, Doc } from "./decorators";
 import { t } from "./schema";
-import type { Constructor } from "./types";
-import type { RequestContext } from "../adapter/express/types";
+import type { Constructor, RequestContext } from "./types";
 
 /**
  * Health status values.

@@ -5,10 +5,8 @@ import type {
 } from "../../core/types";
 import type { OpenApiInfo, OpenApiServer } from "../../core/openapi";
 
-export { UploadedFileInfo };
-
 /**
- * Request context provided to route handlers.
+ * Request context provided to Fastify route handlers.
  */
 export type RequestContext<
   TBody = any,
@@ -59,9 +57,9 @@ export interface OpenApiDocsOptions {
 }
 
 /**
- * OpenAPI configuration for Express adapter.
+ * OpenAPI configuration for Fastify adapter.
  */
-export interface OpenApiExpressOptions {
+export interface OpenApiFastifyOptions {
   /** OpenAPI document info */
   info: OpenApiInfo;
   /** Array of servers */
@@ -78,7 +76,7 @@ export interface OpenApiExpressOptions {
  * Multipart file upload configuration.
  */
 export interface MultipartOptions {
-  /** Storage type: 'memory' or 'disk' */
+  /** Storage type: 'memory' or 'disk' (Fastify adapter mainly supports memory via @fastify/multipart) */
   storage?: "memory" | "disk";
   /** Directory for disk storage (defaults to OS temp directory) */
   dest?: string;
@@ -99,17 +97,17 @@ export interface ValidationOptions {
 }
 
 /**
- * Options for creating an Express application adapter.
+ * Options for creating a Fastify application adapter.
  */
-export interface ExpressAdapterOptions {
+export interface FastifyAdapterOptions {
   /** Array of controller classes */
   controllers: Constructor[];
   /** Whether to enable JSON body parsing */
   jsonBody?: boolean;
-  /** Max JSON body size (e.g. "50mb"). Defaults to Express's "100kb". */
-  jsonLimit?: string;
+  /** Max JSON body size (e.g. 1048576 for 1MB). */
+  bodyLimit?: number;
   /** OpenAPI configuration */
-  openApi?: OpenApiExpressOptions;
+  openApi?: OpenApiFastifyOptions;
   /** Input coercion setting */
   inputCoercion?: InputCoercionSetting;
   /** CORS configuration. Set to true for permissive defaults, or provide options. */

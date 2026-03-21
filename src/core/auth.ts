@@ -1,4 +1,3 @@
-import type { Request, Response, NextFunction } from "express";
 import type { Constructor } from "./types";
 import { HttpError } from "./errors";
 
@@ -20,13 +19,13 @@ export interface AuthOptions {
   /** All roles required (all must match) */
   allRoles?: string[];
   /** Custom guard function */
-  guard?: (user: AuthUser, req: Request) => boolean | Promise<boolean>;
+  guard?: (user: AuthUser, req: any) => boolean | Promise<boolean>;
 }
 
 /**
  * Function to extract user from request.
  */
-export type AuthExtractor = (req: Request) => AuthUser | null | Promise<AuthUser | null>;
+export type AuthExtractor = (req: any) => AuthUser | null | Promise<AuthUser | null>;
 
 /**
  * Options for creating auth middleware.
@@ -37,9 +36,9 @@ export interface AuthMiddlewareOptions {
   /** Property name to attach user to request (default: "user") */
   userProperty?: string;
   /** Custom unauthorized response */
-  onUnauthorized?: (req: Request, res: Response) => void;
+  onUnauthorized?: (req: any, res: any) => void;
   /** Custom forbidden response */
-  onForbidden?: (req: Request, res: Response, reason?: string) => void;
+  onForbidden?: (req: any, res: any, reason?: string) => void;
 }
 
 /**
@@ -55,7 +54,7 @@ interface AuthMeta {
   /** Required roles (all must match) */
   allRoles?: string[];
   /** Custom guard function */
-  guard?: (user: AuthUser, req: Request) => boolean | Promise<boolean>;
+  guard?: (user: AuthUser, req: any) => boolean | Promise<boolean>;
 }
 
 const routeAuthStore = new Map<string, AuthMeta>();
@@ -224,7 +223,7 @@ function hasAllRoles(user: AuthUser, roles: string[]): boolean {
 export function createAuthMiddleware(options: AuthMiddlewareOptions) {
   const userProperty = options.userProperty ?? "user";
 
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  return async (req: any, res: any, next: (err?: any) => void): Promise<void> => {
     try {
       const user = await options.extractor(req);
       if (user) {
@@ -252,7 +251,7 @@ export function createRouteGuard(
   const userProperty = options.userProperty ?? "user";
   const authMeta = getRouteAuthMeta(controller, handlerName);
 
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  return async (req: any, res: any, next: (err?: any) => void): Promise<void> => {
     if (!authMeta || authMeta.isPublic || !authMeta.requiresAuth) {
       next();
       return;
@@ -285,12 +284,12 @@ export function createRouteGuard(
 
 /**
  * Helper to get user from request in controllers.
- * @param req - Express request
+ * @param req - Raw request
  * @param userProperty - Property name (default: "user")
  * @returns User or undefined
  */
 export function getUser<T extends AuthUser = AuthUser>(
-  req: Request,
+  req: any,
   userProperty: string = "user"
 ): T | undefined {
   return (req as unknown as Record<string, unknown>)[userProperty] as T | undefined;
@@ -298,13 +297,13 @@ export function getUser<T extends AuthUser = AuthUser>(
 
 /**
  * Helper to require user from request (throws if not present).
- * @param req - Express request
+ * @param req - Raw request
  * @param userProperty - Property name (default: "user")
  * @returns User
  * @throws HttpError if user not found
  */
 export function requireUser<T extends AuthUser = AuthUser>(
-  req: Request,
+  req: any,
   userProperty: string = "user"
 ): T {
   const user = getUser<T>(req, userProperty);
