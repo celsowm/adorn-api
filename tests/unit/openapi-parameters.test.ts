@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { t } from "../../src/core/schema";
-import { registerController, registerDto } from "../../src/core/metadata";
+import { registerController } from "../../src/core/metadata";
 import { buildOpenApi } from "../../src/core/openapi";
 import { createInputCoercer } from "../../src/adapter/express/coercion";
 

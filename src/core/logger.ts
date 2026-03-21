@@ -1,5 +1,3 @@
-import type { Request, Response, NextFunction } from "express";
-
 /**
  * Log levels in order of severity.
  */
@@ -49,13 +47,13 @@ export interface RequestLoggerOptions {
   /** Custom transport function (default: JSON to console) */
   transport?: LogTransport;
   /** Paths to skip logging (e.g., ["/health", "/health/live"]) */
-  skip?: string[] | ((req: Request) => boolean);
+  skip?: string[] | ((req: any) => boolean);
   /** Header name for request ID (default: "x-request-id") */
   requestIdHeader?: string;
   /** Whether to generate request ID if not present (default: true) */
   generateRequestId?: boolean;
   /** Custom context extractor */
-  context?: (req: Request, res: Response) => Record<string, unknown>;
+  context?: (req: any, res: any) => Record<string, unknown>;
 }
 
 /**
@@ -169,7 +167,7 @@ export function requestLogger(options: RequestLoggerOptions = {}) {
   const skipFn = typeof options.skip === "function" ? options.skip : null;
   const contextFn = options.context;
 
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return (req: any, res: any, next: (err?: any) => void): void => {
     if (skipPaths?.has(req.path) || skipFn?.(req)) {
       next();
       return;
@@ -180,12 +178,12 @@ export function requestLogger(options: RequestLoggerOptions = {}) {
     if (!requestId && generateRequestId) {
       requestId = generateId();
     }
-    if (requestId) {
+    if (requestId && res.setHeader) {
       res.setHeader(requestIdHeader, requestId);
     }
 
     const originalEnd = res.end;
-    res.end = function (this: Response, ...args: Parameters<Response["end"]>) {
+    res.end = function (this: any, ...args: any[]) {
       const endTime = process.hrtime.bigint();
       const responseTime = Number(endTime - startTime) / 1_000_000;
 
@@ -199,7 +197,7 @@ export function requestLogger(options: RequestLoggerOptions = {}) {
           url: req.originalUrl || req.url,
           status: res.statusCode,
           responseTime: Math.round(responseTime * 100) / 100,
-          contentLength: res.get("content-length") ? parseInt(res.get("content-length")!, 10) : undefined,
+          contentLength: res.get ? parseInt(res.get("content-length")!, 10) : undefined,
           ip: req.ip || (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim(),
           userAgent: req.headers["user-agent"],
           requestId,
@@ -209,7 +207,7 @@ export function requestLogger(options: RequestLoggerOptions = {}) {
       }
 
       return originalEnd.apply(this, args);
-    } as Response["end"];
+    } as any;
 
     next();
   };

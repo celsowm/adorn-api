@@ -12,6 +12,25 @@ export * from "./core/serialization";
 export * from "./core/auth";
 export * from "./core/lifecycle";
 export * from "./core/streaming";
-export * from "./adapter/express/index";
+export {
+    createExpressApp,
+    attachControllers as attachExpressControllers,
+    attachOpenApi as attachExpressOpenApi,
+    shutdownApp as shutdownExpressApp
+} from "./adapter/express/index";
+export type {
+    ExpressAdapterOptions,
+    RequestContext as ExpressRequestContext
+} from "./adapter/express/index";
+export {
+    createFastifyApp,
+    attachControllers as attachFastifyControllers,
+    attachOpenApi as attachFastifyOpenApi,
+    shutdownApp as shutdownFastifyApp
+} from "./adapter/fastify/index";
+export type {
+    FastifyAdapterOptions,
+    RequestContext as FastifyRequestContext
+} from "./adapter/fastify/index";
 export * from "./adapter/metal-orm/index";
 export * from "./core/types";
