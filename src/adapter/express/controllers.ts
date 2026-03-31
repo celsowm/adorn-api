@@ -49,7 +49,7 @@ export async function attachControllers(
       }
       const coerceParams = inputCoercion === false
         ? undefined
-        : createInputCoercer<Record<string, string | number | boolean | undefined>>(
+        : createInputCoercer<Record<string, unknown>>(
           route.params,
           { mode: inputCoercion, location: "params" }
         );
@@ -82,7 +82,7 @@ export async function attachControllers(
             res,
             body: coerceBody ? coerceBody(req.body) : req.body,
             query: coerceQuery ? coerceQuery(req.query as Record<string, unknown>) : req.query,
-            params: coerceParams ? coerceParams(req.params) : req.params,
+            params: coerceParams ? coerceParams(req.params as Record<string, unknown>) : req.params,
             headers: req.headers,
             files,
             sse: route.sse ? createSseEmitter(res) : undefined,
