@@ -6,9 +6,11 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "pretest": "npm run build",
     "dev": "tsx examples/basic/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "typecheck:tests": "tsc -p tsconfig.typecheck.json --noEmit",
     "example": "node scripts/run-example.js",
     "check": "tsc -p tsconfig.json --noEmit && npm test",
     "lint": "eslint . --ext .ts,.tsx,.js"

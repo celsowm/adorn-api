@@ -639,6 +639,24 @@ export class UserController {
 
 The `listConfig` object contains: `filterMappings`, `sortableColumns`, `defaultSortBy`, `defaultSortDirection`, `defaultPageSize`, `maxPageSize`, `sortByKey`, and `sortDirectionKey`.
 
+### Type-Only Query Interfaces
+
+For consumer projects that need pure TypeScript interfaces (without creating extra DTO classes), Adorn exports:
+- `PaginationQueryParams`
+- `SortingQueryParams`
+- `PagedQueryParams`
+
+```typescript
+import type { PagedQueryParams } from "adorn-api";
+
+interface CaixaEntradaQueryDto extends PagedQueryParams {
+  usuarioId?: number;
+  lido?: boolean;
+}
+```
+
+`sortDirection` is the official typed sort field (`"asc" | "desc"`). `sortOrder` remains parser compatibility for legacy/external clients.
+
 ### `BaseService.list` Before/After (Boilerplate Reduction)
 
 Before:

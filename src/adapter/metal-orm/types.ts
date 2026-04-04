@@ -75,6 +75,16 @@ export interface ParsedPagination {
 }
 
 /**
+ * Pagination query params for consumer-side TypeScript interfaces.
+ */
+export interface PaginationQueryParams {
+  /** Page number */
+  page?: number;
+  /** Page size */
+  pageSize?: number;
+}
+
+/**
  * Filter field mapping.
  */
 export interface FilterFieldMapping {
@@ -154,6 +164,21 @@ export interface ParseFilterOptions<T = Record<string, unknown>> {
  * Sort direction.
  */
 export type SortDirection = "asc" | "desc";
+
+/**
+ * Sorting query params for consumer-side TypeScript interfaces.
+ */
+export interface SortingQueryParams {
+  /** Requested sort key */
+  sortBy?: string;
+  /** Sort direction */
+  sortDirection?: SortDirection;
+}
+
+/**
+ * Combined pagination + sorting query params.
+ */
+export interface PagedQueryParams extends PaginationQueryParams, SortingQueryParams {}
 
 /**
  * Sort parsing options.
