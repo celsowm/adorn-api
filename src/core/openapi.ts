@@ -6,6 +6,7 @@ import {
   buildSchemaFromSource
 } from "./schema-builder";
 import { getAllControllers, getDtoMeta } from "./metadata";
+import { getRouteAuthMeta } from "./auth";
 import type { SchemaNode, SchemaSource } from "./schema";
 
 /**
@@ -93,6 +94,8 @@ export interface OpenApiDocument {
   components: {
     /** Schema definitions */
     schemas: Record<string, JsonSchema>;
+    /** Reusable security scheme definitions */
+    securitySchemes?: Record<string, unknown>;
   };
 }
 
@@ -106,6 +109,7 @@ export function buildOpenApi(options: OpenApiOptions): OpenApiDocument {
   
   const controllers = filterControllers(options.controllers);
   const paths: Record<string, Record<string, unknown>> = {};
+  let hasBearerAuth = false;
 
   for (const controller of controllers) {
     const tagFallback = controller.meta.tags ?? [controller.meta.controller.name];
@@ -127,6 +131,14 @@ export function buildOpenApi(options: OpenApiOptions): OpenApiDocument {
       const requestBody = hasFiles
         ? buildMultipartRequestBody(route.files!, route.body, context)
         : buildRequestBody(route.body, context);
+      const authMeta = getRouteAuthMeta(controller.meta.controller, route.handlerName);
+      const security = authMeta?.requiresAuth && !authMeta.isPublic
+        ? [{ bearerAuth: [] }]
+        : undefined;
+
+      if (security) {
+        hasBearerAuth = true;
+      }
 
       pathItem[route.httpMethod] = {
         operationId: `${controller.meta.controller.name}.${String(route.handlerName)}`,
@@ -135,6 +147,7 @@ export function buildOpenApi(options: OpenApiOptions): OpenApiDocument {
         tags: route.tags ?? tagFallback,
         parameters: parameters.length ? parameters : undefined,
         requestBody,
+        security,
         responses
       };
     }
@@ -147,7 +160,15 @@ export function buildOpenApi(options: OpenApiOptions): OpenApiDocument {
     servers: options.servers,
     paths,
     components: {
-      schemas: context.components
+      schemas: context.components,
+      securitySchemes: hasBearerAuth
+        ? {
+            bearerAuth: {
+              type: "http",
+              scheme: "bearer"
+            }
+          }
+        : undefined
     }
   };
   

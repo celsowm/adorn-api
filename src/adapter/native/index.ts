@@ -3,6 +3,7 @@ import type { NativeAdapterOptions, NativeApp } from "./types";
 import { registerControllers, dispatchRequest } from "./controllers";
 import { registerOpenApi } from "./openapi";
 import { lifecycleRegistry } from "../../core/lifecycle";
+import { authenticateBearerRequest } from "../../core/auth";
 import { Router } from "./router";
 
 export * from "./types";
@@ -35,6 +36,17 @@ export async function createNativeApp(options: NativeAdapterOptions): Promise<Na
       return;
     }
 
+    if (options.bearerAuth) {
+      try {
+        await authenticateBearerRequest(req, options.bearerAuth);
+      } catch {
+        res.statusCode = 500;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ message: "Internal server error" }));
+        return;
+      }
+    }
+
     const query: Record<string, any> = {};
     url.searchParams.forEach((value, key) => {
       if (query[key]) {
@@ -64,7 +76,8 @@ export async function createNativeApp(options: NativeAdapterOptions): Promise<Na
       inputCoercion,
       validation: options.validation,
       body,
-      query
+      query,
+      auth: { userProperty: options.bearerAuth?.userProperty }
     });
   };
 

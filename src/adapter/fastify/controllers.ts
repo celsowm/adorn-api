@@ -2,8 +2,8 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { Constructor, RequestContext } from "../../core/types";
 import type { SchemaSource } from "../../core/schema";
 import { getControllerMeta } from "../../core/metadata";
-import { getRouteAuthMeta } from "../../core/auth";
-import { isHttpError, HttpError } from "../../core/errors";
+import { assertRouteAuthorized, getRouteAuthMeta } from "../../core/auth";
+import { isHttpError } from "../../core/errors";
 import { isHttpResponse } from "../../core/response";
 import type { InputCoercionSetting, MultipartOptions, ValidationOptions } from "./types";
 import { createInputCoercer } from "./coercion";
@@ -26,7 +26,8 @@ export async function attachControllers(
   controllers: Constructor[],
   inputCoercion: InputCoercionSetting = "safe",
   multipart?: boolean | MultipartOptions,
-  validation?: boolean | ValidationOptions
+  validation?: boolean | ValidationOptions,
+  auth?: { userProperty?: string }
 ): Promise<void> {
   const multipartOptions = normalizeMultipartOptions(multipart);
 
@@ -70,33 +71,7 @@ export async function attachControllers(
         handler: async (req: FastifyRequest, reply: FastifyReply) => {
           try {
             // Apply auth guard if metadata exists
-            if (authMeta && authMeta.requiresAuth && !authMeta.isPublic) {
-              const user = (req as any).user || (req.raw as any).user;
-              if (!user) {
-                throw new HttpError(401, "Unauthorized");
-              }
-
-              if (authMeta.roles?.length) {
-                const hasRole = authMeta.roles.some((role: string) => user.roles?.includes(role));
-                if (!hasRole) {
-                  throw new HttpError(403, "Insufficient permissions");
-                }
-              }
-
-              if (authMeta.allRoles?.length) {
-                const hasAllRoles = authMeta.allRoles.every((role: string) => user.roles?.includes(role));
-                if (!hasAllRoles) {
-                  throw new HttpError(403, "Insufficient permissions");
-                }
-              }
-
-              if (authMeta.guard) {
-                const allowed = await authMeta.guard(user, req);
-                if (!allowed) {
-                  throw new HttpError(403, "Access denied by guard");
-                }
-              }
-            }
+            await assertRouteAuthorized(authMeta, req, auth);
 
             let files: any = undefined;
             if (multipartOptions && hasFileUploads(route.files)) {

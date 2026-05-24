@@ -5,6 +5,7 @@ import type {
   UploadedFileInfo
 } from "../../core/types";
 import type { OpenApiInfo, OpenApiServer } from "../../core/openapi";
+import type { BearerAuthOptions } from "../../core/auth";
 
 export { UploadedFileInfo };
 
@@ -81,6 +82,8 @@ export interface NativeAdapterOptions {
   openApi?: OpenApiNativeOptions;
   /** Input coercion setting */
   inputCoercion?: InputCoercionSetting;
+  /** Built-in bearer token authentication for protected routes. */
+  bearerAuth?: BearerAuthOptions;
   /** Validation configuration. Set to false to disable validation, or provide options. */
   validation?: boolean | ValidationOptions;
 }

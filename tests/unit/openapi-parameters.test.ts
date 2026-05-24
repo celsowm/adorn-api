@@ -3,6 +3,7 @@ import { t } from "../../src/core/schema";
 import { registerController } from "../../src/core/metadata";
 import { buildOpenApi } from "../../src/core/openapi";
 import { createInputCoercer } from "../../src/adapter/express/coercion";
+import { Auth, Controller, Get, Public } from "../../src";
 
 describe("OpenAPI query parameter serialization", () => {
   class QueryArrayController {}
@@ -93,5 +94,52 @@ describe("Query array coercion – CSV support", () => {
 
     const result = coerce({ ids: "1,2" });
     expect(result.ids).toEqual([1, 2]);
+  });
+});
+
+describe("OpenAPI bearer auth security", () => {
+  @Controller("/secure-docs")
+  class SecureDocsController {
+    @Get("/public")
+    @Public()
+    publicRoute() {
+      return {};
+    }
+
+    @Get("/protected")
+    @Auth()
+    protectedRoute() {
+      return {};
+    }
+  }
+
+  it("adds bearerAuth security scheme when protected routes exist", () => {
+    new SecureDocsController();
+
+    const doc = buildOpenApi({
+      info: { title: "test", version: "1.0.0" },
+      controllers: [SecureDocsController]
+    });
+
+    expect(doc.components.securitySchemes).toEqual({
+      bearerAuth: {
+        type: "http",
+        scheme: "bearer"
+      }
+    });
+  });
+
+  it("adds security only to protected operations", () => {
+    new SecureDocsController();
+
+    const doc = buildOpenApi({
+      info: { title: "test", version: "1.0.0" },
+      controllers: [SecureDocsController]
+    });
+
+    expect((doc.paths["/secure-docs/protected"] as any).get.security).toEqual([
+      { bearerAuth: [] }
+    ]);
+    expect((doc.paths["/secure-docs/public"] as any).get.security).toBeUndefined();
   });
 });

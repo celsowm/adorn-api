@@ -28,6 +28,14 @@ export interface AuthOptions {
 export type AuthExtractor = (req: any) => AuthUser | null | Promise<AuthUser | null>;
 
 /**
+ * Function to validate a bearer token and resolve the authenticated user.
+ */
+export type BearerTokenVerifier = (
+  token: string,
+  req: any
+) => AuthUser | null | Promise<AuthUser | null>;
+
+/**
  * Options for creating auth middleware.
  */
 export interface AuthMiddlewareOptions {
@@ -42,9 +50,19 @@ export interface AuthMiddlewareOptions {
 }
 
 /**
+ * Options for built-in Bearer authentication.
+ */
+export interface BearerAuthOptions {
+  /** Function to validate token and return user context */
+  verifyToken: BearerTokenVerifier;
+  /** Property name to attach user to request (default: "user") */
+  userProperty?: string;
+}
+
+/**
  * Metadata for authentication on routes/controllers.
  */
-interface AuthMeta {
+export interface AuthMeta {
   /** Whether authentication is required */
   requiresAuth: boolean;
   /** Whether route is public (overrides controller-level auth) */
@@ -215,6 +233,22 @@ function hasAllRoles(user: AuthUser, roles: string[]): boolean {
 }
 
 /**
+ * Extracts a token from the Authorization: Bearer <token> header.
+ */
+export function extractBearerToken(req: any): string | undefined {
+  const headers = req?.headers as Record<string, unknown> | undefined;
+  const rawHeader = headers?.authorization ?? headers?.Authorization;
+  const header = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+
+  if (typeof header !== "string") {
+    return undefined;
+  }
+
+  const match = header.match(/^Bearer\s+(\S+)$/i);
+  return match?.[1];
+}
+
+/**
  * Creates Express middleware for authentication.
  * Use this as a global middleware, then use route-level checks.
  * @param options - Auth middleware options
@@ -237,6 +271,76 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions) {
 }
 
 /**
+ * Verifies a bearer token from the request and attaches the user when valid.
+ */
+export async function authenticateBearerRequest(
+  req: any,
+  options: BearerAuthOptions
+): Promise<AuthUser | null> {
+  const token = extractBearerToken(req);
+  if (!token) {
+    return null;
+  }
+
+  const user = await options.verifyToken(token, req);
+  if (user) {
+    (req as Record<string, unknown>)[options.userProperty ?? "user"] = user;
+  }
+  return user;
+}
+
+/**
+ * Creates middleware that extracts and verifies Authorization bearer tokens.
+ */
+export function createBearerAuthMiddleware(options: BearerAuthOptions) {
+  return async (req: any, _res: any, next: (err?: any) => void): Promise<void> => {
+    try {
+      await authenticateBearerRequest(req, options);
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+/**
+ * Applies route auth metadata to a request that may already have a user attached.
+ */
+export async function assertRouteAuthorized(
+  authMeta: AuthMeta | undefined,
+  req: any,
+  options: { userProperty?: string } = {}
+): Promise<void> {
+  if (!authMeta || authMeta.isPublic || !authMeta.requiresAuth) {
+    return;
+  }
+
+  const userProperty = options.userProperty ?? "user";
+  const requestRecord = req as Record<string, unknown>;
+  const rawRecord = (req?.raw ?? {}) as Record<string, unknown>;
+  const user = (requestRecord[userProperty] ?? rawRecord[userProperty]) as AuthUser | undefined;
+
+  if (!user) {
+    throw new HttpError(401, "Unauthorized");
+  }
+
+  if (authMeta.roles?.length && !hasAnyRole(user, authMeta.roles)) {
+    throw new HttpError(403, "Insufficient permissions");
+  }
+
+  if (authMeta.allRoles?.length && !hasAllRoles(user, authMeta.allRoles)) {
+    throw new HttpError(403, "Insufficient permissions");
+  }
+
+  if (authMeta.guard) {
+    const allowed = await authMeta.guard(user, req);
+    if (!allowed) {
+      throw new HttpError(403, "Access denied by guard");
+    }
+  }
+}
+
+/**
  * Creates a route guard middleware that checks auth metadata.
  * @param controller - Controller class
  * @param handlerName - Handler method name
@@ -248,36 +352,10 @@ export function createRouteGuard(
   handlerName: string | symbol,
   options: { userProperty?: string } = {}
 ) {
-  const userProperty = options.userProperty ?? "user";
   const authMeta = getRouteAuthMeta(controller, handlerName);
 
-  return async (req: any, res: any, next: (err?: any) => void): Promise<void> => {
-    if (!authMeta || authMeta.isPublic || !authMeta.requiresAuth) {
-      next();
-      return;
-    }
-
-    const user = (req as unknown as Record<string, unknown>)[userProperty] as AuthUser | undefined;
-
-    if (!user) {
-      throw new HttpError(401, "Unauthorized");
-    }
-
-    if (authMeta.roles?.length && !hasAnyRole(user, authMeta.roles)) {
-      throw new HttpError(403, "Insufficient permissions");
-    }
-
-    if (authMeta.allRoles?.length && !hasAllRoles(user, authMeta.allRoles)) {
-      throw new HttpError(403, "Insufficient permissions");
-    }
-
-    if (authMeta.guard) {
-      const allowed = await authMeta.guard(user, req);
-      if (!allowed) {
-        throw new HttpError(403, "Access denied by guard");
-      }
-    }
-
+  return async (req: any, _res: any, next: (err?: any) => void): Promise<void> => {
+    await assertRouteAuthorized(authMeta, req, options);
     next();
   };
 }

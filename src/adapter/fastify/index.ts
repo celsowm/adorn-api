@@ -3,6 +3,7 @@ import type { FastifyAdapterOptions } from "./types";
 import { attachControllers } from "./controllers";
 import { attachOpenApi } from "./openapi";
 import { lifecycleRegistry } from "../../core/lifecycle";
+import { authenticateBearerRequest } from "../../core/auth";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 
@@ -32,8 +33,21 @@ export async function createFastifyApp(options: FastifyAdapterOptions): Promise<
     });
   }
 
+  if (options.bearerAuth) {
+    app.addHook("preHandler", async (req) => {
+      await authenticateBearerRequest(req, options.bearerAuth!);
+    });
+  }
+
   const inputCoercion = options.inputCoercion ?? "safe";
-  await attachControllers(app, options.controllers, inputCoercion, options.multipart, options.validation);
+  await attachControllers(
+    app,
+    options.controllers,
+    inputCoercion,
+    options.multipart,
+    options.validation,
+    { userProperty: options.bearerAuth?.userProperty }
+  );
 
   if (options.openApi) {
     attachOpenApi(app, options.controllers, options.openApi);

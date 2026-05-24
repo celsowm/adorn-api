@@ -4,6 +4,7 @@ import { attachCors } from "./cors";
 import { attachControllers } from "./controllers";
 import { attachOpenApi } from "./openapi";
 import { lifecycleRegistry } from "../../core/lifecycle";
+import { createBearerAuthMiddleware } from "../../core/auth";
 
 export * from "./types";
 export { attachCors } from "./cors";
@@ -23,8 +24,18 @@ export async function createExpressApp(options: ExpressAdapterOptions): Promise<
   if (options.jsonBody ?? true) {
     app.use(express.json({ limit: options.jsonLimit }));
   }
+  if (options.bearerAuth) {
+    app.use(createBearerAuthMiddleware(options.bearerAuth));
+  }
   const inputCoercion = options.inputCoercion ?? "safe";
-  await attachControllers(app, options.controllers, inputCoercion, options.multipart, options.validation);
+  await attachControllers(
+    app,
+    options.controllers,
+    inputCoercion,
+    options.multipart,
+    options.validation,
+    { userProperty: options.bearerAuth?.userProperty }
+  );
   if (options.openApi) {
     attachOpenApi(app, options.controllers, options.openApi);
   }

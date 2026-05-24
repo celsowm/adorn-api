@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import type { Constructor } from "../../core/types";
 import type { SchemaSource } from "../../core/schema";
 import { getControllerMeta } from "../../core/metadata";
+import { assertRouteAuthorized, getRouteAuthMeta } from "../../core/auth";
 import { isHttpError, type HttpError } from "../../core/errors";
 import { isHttpResponse } from "../../core/response";
 import type { InputCoercionSetting, MultipartOptions, RequestContext, ValidationOptions } from "./types";
@@ -30,7 +31,8 @@ export async function attachControllers(
   controllers: Constructor[],
   inputCoercion: InputCoercionSetting = "safe",
   multipart?: boolean | MultipartOptions,
-  validation?: boolean | ValidationOptions
+  validation?: boolean | ValidationOptions,
+  auth?: { userProperty?: string }
 ): Promise<void> {
   const multipartOptions = normalizeMultipartOptions(multipart);
   for (const controller of controllers) {
@@ -70,10 +72,13 @@ export async function attachControllers(
 
       // Determine if validation is enabled for this route
       const isValidationEnabled = validation !== false && (validation as ValidationOptions)?.enabled !== false;
+      const authMeta = getRouteAuthMeta(controller, route.handlerName);
 
       // Main route handler
       const routeHandler = async (req: Request, res: Response, next: NextFunction) => {
         try {
+          await assertRouteAuthorized(authMeta, req, auth);
+
           const files = extractFiles(req);
 
           // Create context

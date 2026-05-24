@@ -8,7 +8,9 @@ import {
   getRouteAuthMeta,
   getControllerAuthMeta,
   createAuthMiddleware,
+  createBearerAuthMiddleware,
   createRouteGuard,
+  extractBearerToken,
   getUser,
   requireUser,
   type AuthUser
@@ -237,6 +239,88 @@ describe("createAuthMiddleware", () => {
     await middleware(req, res, next);
 
     expect((req as unknown as Record<string, unknown>).user).toBe(user);
+  });
+});
+
+describe("extractBearerToken", () => {
+  it("returns undefined when authorization header is missing", () => {
+    expect(extractBearerToken(createMockRequest())).toBeUndefined();
+  });
+
+  it("extracts token from Bearer authorization header", () => {
+    const req = createMockRequest({ headers: { authorization: "Bearer abc123" } });
+    expect(extractBearerToken(req)).toBe("abc123");
+  });
+
+  it("extracts token from case-insensitive bearer scheme", () => {
+    const req = createMockRequest({ headers: { authorization: "bearer abc123" } });
+    expect(extractBearerToken(req)).toBe("abc123");
+  });
+
+  it("returns undefined for invalid authorization formats", () => {
+    expect(extractBearerToken(createMockRequest({ headers: { authorization: "Basic abc123" } }))).toBeUndefined();
+    expect(extractBearerToken(createMockRequest({ headers: { authorization: "Bearer" } }))).toBeUndefined();
+    expect(extractBearerToken(createMockRequest({ headers: { authorization: "Bearer abc def" } }))).toBeUndefined();
+  });
+});
+
+describe("createBearerAuthMiddleware", () => {
+  it("attaches user for a valid bearer token", async () => {
+    const user: AuthUser = { id: "bearer-user", roles: ["user"] };
+    const middleware = createBearerAuthMiddleware({
+      verifyToken: vi.fn().mockResolvedValue(user)
+    });
+    const req = createMockRequest({ headers: { authorization: "Bearer valid" } });
+    const res = createMockResponse();
+    const next = vi.fn();
+
+    await middleware(req, res, next);
+
+    expect((req as unknown as Record<string, unknown>).user).toBe(user);
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it("does not attach user for an invalid bearer token", async () => {
+    const middleware = createBearerAuthMiddleware({
+      verifyToken: vi.fn().mockResolvedValue(null)
+    });
+    const req = createMockRequest({ headers: { authorization: "Bearer invalid" } });
+    const res = createMockResponse();
+    const next = vi.fn();
+
+    await middleware(req, res, next);
+
+    expect((req as unknown as Record<string, unknown>).user).toBeUndefined();
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it("passes verifier errors to next", async () => {
+    const error = new Error("verifier failed");
+    const middleware = createBearerAuthMiddleware({
+      verifyToken: vi.fn().mockRejectedValue(error)
+    });
+    const req = createMockRequest({ headers: { authorization: "Bearer bad" } });
+    const res = createMockResponse();
+    const next = vi.fn();
+
+    await middleware(req, res, next);
+
+    expect(next).toHaveBeenCalledWith(error);
+  });
+
+  it("uses custom user property", async () => {
+    const user: AuthUser = { id: "custom" };
+    const middleware = createBearerAuthMiddleware({
+      userProperty: "currentUser",
+      verifyToken: vi.fn().mockResolvedValue(user)
+    });
+    const req = createMockRequest({ headers: { authorization: "Bearer valid" } });
+    const res = createMockResponse();
+    const next = vi.fn();
+
+    await middleware(req, res, next);
+
+    expect((req as unknown as Record<string, unknown>).currentUser).toBe(user);
   });
 });
 

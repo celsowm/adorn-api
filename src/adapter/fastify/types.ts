@@ -4,6 +4,7 @@ import type {
   UploadedFileInfo
 } from "../../core/types";
 import type { OpenApiInfo, OpenApiServer } from "../../core/openapi";
+import type { BearerAuthOptions } from "../../core/auth";
 
 /**
  * Request context provided to Fastify route handlers.
@@ -112,6 +113,8 @@ export interface FastifyAdapterOptions {
   inputCoercion?: InputCoercionSetting;
   /** CORS configuration. Set to true for permissive defaults, or provide options. */
   cors?: boolean | CorsOptions;
+  /** Built-in bearer token authentication for protected routes. */
+  bearerAuth?: BearerAuthOptions;
   /** Multipart file upload configuration. Set to true for defaults, or provide options. */
   multipart?: boolean | MultipartOptions;
   /** Validation configuration. Set to false to disable validation, or provide options. */

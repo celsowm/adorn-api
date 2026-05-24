@@ -2,8 +2,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Constructor, RequestContext } from "../../core/types";
 import type { SchemaSource } from "../../core/schema";
 import { getControllerMeta } from "../../core/metadata";
-import { getRouteAuthMeta } from "../../core/auth";
-import { isHttpError, HttpError } from "../../core/errors";
+import { assertRouteAuthorized, getRouteAuthMeta } from "../../core/auth";
+import { isHttpError } from "../../core/errors";
 import { isHttpResponse } from "../../core/response";
 import type { InputCoercionSetting, ValidationOptions, RequestContext as NativeRequestContext } from "./types";
 import { createInputCoercer } from "./coercion";
@@ -48,10 +48,11 @@ export async function dispatchRequest(
     validation?: boolean | ValidationOptions;
     body?: any;
     query?: Record<string, any>;
+    auth?: { userProperty?: string };
   }
 ): Promise<void> {
   const { controller: instance, route, params: rawParams } = match;
-  const { inputCoercion, validation, body: rawBody, query: rawQuery } = options;
+  const { inputCoercion, validation, body: rawBody, query: rawQuery, auth } = options;
 
   const handler = instance[route.handlerName];
   if (typeof handler !== "function") {
@@ -77,33 +78,7 @@ export async function dispatchRequest(
 
   try {
     // Apply auth guard if metadata exists
-    if (authMeta && authMeta.requiresAuth && !authMeta.isPublic) {
-      const user = (req as any).user;
-      if (!user) {
-        throw new HttpError(401, "Unauthorized");
-      }
-
-      if (authMeta.roles?.length) {
-        const hasRole = authMeta.roles.some((role: string) => user.roles?.includes(role));
-        if (!hasRole) {
-          throw new HttpError(403, "Insufficient permissions");
-        }
-      }
-
-      if (authMeta.allRoles?.length) {
-        const hasAllRoles = authMeta.allRoles.every((role: string) => user.roles?.includes(role));
-        if (!hasAllRoles) {
-          throw new HttpError(403, "Insufficient permissions");
-        }
-      }
-
-      if (authMeta.guard) {
-        const allowed = await authMeta.guard(user, req);
-        if (!allowed) {
-          throw new HttpError(403, "Access denied by guard");
-        }
-      }
-    }
+    await assertRouteAuthorized(authMeta, req, auth);
 
     const body = (coerceBody && rawBody) ? coerceBody(rawBody) : rawBody;
     const query = (coerceQuery && rawQuery) ? coerceQuery(rawQuery) : rawQuery;
