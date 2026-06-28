@@ -17,7 +17,10 @@ export function attachOpenApi(
   const openApiPath = normalizePath(options.path, "/openapi.json");
   const document = buildOpenApi({
     info: options.info,
+    $self: options.$self,
     servers: options.servers,
+    tags: options.tags,
+    components: options.components,
     controllers
   });
 

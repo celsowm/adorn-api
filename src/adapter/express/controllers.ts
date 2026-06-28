@@ -58,6 +58,9 @@ export async function attachControllers(
       const coerceQuery = inputCoercion === false
         ? undefined
         : createInputCoercer<Record<string, unknown>>(route.query, { mode: inputCoercion, location: "query" });
+      const coerceQueryString = inputCoercion === false
+        ? undefined
+        : createInputCoercer<Record<string, unknown>>(route.querystring, { mode: inputCoercion, location: "query" });
       const coerceBody = inputCoercion === false
         ? undefined
         : createInputCoercer<Record<string, unknown>>(route.body, { mode: inputCoercion, location: "body" });
@@ -82,11 +85,17 @@ export async function attachControllers(
           const files = extractFiles(req);
 
           // Create context
+          const rawQueryString = getRawQueryString(req.originalUrl ?? req.url);
+          const parsedQueryString = getQueryStringValue(route.querystring, rawQueryString);
+          const querystring = coerceQueryString && isRecord(parsedQueryString)
+            ? coerceQueryString(parsedQueryString)
+            : parsedQueryString;
           const ctx = {
             req,
             res,
             body: coerceBody ? coerceBody(req.body) : req.body,
             query: coerceQuery ? coerceQuery(req.query as Record<string, unknown>) : req.query,
+            querystring,
             params: coerceParams ? coerceParams(req.params as Record<string, unknown>) : req.params,
             headers: req.headers,
             files,
@@ -106,6 +115,11 @@ export async function attachControllers(
             if (route.query) {
               const queryErrors = validate(ctx.query, route.query.schema);
               validationErrors.push(...queryErrors);
+            }
+
+            if (route.querystring) {
+              const queryStringErrors = validate(ctx.querystring, route.querystring.schema);
+              validationErrors.push(...queryStringErrors);
             }
 
             if (route.params) {
@@ -181,9 +195,78 @@ export async function attachControllers(
       };
 
       middlewares.push(routeHandler);
-      app[route.httpMethod](path, ...middlewares);
+      registerExpressRoute(app, route.httpMethod, path, middlewares);
     }
   }
+}
+
+function registerExpressRoute(
+  app: Express,
+  method: string,
+  path: string,
+  middlewares: Array<(req: Request, res: Response, next: NextFunction) => void>
+): void {
+  const lower = method.toLowerCase();
+  const handler = (app as any)[lower];
+  if (typeof handler === "function") {
+    handler.call(app, path, ...middlewares);
+    return;
+  }
+
+  app.all(path, (req, res, next) => {
+    if (req.method.toLowerCase() !== lower) {
+      next();
+      return;
+    }
+    let index = 0;
+    const run = (error?: unknown) => {
+      if (error) {
+        next(error);
+        return;
+      }
+      const middleware = middlewares[index++];
+      if (!middleware) {
+        return;
+      }
+      middleware(req, res, run);
+    };
+    run();
+  });
+}
+
+function getRawQueryString(url: string): string {
+  const index = url.indexOf("?");
+  return index >= 0 ? url.slice(index + 1) : "";
+}
+
+function getQueryStringValue(input: { contentType?: string } | undefined, raw: string): string | Record<string, unknown> | undefined {
+  if (!input) {
+    return undefined;
+  }
+  if ((input.contentType ?? "application/x-www-form-urlencoded") !== "application/x-www-form-urlencoded") {
+    return raw;
+  }
+  return parseFormUrlEncoded(raw);
+}
+
+function parseFormUrlEncoded(raw: string): Record<string, unknown> {
+  const output: Record<string, unknown> = {};
+  const params = new URLSearchParams(raw);
+  params.forEach((value, key) => {
+    const current = output[key];
+    if (current === undefined) {
+      output[key] = value;
+    } else if (Array.isArray(current)) {
+      current.push(value);
+    } else {
+      output[key] = [current, value];
+    }
+  });
+  return output;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function defaultStatus(route: {

@@ -27,6 +27,12 @@ export interface BaseSchemaOptions {
   optional?: boolean;
   /** Whether the schema can be null */
   nullable?: boolean;
+  /** XML serialization metadata for OpenAPI Schema Objects */
+  xml?: Record<string, unknown>;
+  /** Discriminator metadata for OpenAPI Schema Objects */
+  discriminator?: Record<string, unknown>;
+  /** Additional OpenAPI Schema Object fields */
+  openApi?: Record<string, unknown>;
 }
 
 /**

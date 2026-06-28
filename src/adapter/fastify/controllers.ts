@@ -62,9 +62,13 @@ export async function attachControllers(
       const coerceQuery = inputCoercion === false
         ? undefined
         : createInputCoercer<Record<string, any>>(route.query, { mode: inputCoercion, location: "query" });
+      const coerceQueryString = inputCoercion === false
+        ? undefined
+        : createInputCoercer<Record<string, any>>(route.querystring, { mode: inputCoercion, location: "query" });
       const isValidationEnabled = validation !== false && (validation as ValidationOptions)?.enabled !== false;
 
       const authMeta = getRouteAuthMeta(controller, route.handlerName);
+      ensureFastifyMethod(app, route.httpMethod, Boolean(route.body || route.files?.length));
 
       app.route({
         method: route.httpMethod.toUpperCase() as any,
@@ -81,6 +85,11 @@ export async function attachControllers(
 
             const body = req.body;
             const query = (coerceQuery && req.query && Object.keys(req.query as any).length > 0) ? coerceQuery(req.query as any) : req.query;
+            const rawQueryString = getRawQueryString(req.url);
+            const parsedQueryString = getQueryStringValue(route.querystring, rawQueryString);
+            const querystring = coerceQueryString && isRecord(parsedQueryString)
+              ? coerceQueryString(parsedQueryString)
+              : parsedQueryString;
             const params = (coerceParams && req.params && Object.keys(req.params as any).length > 0) ? coerceParams(req.params as any) : req.params;
 
             if (isValidationEnabled) {
@@ -94,6 +103,11 @@ export async function attachControllers(
               if (route.query) {
                 const queryErrors = validate(query, route.query.schema);
                 validationErrors.push(...queryErrors);
+              }
+
+              if (route.querystring) {
+                const queryStringErrors = validate(querystring, route.querystring.schema);
+                validationErrors.push(...queryStringErrors);
               }
 
               if (route.params) {
@@ -116,6 +130,7 @@ export async function attachControllers(
               res: reply.raw,
               body,
               query,
+              querystring,
               params,
               headers: req.headers,
               files,
@@ -185,6 +200,49 @@ export async function attachControllers(
       });
     }
   }
+}
+
+function ensureFastifyMethod(app: FastifyInstance, method: string, hasBody: boolean): void {
+  const upper = method.toUpperCase();
+  if (app.supportedMethods.includes(upper)) {
+    return;
+  }
+  app.addHttpMethod(upper, { hasBody });
+}
+
+function getRawQueryString(url: string): string {
+  const index = url.indexOf("?");
+  return index >= 0 ? url.slice(index + 1) : "";
+}
+
+function getQueryStringValue(input: { contentType?: string } | undefined, raw: string): string | Record<string, unknown> | undefined {
+  if (!input) {
+    return undefined;
+  }
+  if ((input.contentType ?? "application/x-www-form-urlencoded") !== "application/x-www-form-urlencoded") {
+    return raw;
+  }
+  return parseFormUrlEncoded(raw);
+}
+
+function parseFormUrlEncoded(raw: string): Record<string, unknown> {
+  const output: Record<string, unknown> = {};
+  const params = new URLSearchParams(raw);
+  params.forEach((value, key) => {
+    const current = output[key];
+    if (current === undefined) {
+      output[key] = value;
+    } else if (Array.isArray(current)) {
+      current.push(value);
+    } else {
+      output[key] = [current, value];
+    }
+  });
+  return output;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function defaultStatus(route: {

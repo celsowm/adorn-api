@@ -170,7 +170,7 @@ describe("File Upload E2E", () => {
     const response = await request(app).get("/openapi.json");
     expect(response.status).toBe(200);
     expect(response.headers["content-type"]).toContain("application/json");
-    expect(response.text).toContain('  "openapi": "3.1.0"');
+    expect(response.text).toContain('  "openapi": "3.2.0"');
     expect(response.text).toContain('  "info": {');
     expect(response.text).toContain('    "title": "Test API"');
   });
@@ -196,8 +196,8 @@ describe("File Upload E2E", () => {
 
     const response = await request(app).get("/openapi.json");
     expect(response.status).toBe(200);
-    expect(response.text).not.toContain('  "openapi": "3.1.0"');
-    expect(response.text).toContain('"openapi":"3.1.0"');
+    expect(response.text).not.toContain('  "openapi": "3.2.0"');
+    expect(response.text).toContain('"openapi":"3.2.0"');
   });
 
   it("should return minified JSON by default when prettyPrint is not set", async () => {
@@ -220,7 +220,7 @@ describe("File Upload E2E", () => {
 
     const response = await request(app).get("/openapi.json");
     expect(response.status).toBe(200);
-    expect(response.text).not.toContain('  "openapi": "3.1.0"');
-    expect(response.text).toContain('"openapi":"3.1.0"');
+    expect(response.text).not.toContain('  "openapi": "3.2.0"');
+    expect(response.text).toContain('"openapi":"3.2.0"');
   });
 });

@@ -1,4 +1,3 @@
-import type { HttpMethod } from "../../core/types";
 import type { RouteMeta } from "../../core/metadata";
 
 /**
@@ -15,7 +14,7 @@ export interface RouteMatch {
  */
 export class Router {
   private routes: Array<{
-    method: HttpMethod;
+    method: string;
     pattern: RegExp;
     paramNames: string[];
     controller: any;
@@ -41,12 +40,12 @@ export class Router {
    * Matches an incoming request to a registered route.
    */
   match(method: string, path: string): RouteMatch | undefined {
-    const normalizedMethod = method.toLowerCase() as HttpMethod;
+    const normalizedMethod = method.toLowerCase();
     const url = new URL(path, "http://localhost");
     const pathname = url.pathname;
 
     for (const entry of this.routes) {
-      if (entry.method !== normalizedMethod) {
+      if (entry.method.toLowerCase() !== normalizedMethod) {
         continue;
       }
 

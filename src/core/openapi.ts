@@ -10,39 +10,6 @@ import { getRouteAuthMeta } from "./auth";
 import type { SchemaNode, SchemaSource } from "./schema";
 
 /**
- * Validates that all registered DTOs have non-empty field metadata.
- * Throws an error with helpful diagnostic information if empty schemas are found.
- * @param components - Schema components to validate
- * @throws Error if any DTO has empty fields
- */
-function validateSchemas(components: { schemas: Record<string, JsonSchema> }): void {
-  const emptySchemas: string[] = [];
-
-  for (const [name, schema] of Object.entries(components.schemas)) {
-    const hasProperties = schema.properties && typeof schema.properties === "object" && Object.keys(schema.properties).length > 0;
-    const isEmptyObject = schema.type === "object" && !hasProperties;
-    const isMissingProperties = schema.type === "object" && (!schema.properties || Object.keys(schema.properties).length === 0);
-    
-    if (isEmptyObject || isMissingProperties) {
-      emptySchemas.push(name);
-    }
-  }
-
-  if (emptySchemas.length > 0) {
-    const message = 
-      `[adorn-api] Validation failed: ${emptySchemas.length} DTO(s) have empty schemas:\n` +
-      emptySchemas.map(n => `  - ${n}`).join("\n") +
-      `\n\nThis usually means entity metadata is not loaded. Check:\n` +
-      `  1. Entity has @Entity and @Column decorators\n` +
-      `  2. Entity is imported/executed before createMetalCrudDtoClasses\n` +
-      `  3. No circular dependencies between entities and DTOs\n` +
-      `\nTo enable strict validation at DTO creation time, pass { strict: true } to createMetalCrudDtoClasses options.`;
-    
-    throw new Error(message);
-  }
-}
-
-/**
  * OpenAPI document information.
  */
 export interface OpenApiInfo {
@@ -60,8 +27,28 @@ export interface OpenApiInfo {
 export interface OpenApiServer {
   /** Server URL */
   url: string;
+  /** Server name */
+  name?: string;
   /** Server description */
   description?: string;
+}
+
+/**
+ * OpenAPI tag information.
+ */
+export interface OpenApiTag {
+  /** Tag name */
+  name: string;
+  /** Short tag summary */
+  summary?: string;
+  /** Tag description */
+  description?: string;
+  /** Parent tag name for nested tag displays */
+  parent?: string;
+  /** Free-form tag kind such as "nav" or "audience" */
+  kind?: string;
+  /** Additional OpenAPI extension or future fields */
+  [key: string]: unknown;
 }
 
 /**
@@ -70,8 +57,17 @@ export interface OpenApiServer {
 export interface OpenApiOptions {
   /** OpenAPI document information */
   info: OpenApiInfo;
+  /** Self-assigned URI for this OpenAPI document */
+  $self?: string;
   /** Array of servers */
   servers?: OpenApiServer[];
+  /** Top-level OpenAPI tags */
+  tags?: OpenApiTag[];
+  /** Reusable OpenAPI components beyond generated schemas */
+  components?: {
+    mediaTypes?: Record<string, unknown>;
+    securitySchemes?: Record<string, unknown>;
+  };
   /** Array of controllers to include */
   controllers?: Constructor[];
 }
@@ -81,19 +77,25 @@ export interface OpenApiOptions {
  */
 export interface OpenApiDocument {
   /** OpenAPI specification version */
-  openapi: "3.1.0";
+  openapi: "3.2.0";
+  /** Self-assigned URI for this OpenAPI document */
+  $self?: string;
   /** JSON Schema dialect */
   jsonSchemaDialect: string;
   /** API information */
   info: OpenApiInfo;
   /** API servers */
   servers?: OpenApiServer[];
+  /** API tags */
+  tags?: OpenApiTag[];
   /** API paths */
   paths: Record<string, Record<string, unknown>>;
   /** Reusable components */
   components: {
     /** Schema definitions */
     schemas: Record<string, JsonSchema>;
+    /** Reusable media type definitions */
+    mediaTypes?: Record<string, unknown>;
     /** Reusable security scheme definitions */
     securitySchemes?: Record<string, unknown>;
   };
@@ -114,6 +116,9 @@ export function buildOpenApi(options: OpenApiOptions): OpenApiDocument {
   for (const controller of controllers) {
     const tagFallback = controller.meta.tags ?? [controller.meta.controller.name];
     for (const route of controller.meta.routes) {
+      if (route.query && route.querystring) {
+        throw new Error(`Route "${String(route.handlerName)}" cannot use both @Query and @QueryString.`);
+      }
       const fullPath = joinPaths(controller.meta.basePath, route.path);
       const openApiPath = expressPathToOpenApi(fullPath);
       const pathItem = (paths[openApiPath] ??= {});
@@ -121,6 +126,7 @@ export function buildOpenApi(options: OpenApiOptions): OpenApiDocument {
       const parameters = [
         ...buildParameters("path", route.params, context),
         ...buildParameters("query", route.query, context),
+        ...buildQueryStringParameter(route.querystring, context),
         ...buildParameters("header", route.headers, context)
       ];
 
@@ -140,7 +146,7 @@ export function buildOpenApi(options: OpenApiOptions): OpenApiDocument {
         hasBearerAuth = true;
       }
 
-      pathItem[route.httpMethod] = {
+      const operation = stripUndefined({
         operationId: `${controller.meta.controller.name}.${String(route.handlerName)}`,
         summary: route.summary,
         description: route.description,
@@ -148,31 +154,41 @@ export function buildOpenApi(options: OpenApiOptions): OpenApiDocument {
         parameters: parameters.length ? parameters : undefined,
         requestBody,
         security,
-        responses
-      };
+        responses,
+        ...route.operation
+      });
+
+      setPathOperation(pathItem, route.httpMethod, operation);
     }
   }
 
-  return {
-    openapi: "3.1.0",
+  const securitySchemes = {
+    ...(hasBearerAuth
+      ? {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer"
+          }
+        }
+      : {}),
+    ...(options.components?.securitySchemes ?? {})
+  };
+  const components = stripUndefined({
+    schemas: context.components,
+    mediaTypes: options.components?.mediaTypes,
+    securitySchemes: Object.keys(securitySchemes).length ? securitySchemes : undefined
+  }) as OpenApiDocument["components"];
+
+  return stripUndefined({
+    openapi: "3.2.0",
+    $self: options.$self,
     jsonSchemaDialect: "https://spec.openapis.org/oas/3.1/dialect/base",
     info: options.info,
     servers: options.servers,
+    tags: options.tags,
     paths,
-    components: {
-      schemas: context.components,
-      securitySchemes: hasBearerAuth
-        ? {
-            bearerAuth: {
-              type: "http",
-              scheme: "bearer"
-            }
-          }
-        : undefined
-    }
-  };
-  
-  validateSchemas(context.components as { schemas: Record<string, JsonSchema> });
+    components
+  }) as OpenApiDocument;
 }
 
 function buildRequestBody(
@@ -187,7 +203,7 @@ function buildRequestBody(
   return {
     required: body.required ?? true,
     content: {
-      [contentType]: { schema }
+      [contentType]: stripUndefined({ schema, ...body.mediaType })
     }
   };
 }
@@ -282,17 +298,38 @@ function buildResponses(
   for (const response of responses) {
     const contentType = response.contentType ?? "application/json";
     output[String(response.status)] = {
+      summary: response.summary,
       description: response.description ?? getDefaultStatusDescription(response.status),
-      content: response.schema
+      content: response.schema || response.itemSchema
         ? {
-            [contentType]: {
-              schema: buildSchemaFromSource(response.schema, context)
-            }
+            [contentType]: buildMediaTypeObject(response, context)
           }
         : undefined
     };
+    output[String(response.status)] = stripUndefined(output[String(response.status)] as Record<string, unknown>);
   }
   return output;
+}
+
+function buildMediaTypeObject(
+  response: ResponseMeta,
+  context: SchemaBuildContext
+): Record<string, unknown> {
+  const itemSchema = response.itemSchema
+    ? buildSchemaFromSource(response.itemSchema, context)
+    : undefined;
+  const schema = response.schema
+    ? buildSchemaFromSource(response.schema, context)
+    : itemSchema
+      ? { type: "array", items: itemSchema }
+      : undefined;
+
+  return stripUndefined({
+    schema,
+    itemSchema,
+    examples: response.examples,
+    ...response.mediaType
+  });
 }
 
 function getDefaultStatusDescription(status: number): string {
@@ -363,6 +400,30 @@ function buildParameters(
 
     return param;
   });
+}
+
+function buildQueryStringParameter(
+  input: InputMeta | undefined,
+  context: SchemaBuildContext
+): Array<Record<string, unknown>> {
+  if (!input) {
+    return [];
+  }
+  const contentType = input.contentType ?? "application/x-www-form-urlencoded";
+  return [
+    stripUndefined({
+      name: "querystring",
+      in: "querystring",
+      required: input.required ?? false,
+      description: input.description,
+      content: {
+        [contentType]: stripUndefined({
+          schema: buildSchemaFromSource(input.schema, context),
+          ...input.mediaType
+        })
+      }
+    })
+  ];
 }
 
 function extractFields(
@@ -441,4 +502,42 @@ function expressPathToOpenApi(path: string): string {
 
 function isSchemaNode(value: unknown): value is SchemaNode {
   return !!value && typeof value === "object" && "kind" in (value as SchemaNode);
+}
+
+function setPathOperation(
+  pathItem: Record<string, unknown>,
+  method: string,
+  operation: Record<string, unknown>
+): void {
+  const lower = method.toLowerCase();
+  if (isFixedPathItemMethod(lower)) {
+    pathItem[lower] = operation;
+    return;
+  }
+
+  const additionalOperations = (pathItem.additionalOperations ??= {}) as Record<string, unknown>;
+  additionalOperations[method] = operation;
+}
+
+function isFixedPathItemMethod(method: string): boolean {
+  return [
+    "get",
+    "put",
+    "post",
+    "delete",
+    "options",
+    "head",
+    "patch",
+    "trace",
+    "query"
+  ].includes(method);
+}
+
+function stripUndefined<T extends Record<string, unknown>>(object: T): T {
+  for (const [key, value] of Object.entries(object)) {
+    if (value === undefined) {
+      delete object[key];
+    }
+  }
+  return object;
 }

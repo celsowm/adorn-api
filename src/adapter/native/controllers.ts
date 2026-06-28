@@ -48,11 +48,12 @@ export async function dispatchRequest(
     validation?: boolean | ValidationOptions;
     body?: any;
     query?: Record<string, any>;
+    rawQueryString?: string;
     auth?: { userProperty?: string };
   }
 ): Promise<void> {
   const { controller: instance, route, params: rawParams } = match;
-  const { inputCoercion, validation, body: rawBody, query: rawQuery, auth } = options;
+  const { inputCoercion, validation, body: rawBody, query: rawQuery, rawQueryString = "", auth } = options;
 
   const handler = instance[route.handlerName];
   if (typeof handler !== "function") {
@@ -68,6 +69,9 @@ export async function dispatchRequest(
   const coerceQuery = inputCoercion === false
     ? undefined
     : createInputCoercer<Record<string, any>>(route.query, { mode: inputCoercion, location: "query" });
+  const coerceQueryString = inputCoercion === false
+    ? undefined
+    : createInputCoercer<Record<string, any>>(route.querystring, { mode: inputCoercion, location: "query" });
   const coerceBody = inputCoercion === false
     ? undefined
     : createInputCoercer<Record<string, any>>(route.body, { mode: inputCoercion, location: "body" });
@@ -82,6 +86,10 @@ export async function dispatchRequest(
 
     const body = (coerceBody && rawBody) ? coerceBody(rawBody) : rawBody;
     const query = (coerceQuery && rawQuery) ? coerceQuery(rawQuery) : rawQuery;
+    const parsedQueryString = getQueryStringValue(route.querystring, rawQueryString);
+    const querystring = coerceQueryString && isRecord(parsedQueryString)
+      ? coerceQueryString(parsedQueryString)
+      : parsedQueryString;
     const params = (coerceParams && rawParams) ? coerceParams(rawParams) : rawParams;
 
     if (isValidationEnabled) {
@@ -95,6 +103,11 @@ export async function dispatchRequest(
       if (route.query) {
         const queryErrors = validate(query, route.query.schema);
         validationErrors.push(...queryErrors);
+      }
+
+      if (route.querystring) {
+        const queryStringErrors = validate(querystring, route.querystring.schema);
+        validationErrors.push(...queryStringErrors);
       }
 
       if (route.params) {
@@ -117,6 +130,7 @@ export async function dispatchRequest(
       res,
       body,
       query,
+      querystring,
       params,
       headers: req.headers,
       files: undefined, // Native adapter doesn't support multipart yet
@@ -206,6 +220,36 @@ export async function dispatchRequest(
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ message: "Internal server error" }));
   }
+}
+
+function getQueryStringValue(input: { contentType?: string } | undefined, raw: string): string | Record<string, unknown> | undefined {
+  if (!input) {
+    return undefined;
+  }
+  if ((input.contentType ?? "application/x-www-form-urlencoded") !== "application/x-www-form-urlencoded") {
+    return raw;
+  }
+  return parseFormUrlEncoded(raw);
+}
+
+function parseFormUrlEncoded(raw: string): Record<string, unknown> {
+  const output: Record<string, unknown> = {};
+  const params = new URLSearchParams(raw);
+  params.forEach((value, key) => {
+    const current = output[key];
+    if (current === undefined) {
+      output[key] = value;
+    } else if (Array.isArray(current)) {
+      current.push(value);
+    } else {
+      output[key] = [current, value];
+    }
+  });
+  return output;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function defaultStatus(route: {

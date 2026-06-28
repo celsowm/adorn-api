@@ -235,6 +235,9 @@ function applyBaseOptions(schema: JsonSchema, node: SchemaNode): JsonSchema {
   if (node.deprecated !== undefined) schema.deprecated = node.deprecated;
   if (node.readOnly !== undefined) schema.readOnly = node.readOnly;
   if (node.writeOnly !== undefined) schema.writeOnly = node.writeOnly;
+  if (node.xml) schema.xml = node.xml;
+  if (node.discriminator) schema.discriminator = node.discriminator;
+  if (node.openApi) Object.assign(schema, node.openApi);
   return schema;
 }
 

@@ -25,6 +25,7 @@ export interface InputMeta {
   description?: string;
   required?: boolean;
   contentType?: string;
+  mediaType?: Record<string, unknown>;
 }
 
 export interface UploadedFileMeta {
@@ -38,8 +39,12 @@ export interface UploadedFileMeta {
 export interface ResponseMeta {
   status: number;
   schema?: SchemaSource;
+  itemSchema?: SchemaSource;
+  summary?: string;
   description?: string;
   contentType?: string;
+  examples?: Record<string, unknown>;
+  mediaType?: Record<string, unknown>;
   error?: boolean;
 }
 
@@ -52,6 +57,7 @@ export interface RouteMeta {
   tags?: string[];
   body?: InputMeta;
   query?: InputMeta;
+  querystring?: InputMeta;
   params?: InputMeta;
   headers?: InputMeta;
   files?: UploadedFileMeta[];
@@ -62,6 +68,8 @@ export interface RouteMeta {
   streaming?: boolean;
   /** Whether this route returns raw (non-JSON) responses */
   raw?: boolean;
+  /** Additional OpenAPI Operation Object fields */
+  operation?: Record<string, unknown>;
 }
 
 export interface ControllerMeta {

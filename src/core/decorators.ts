@@ -86,6 +86,8 @@ export interface DocOptions {
   description?: string;
   /** Tags for OpenAPI documentation */
   tags?: string[];
+  /** Additional OpenAPI Operation Object fields */
+  operation?: Record<string, unknown>;
 }
 
 /**
@@ -98,6 +100,19 @@ export interface InputOptions {
   required?: boolean;
   /** Content type for the input */
   contentType?: string;
+  /** Additional OpenAPI Media Type Object fields */
+  mediaType?: Record<string, unknown>;
+}
+
+/**
+ * OpenAPI Example Object with OpenAPI 3.2 structured/serialized values.
+ */
+export interface OpenApiExample {
+  summary?: string;
+  description?: string;
+  dataValue?: unknown;
+  serializedValue?: unknown;
+  externalValue?: string;
 }
 
 /**
@@ -120,10 +135,18 @@ export interface ReturnsOptions {
   status?: number;
   /** Schema for the response body */
   schema?: SchemaSource;
+  /** Schema for each item in a sequential response media type */
+  itemSchema?: SchemaSource;
+  /** Short response summary */
+  summary?: string;
   /** Description of the response */
   description?: string;
   /** Content type for the response */
   contentType?: string;
+  /** OpenAPI examples keyed by example name */
+  examples?: Record<string, OpenApiExample>;
+  /** Additional OpenAPI Media Type Object fields */
+  mediaType?: Record<string, unknown>;
 }
 
 /**
@@ -276,6 +299,7 @@ export function Doc(options: DocOptions) {
     route.summary = options.summary;
     route.description = options.description;
     route.tags = options.tags;
+    route.operation = options.operation;
   };
 }
 
@@ -325,6 +349,55 @@ export function Delete(path = "") {
 }
 
 /**
+ * Decorator for HEAD HTTP method routes.
+ * @param path - Route path
+ * @returns Method decorator function
+ */
+export function Head(path = "") {
+  return Route("head", path);
+}
+
+/**
+ * Decorator for OPTIONS HTTP method routes.
+ * @param path - Route path
+ * @returns Method decorator function
+ */
+export function Options(path = "") {
+  return Route("options", path);
+}
+
+/**
+ * Decorator for TRACE HTTP method routes.
+ * @param path - Route path
+ * @returns Method decorator function
+ */
+export function Trace(path = "") {
+  return Route("trace", path);
+}
+
+/**
+ * Decorator for QUERY HTTP method routes.
+ * @param path - Route path
+ * @returns Method decorator function
+ */
+export function QueryMethod(path = "") {
+  return Route("query", path);
+}
+
+/**
+ * Decorator for custom HTTP method routes.
+ * @param method - HTTP method, preserving capitalization for OpenAPI additionalOperations.
+ * @param path - Route path
+ * @returns Method decorator function
+ */
+export function Http(method: string, path = "") {
+  if (!method.trim()) {
+    throw new Error("Http decorator requires a method name.");
+  }
+  return Route(normalizeHttpMethod(method), path);
+}
+
+/**
  * Decorator for defining request body schema.
  * @param schema - Schema for the request body
  * @param options - Input options
@@ -347,6 +420,19 @@ export function Query(schema: SchemaSource, options: InputOptions = {}) {
   return (_value: unknown, context: ClassMethodDecoratorContext): void => {
     const route = getRoute(context.metadata as DecoratorMetadata, context.name);
     route.query = buildInputMeta(schema, options);
+  };
+}
+
+/**
+ * Decorator for defining a whole-query-string parameter schema.
+ * @param schema - Schema for the full query string
+ * @param options - Input options
+ * @returns Method decorator function
+ */
+export function QueryString(schema: SchemaSource, options: InputOptions = {}) {
+  return (_value: unknown, context: ClassMethodDecoratorContext): void => {
+    const route = getRoute(context.metadata as DecoratorMetadata, context.name);
+    route.querystring = buildInputMeta(schema, options);
   };
 }
 
@@ -476,6 +562,8 @@ export function Errors(schema: SchemaSource, responses: ErrorResponseOptions[]) 
 export interface SseOptions {
   /** Description for OpenAPI documentation */
   description?: string;
+  /** Schema for each event item in OpenAPI 3.2 itemSchema */
+  itemSchema?: SchemaSource;
 }
 
 /**
@@ -493,6 +581,7 @@ export function Sse(options: SseOptions = {}) {
     }
     route.responses.push({
       status: 200,
+      itemSchema: options.itemSchema,
       contentType: "text/event-stream",
       description: options.description ?? "Server-Sent Events stream"
     });
@@ -507,6 +596,8 @@ export interface StreamingOptions {
   contentType?: string;
   /** Description for OpenAPI documentation */
   description?: string;
+  /** Schema for each item in OpenAPI 3.2 itemSchema */
+  itemSchema?: SchemaSource;
 }
 
 /**
@@ -524,6 +615,7 @@ export function Streaming(options: StreamingOptions = {}) {
     }
     route.responses.push({
       status: 200,
+      itemSchema: options.itemSchema,
       contentType: options.contentType ?? "application/octet-stream",
       description: options.description ?? "Streaming response"
     });
@@ -570,6 +662,26 @@ function Route(method: HttpMethod, path: string) {
   };
 }
 
+function normalizeHttpMethod(method: string): HttpMethod {
+  const trimmed = method.trim();
+  const lower = trimmed.toLowerCase();
+  return isFixedOpenApiMethod(lower) ? lower : trimmed;
+}
+
+function isFixedOpenApiMethod(method: string): boolean {
+  return [
+    "get",
+    "put",
+    "post",
+    "delete",
+    "options",
+    "head",
+    "patch",
+    "trace",
+    "query"
+  ].includes(method);
+}
+
 function normalizeField(schemaOrOptions: SchemaNode | FieldOptions): FieldMeta {
   if (isSchemaNode(schemaOrOptions)) {
     return { schema: schemaOrOptions, optional: schemaOrOptions.optional };
@@ -586,7 +698,8 @@ function buildInputMeta(schema: SchemaSource, options: InputOptions): InputMeta 
     schema,
     description: options.description,
     required: options.required,
-    contentType: options.contentType
+    contentType: options.contentType,
+    mediaType: options.mediaType
   };
 }
 
@@ -612,15 +725,23 @@ function normalizeReturns(
     return {
       status: options.status ?? 200,
       schema: schemaOrOptions,
+      itemSchema: options.itemSchema,
+      summary: options.summary,
       description: options.description,
-      contentType: options.contentType
+      contentType: options.contentType,
+      examples: options.examples,
+      mediaType: options.mediaType
     };
   }
   return {
     status: schemaOrOptions.status ?? 200,
     schema: schemaOrOptions.schema,
+    itemSchema: schemaOrOptions.itemSchema,
+    summary: schemaOrOptions.summary,
     description: schemaOrOptions.description,
-    contentType: schemaOrOptions.contentType
+    contentType: schemaOrOptions.contentType,
+    examples: schemaOrOptions.examples,
+    mediaType: schemaOrOptions.mediaType
   };
 }
 
@@ -644,6 +765,9 @@ function finalizeRoute(route: RouteMetaInput): RouteMeta {
   }
   if (route.path === undefined) {
     throw new Error(`Missing path for route "${String(route.handlerName)}".`);
+  }
+  if (route.query && route.querystring) {
+    throw new Error(`Route "${String(route.handlerName)}" cannot use both @Query and @QueryString.`);
   }
   if (!route.responses.length) {
     route.responses.push({ status: 200, description: "OK" });

@@ -443,7 +443,7 @@ describe('e2e: metadata loading and entity to DTO transformation', () => {
         controllers: [ProductController]
       });
 
-      expect(doc.openapi).toBe('3.1.0');
+      expect(doc.openapi).toBe('3.2.0');
       expect(doc.info.title).toBe('Product API');
       expect(doc.paths).toBeDefined();
       expect(doc.paths['/products']).toBeDefined();

@@ -9,9 +9,10 @@ export type Constructor<T = any> = new (...args: any[]) => T;
 export type DtoConstructor<T = any> = new (...args: any[]) => T;
 
 /**
- * HTTP method types.
+ * HTTP method type. Standard OpenAPI methods are lowercase; custom methods keep
+ * the caller-provided capitalization for OpenAPI additionalOperations.
  */
-export type HttpMethod = "get" | "post" | "put" | "patch" | "delete";
+export type HttpMethod = string;
 
 /**
  * Uploaded file information from multipart form data.
@@ -100,7 +101,8 @@ export interface RequestContext<
   TQuery extends object | undefined = Record<string, any>,
   TParams extends object | undefined = Record<string, any>,
   THeaders extends object | undefined = Record<string, any>,
-  TFiles extends Record<string, UploadedFileInfo | UploadedFileInfo[]> | undefined = any
+  TFiles extends Record<string, UploadedFileInfo | UploadedFileInfo[]> | undefined = any,
+  TQueryString = string | Record<string, any> | undefined
 > {
   /** Raw request object */
   req: any;
@@ -110,6 +112,8 @@ export interface RequestContext<
   body: TBody;
   /** Parsed query parameters */
   query: TQuery;
+  /** Raw or parsed full URL query string for @QueryString routes */
+  querystring: TQueryString;
   /** Parsed path parameters */
   params: TParams;
   /** Request headers */

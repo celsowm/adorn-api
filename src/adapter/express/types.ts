@@ -3,7 +3,7 @@ import type {
   RequestContext as CoreRequestContext,
   UploadedFileInfo
 } from "../../core/types";
-import type { OpenApiInfo, OpenApiServer } from "../../core/openapi";
+import type { OpenApiInfo, OpenApiOptions, OpenApiServer, OpenApiTag } from "../../core/openapi";
 import type { BearerAuthOptions } from "../../core/auth";
 
 export { UploadedFileInfo };
@@ -16,8 +16,9 @@ export type RequestContext<
   TQuery extends object | undefined = Record<string, any>,
   TParams extends object | undefined = Record<string, any>,
   THeaders extends object | undefined = Record<string, any>,
-  TFiles extends Record<string, UploadedFileInfo | UploadedFileInfo[]> | undefined = any
-> = CoreRequestContext<TBody, TQuery, TParams, THeaders, TFiles>;
+  TFiles extends Record<string, UploadedFileInfo | UploadedFileInfo[]> | undefined = any,
+  TQueryString = string | Record<string, any> | undefined
+> = CoreRequestContext<TBody, TQuery, TParams, THeaders, TFiles, TQueryString>;
 
 /**
  * Input coercion modes.
@@ -65,8 +66,14 @@ export interface OpenApiDocsOptions {
 export interface OpenApiExpressOptions {
   /** OpenAPI document info */
   info: OpenApiInfo;
+  /** Self-assigned URI for this OpenAPI document */
+  $self?: string;
   /** Array of servers */
   servers?: OpenApiServer[];
+  /** Top-level OpenAPI tags */
+  tags?: OpenApiTag[];
+  /** Reusable OpenAPI components beyond generated schemas */
+  components?: OpenApiOptions["components"];
   /** Path for OpenAPI JSON endpoint */
   path?: string;
   /** Whether to pretty-print the JSON output (defaults to false for minified output) */

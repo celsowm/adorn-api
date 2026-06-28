@@ -1,15 +1,15 @@
 # Adorn API
 
-Decorator-first API framework for TypeScript with Express, Fastify, native Node HTTP, OpenAPI 3.1 generation, request validation, Bearer auth, file uploads, streaming, and optional Metal ORM helpers.
+Decorator-first API framework for TypeScript with Express, Fastify, native Node HTTP, OpenAPI 3.2 generation, request validation, Bearer auth, file uploads, streaming, and optional Metal ORM helpers.
 
 Adorn is designed for APIs where the route contract should live beside the handler: controllers, DTOs, schemas, validation, serialization, and OpenAPI are all derived from the same decorators.
 
 ## Features
 
-- Controller and route decorators: `@Controller`, `@Get`, `@Post`, `@Put`, `@Patch`, `@Delete`
+- Controller and route decorators: `@Controller`, `@Get`, `@Post`, `@Put`, `@Patch`, `@Delete`, `@Head`, `@Options`, `@Trace`, `@QueryMethod`, `@Http`
 - DTO decorators: `@Dto`, `@Field`, `@PickDto`, `@OmitDto`, `@PartialDto`, `@MergeDto`
 - Schema builder: `t.string`, `t.uuid`, `t.integer`, `t.object`, `t.array`, `t.file`, and more
-- OpenAPI 3.1 JSON and Swagger UI
+- OpenAPI 3.2 JSON and Swagger UI
 - Express, Fastify, and native Node HTTP adapters
 - Built-in Bearer token auth for `@Auth`, `@Roles`, `@AllRoles`, and `@Public`
 - Runtime validation for body, query, params, and headers
@@ -224,11 +224,12 @@ app.listen(3000, () => {
 Every handler receives a `RequestContext`:
 
 ```typescript
-interface RequestContext<TBody, TQuery, TParams, THeaders, TFiles> {
+interface RequestContext<TBody, TQuery, TParams, THeaders, TFiles, TQueryString> {
   req: any;
   res: any;
   body: TBody;
   query: TQuery;
+  querystring: TQueryString;
   params: TParams;
   headers: THeaders;
   files: TFiles;
@@ -268,12 +269,30 @@ class TaskController {
 
 Available route decorators:
 
-- HTTP methods: `@Get`, `@Post`, `@Put`, `@Patch`, `@Delete`
-- Inputs: `@Body`, `@Query`, `@Params`, `@Headers`
+- HTTP methods: `@Get`, `@Post`, `@Put`, `@Patch`, `@Delete`, `@Head`, `@Options`, `@Trace`, `@QueryMethod`, `@Http`
+- Inputs: `@Body`, `@Query`, `@QueryString`, `@Params`, `@Headers`
 - Outputs: `@Returns`, `@ReturnsError`, `@Errors`
 - Docs: `@Doc`, controller `tags`
 - Auth: `@Auth`, `@Roles`, `@AllRoles`, `@Public`
 - Files and streams: `@UploadedFile`, `@UploadedFiles`, `@Raw`, `@Sse`, `@Streaming`
+
+OpenAPI 3.2 additional methods and whole-query-string parameters are first-class:
+
+```typescript
+@Controller("/search")
+class SearchController {
+  @QueryMethod("/")
+  @QueryString(t.object({ q: t.string(), page: t.optional(t.integer()) }))
+  async query(ctx: RequestContext<unknown, unknown, unknown, unknown, unknown, { q: string; page?: number }>) {
+    return ctx.querystring;
+  }
+
+  @Http("LINK", "/relations")
+  async link() {
+    return { ok: true };
+  }
+}
+```
 
 ### HTTP Responses
 
@@ -482,6 +501,25 @@ await createExpressApp({
 });
 ```
 
+OpenAPI 3.2 metadata can be set on the generated document:
+
+```typescript
+await createExpressApp({
+  controllers: [UserController],
+  openApi: {
+    info: { title: "Users API", version: "1.0.0" },
+    $self: "https://api.example.com/openapi.json",
+    servers: [{ name: "prod", url: "https://api.example.com" }],
+    tags: [{ name: "Users", summary: "User operations", kind: "nav" }],
+    components: {
+      mediaTypes: {
+        JsonLine: { schema: { type: "object" } }
+      }
+    }
+  }
+});
+```
+
 You can also build the document without starting an HTTP server:
 
 ```typescript
@@ -500,6 +538,7 @@ OpenAPI generation includes:
 - route summaries/descriptions/tags from `@Doc`
 - Bearer security schemes for protected routes
 - raw, SSE, and streaming content types
+- OpenAPI 3.2 `$self`, tag metadata, `query` operations, `additionalOperations`, `querystring` parameters, response summaries, `itemSchema`, and reusable `components.mediaTypes`
 
 ## Validation and Coercion
 
@@ -645,12 +684,15 @@ class EventsController {
 ### Streaming
 
 ```typescript
-import { Controller, Get, Streaming } from "adorn-api";
+import { Controller, Get, Streaming, t } from "adorn-api";
 
 @Controller("/exports")
 class ExportController {
   @Get("/ndjson")
-  @Streaming({ contentType: "application/x-ndjson" })
+  @Streaming({
+    contentType: "application/x-ndjson",
+    itemSchema: t.object({ id: t.integer() })
+  })
   async ndjson(ctx: any) {
     ctx.stream.writeJsonLine({ id: 1 });
     ctx.stream.writeJsonLine({ id: 2 });
