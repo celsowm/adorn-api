@@ -1,11 +1,16 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import type { Constructor, RequestContext } from "../../core/types";
+import type { Constructor } from "../../core/types";
 import type { SchemaSource } from "../../core/schema";
 import { getControllerMeta } from "../../core/metadata";
 import { assertRouteAuthorized, getRouteAuthMeta } from "../../core/auth";
 import { isHttpError } from "../../core/errors";
 import { isHttpResponse } from "../../core/response";
-import type { InputCoercionSetting, MultipartOptions, ValidationOptions } from "./types";
+import type {
+  InputCoercionSetting,
+  MultipartOptions,
+  RequestContext as FastifyRequestContext,
+  ValidationOptions
+} from "./types";
 import { createInputCoercer } from "./coercion";
 import { serializeResponse } from "./response-serializer";
 import {
@@ -57,10 +62,6 @@ export async function attachControllers(
       const coerceQuery = inputCoercion === false
         ? undefined
         : createInputCoercer<Record<string, any>>(route.query, { mode: inputCoercion, location: "query" });
-      const coerceBody = inputCoercion === false
-        ? undefined
-        : createInputCoercer<Record<string, any>>(route.body, { mode: inputCoercion, location: "body" });
-
       const isValidationEnabled = validation !== false && (validation as ValidationOptions)?.enabled !== false;
 
       const authMeta = getRouteAuthMeta(controller, route.handlerName);
@@ -120,7 +121,7 @@ export async function attachControllers(
               files,
               sse: route.sse ? createSseEmitter(reply.raw) : undefined,
               stream: route.streaming || route.sse ? createStreamWriter(reply.raw) : undefined
-            } as unknown as RequestContext;
+            } as unknown as FastifyRequestContext;
 
             const result = await (handler as (...args: any[]) => any).call(instance, ctx);
 

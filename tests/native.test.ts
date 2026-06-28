@@ -6,7 +6,6 @@ import {
   Body,
   Params,
   Query,
-  Returns,
   t,
   createNativeApp,
   shutdownNativeApp,

@@ -64,7 +64,7 @@ export async function createNativeApp(options: NativeAdapterOptions): Promise<Na
     if (options.jsonBody !== false && (req.method === "POST" || req.method === "PUT" || req.method === "PATCH")) {
       try {
         body = await parseJsonBody(req, options.bodyLimit);
-      } catch (error) {
+      } catch {
         res.statusCode = 400;
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify({ message: "Invalid JSON body" }));

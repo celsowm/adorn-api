@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { Constructor, RequestContext } from "../../core/types";
+import type { Constructor } from "../../core/types";
 import type { SchemaSource } from "../../core/schema";
 import { getControllerMeta } from "../../core/metadata";
 import { assertRouteAuthorized, getRouteAuthMeta } from "../../core/auth";

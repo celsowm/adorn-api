@@ -279,7 +279,8 @@ async function openConnection(): Promise<Connection> {
   const trustServerCertificate = parseBoolean(sqlEnv.trustCert);
 
   const options: Record<string, unknown> = {
-    database: sqlEnv.database
+    database: sqlEnv.database,
+    connectTimeout: 60000
   };
   if (port !== undefined) {
     options.port = port;
@@ -347,7 +348,6 @@ async function closeConnection(connection: Connection | null): Promise<void> {
 }
 
 describeSqlServer("e2e sqlserver (metal-orm)", () => {
-
   beforeAll(async () => {
     connection = await openConnection();
     const executor = createTediousExecutor(connection, { Request, TYPES });
@@ -359,14 +359,14 @@ describeSqlServer("e2e sqlserver (metal-orm)", () => {
         dispose: async () => {}
       }
     });
-  });
+  }, 60000);
 
   afterAll(async () => {
     await orm?.dispose();
     await closeConnection(connection);
     orm = null;
     connection = null;
-  });
+  }, 60000);
 
   it("list controller retrieves rows from SQL Server", async () => {
     const controller = new NotaVersaoController();
