@@ -1,5 +1,6 @@
 import type { SchemaNode, SchemaSource } from "./schema";
 import type { Constructor, DtoConstructor, HttpMethod } from "./types";
+import type { CacheOptions } from "./cache";
 import {
   getAdornMetadata,
   getDtoMeta,
@@ -651,6 +652,18 @@ export function Raw(options: RawOptions = {}) {
       contentType: options.contentType ?? "application/octet-stream",
       description: options.description ?? "Raw response"
     });
+  };
+}
+
+/**
+ * Decorator for configuring caching on route handlers.
+ * @param options - Cache configuration options
+ * @returns Method decorator function
+ */
+export function Cache(options: CacheOptions) {
+  return (_value: unknown, context: ClassMethodDecoratorContext): void => {
+    const route = getRoute(context.metadata as DecoratorMetadata, context.name);
+    route.cache = options;
   };
 }
 

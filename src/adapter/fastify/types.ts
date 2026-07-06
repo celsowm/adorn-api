@@ -5,6 +5,7 @@ import type {
 } from "../../core/types";
 import type { OpenApiInfo, OpenApiOptions, OpenApiServer, OpenApiTag } from "../../core/openapi";
 import type { BearerAuthOptions } from "../../core/auth";
+import type { CacheProvider } from "../../core/cache";
 
 /**
  * Request context provided to Fastify route handlers.
@@ -126,4 +127,6 @@ export interface FastifyAdapterOptions {
   multipart?: boolean | MultipartOptions;
   /** Validation configuration. Set to false to disable validation, or provide options. */
   validation?: boolean | ValidationOptions;
+  /** Cache provider. Defaults to InMemoryCacheProvider if cache decorators are used. */
+  cache?: CacheProvider;
 }

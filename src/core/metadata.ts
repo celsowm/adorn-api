@@ -1,5 +1,6 @@
 import type { SchemaNode, SchemaSource } from "./schema";
 import type { Constructor, DtoConstructor, HttpMethod } from "./types";
+import type { CacheOptions } from "./cache";
 
 // Ensure standard decorator metadata is available for Stage 3 decorators.
 const symbolMetadata = (Symbol as { metadata?: symbol }).metadata;
@@ -70,6 +71,8 @@ export interface RouteMeta {
   raw?: boolean;
   /** Additional OpenAPI Operation Object fields */
   operation?: Record<string, unknown>;
+  /** Cache configuration for this route */
+  cache?: CacheOptions;
 }
 
 export interface ControllerMeta {

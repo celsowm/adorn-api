@@ -78,7 +78,8 @@ export async function createNativeApp(options: NativeAdapterOptions): Promise<Na
       body,
       query,
       rawQueryString: url.search.startsWith("?") ? url.search.slice(1) : url.search,
-      auth: { userProperty: options.bearerAuth?.userProperty }
+      auth: { userProperty: options.bearerAuth?.userProperty },
+      cache: options.cache
     });
   };
 

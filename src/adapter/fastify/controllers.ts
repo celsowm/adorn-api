@@ -11,6 +11,7 @@ import type {
   RequestContext as FastifyRequestContext,
   ValidationOptions
 } from "./types";
+import type { CacheProvider } from "../../core/cache";
 import { createInputCoercer } from "./coercion";
 import { serializeResponse } from "./response-serializer";
 import {
@@ -22,6 +23,13 @@ import { lifecycleRegistry } from "../../core/lifecycle";
 import { createSseEmitter, createStreamWriter } from "../../core/streaming";
 import { validate } from "../../core/validation";
 import { ValidationErrors, isValidationErrors } from "../../core/validation-errors";
+import {
+  resolveCacheProvider,
+  buildCacheKey,
+  shouldCacheResult,
+  isCacheableMethod,
+  getCacheOptions
+} from "../../core/cache-utils";
 
 /**
  * Attaches controllers to a Fastify application.
@@ -32,9 +40,11 @@ export async function attachControllers(
   inputCoercion: InputCoercionSetting = "safe",
   multipart?: boolean | MultipartOptions,
   validation?: boolean | ValidationOptions,
-  auth?: { userProperty?: string }
+  auth?: { userProperty?: string },
+  cacheProvider?: CacheProvider
 ): Promise<void> {
   const multipartOptions = normalizeMultipartOptions(multipart);
+  const cache = cacheProvider ? resolveCacheProvider(cacheProvider) : undefined;
 
   for (const controller of controllers) {
     const meta = getControllerMeta(controller);
@@ -66,6 +76,7 @@ export async function attachControllers(
         ? undefined
         : createInputCoercer<Record<string, any>>(route.querystring, { mode: inputCoercion, location: "query" });
       const isValidationEnabled = validation !== false && (validation as ValidationOptions)?.enabled !== false;
+      const routeCache = cache && isCacheableMethod(route.httpMethod) ? getCacheOptions(route) : undefined;
 
       const authMeta = getRouteAuthMeta(controller, route.handlerName);
       ensureFastifyMethod(app, route.httpMethod, Boolean(route.body || route.files?.length));
@@ -91,6 +102,20 @@ export async function attachControllers(
               ? coerceQueryString(parsedQueryString)
               : parsedQueryString;
             const params = (coerceParams && req.params && Object.keys(req.params as any).length > 0) ? coerceParams(req.params as any) : req.params;
+
+            // Try cache lookup
+            if (routeCache && cache) {
+              const cacheKey = buildCacheKey(
+                route.httpMethod,
+                path,
+                routeCache,
+                req.params as Record<string, unknown>
+              );
+              const cached = await cache.get(cacheKey);
+              if (cached !== undefined) {
+                return reply.send(cached);
+              }
+            }
 
             if (isValidationEnabled) {
               const validationErrors = [];
@@ -161,6 +186,15 @@ export async function attachControllers(
                 const responseSchema = getResponseSchemaForStatus(route, result.status);
                 const output = responseSchema ? serializeResponse(result.body, responseSchema) : result.body;
                 reply.status(result.status).send(output);
+                if (routeCache && cache && shouldCacheResult(routeCache.condition, output)) {
+                  const cacheKey = buildCacheKey(
+                    route.httpMethod,
+                    path,
+                    routeCache,
+                    req.params as Record<string, unknown>
+                  );
+                  await cache.set(cacheKey, output, routeCache.ttl);
+                }
               }
               return;
             }
@@ -180,6 +214,15 @@ export async function attachControllers(
               const responseSchema = getResponseSchema(route);
               const output = responseSchema ? serializeResponse(result, responseSchema) : result;
               reply.status(defaultStatus(route)).send(output);
+              if (routeCache && cache && shouldCacheResult(routeCache.condition, output)) {
+                const cacheKey = buildCacheKey(
+                  route.httpMethod,
+                  path,
+                  routeCache,
+                  req.params as Record<string, unknown>
+                );
+                await cache.set(cacheKey, output, routeCache.ttl);
+              }
             }
           } catch (error) {
             if (isValidationErrors(error)) {

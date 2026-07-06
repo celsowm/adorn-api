@@ -34,7 +34,8 @@ export async function createExpressApp(options: ExpressAdapterOptions): Promise<
     inputCoercion,
     options.multipart,
     options.validation,
-    { userProperty: options.bearerAuth?.userProperty }
+    { userProperty: options.bearerAuth?.userProperty },
+    options.cache
   );
   if (options.openApi) {
     attachOpenApi(app, options.controllers, options.openApi);

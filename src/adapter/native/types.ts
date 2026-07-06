@@ -6,6 +6,7 @@ import type {
 } from "../../core/types";
 import type { OpenApiInfo, OpenApiOptions, OpenApiServer, OpenApiTag } from "../../core/openapi";
 import type { BearerAuthOptions } from "../../core/auth";
+import type { CacheProvider } from "../../core/cache";
 
 export { UploadedFileInfo };
 
@@ -93,6 +94,8 @@ export interface NativeAdapterOptions {
   bearerAuth?: BearerAuthOptions;
   /** Validation configuration. Set to false to disable validation, or provide options. */
   validation?: boolean | ValidationOptions;
+  /** Cache provider. Defaults to InMemoryCacheProvider if cache decorators are used. */
+  cache?: CacheProvider;
 }
 
 /**

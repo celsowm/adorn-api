@@ -6,6 +6,7 @@ import { assertRouteAuthorized, getRouteAuthMeta } from "../../core/auth";
 import { isHttpError, type HttpError } from "../../core/errors";
 import { isHttpResponse } from "../../core/response";
 import type { InputCoercionSetting, MultipartOptions, RequestContext, ValidationOptions } from "./types";
+import type { CacheProvider } from "../../core/cache";
 import { createInputCoercer } from "./coercion";
 import { serializeResponse } from "./response-serializer";
 import {
@@ -18,6 +19,13 @@ import { lifecycleRegistry } from "../../core/lifecycle";
 import { createSseEmitter, createStreamWriter } from "../../core/streaming";
 import { validate } from "../../core/validation";
 import { ValidationErrors, isValidationErrors } from "../../core/validation-errors";
+import {
+  resolveCacheProvider,
+  buildCacheKey,
+  shouldCacheResult,
+  isCacheableMethod,
+  getCacheOptions
+} from "../../core/cache-utils";
 
 /**
  * Attaches controllers to an Express application.
@@ -32,9 +40,11 @@ export async function attachControllers(
   inputCoercion: InputCoercionSetting = "safe",
   multipart?: boolean | MultipartOptions,
   validation?: boolean | ValidationOptions,
-  auth?: { userProperty?: string }
+  auth?: { userProperty?: string },
+  cacheProvider?: CacheProvider
 ): Promise<void> {
   const multipartOptions = normalizeMultipartOptions(multipart);
+  const cache = cacheProvider ? resolveCacheProvider(cacheProvider) : undefined;
   for (const controller of controllers) {
     const meta = getControllerMeta(controller);
     if (!meta) {
@@ -73,6 +83,9 @@ export async function attachControllers(
         middlewares.push(createMultipartMiddleware(route.files!, multipartOptions));
       }
 
+      // Determine if cache should be applied
+      const routeCache = cache && isCacheableMethod(route.httpMethod) ? getCacheOptions(route) : undefined;
+
       // Determine if validation is enabled for this route
       const isValidationEnabled = validation !== false && (validation as ValidationOptions)?.enabled !== false;
       const authMeta = getRouteAuthMeta(controller, route.handlerName);
@@ -102,6 +115,21 @@ export async function attachControllers(
             sse: route.sse ? createSseEmitter(res) : undefined,
             stream: route.streaming || route.sse ? createStreamWriter(res) : undefined
           } as unknown as RequestContext;
+
+          // Try cache lookup
+          if (routeCache && cache) {
+            const cacheKey = buildCacheKey(
+              route.httpMethod,
+              path,
+              routeCache,
+              req.params as Record<string, unknown>
+            );
+            const cached = await cache.get(cacheKey);
+            if (cached !== undefined) {
+              res.json(cached);
+              return;
+            }
+          }
 
           // Validate inputs if validation is enabled
           if (isValidationEnabled) {
@@ -161,6 +189,15 @@ export async function attachControllers(
               const responseSchema = getResponseSchemaForStatus(route, result.status);
               const output = responseSchema ? serializeResponse(result.body, responseSchema) : result.body;
               res.status(result.status).json(output);
+              if (routeCache && cache && shouldCacheResult(routeCache.condition, output)) {
+                const cacheKey = buildCacheKey(
+                  route.httpMethod,
+                  path,
+                  routeCache,
+                  ctx.params as Record<string, unknown>
+                );
+                await cache.set(cacheKey, output, routeCache.ttl);
+              }
             }
             return;
           }
@@ -180,6 +217,15 @@ export async function attachControllers(
             const responseSchema = getResponseSchema(route);
             const output = responseSchema ? serializeResponse(result, responseSchema) : result;
             res.status(defaultStatus(route)).json(output);
+            if (routeCache && cache && shouldCacheResult(routeCache.condition, output)) {
+              const cacheKey = buildCacheKey(
+                route.httpMethod,
+                path,
+                routeCache,
+                ctx.params as Record<string, unknown>
+              );
+              await cache.set(cacheKey, output, routeCache.ttl);
+            }
           }
         } catch (error) {
           if (isValidationErrors(error)) {

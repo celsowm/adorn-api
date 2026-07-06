@@ -6,6 +6,7 @@ import { assertRouteAuthorized, getRouteAuthMeta } from "../../core/auth";
 import { isHttpError } from "../../core/errors";
 import { isHttpResponse } from "../../core/response";
 import type { InputCoercionSetting, ValidationOptions, RequestContext as NativeRequestContext } from "./types";
+import type { CacheProvider } from "../../core/cache";
 import { createInputCoercer } from "./coercion";
 import { serializeResponse } from "./response-serializer";
 import { lifecycleRegistry } from "../../core/lifecycle";
@@ -13,6 +14,13 @@ import { createSseEmitter, createStreamWriter } from "../../core/streaming";
 import { validate } from "../../core/validation";
 import { ValidationErrors, isValidationErrors } from "../../core/validation-errors";
 import { Router } from "./router";
+import {
+  resolveCacheProvider,
+  buildCacheKey,
+  shouldCacheResult,
+  isCacheableMethod,
+  getCacheOptions
+} from "../../core/cache-utils";
 
 /**
  * Registers controllers with a native application router.
@@ -50,6 +58,7 @@ export async function dispatchRequest(
     query?: Record<string, any>;
     rawQueryString?: string;
     auth?: { userProperty?: string };
+    cache?: CacheProvider;
   }
 ): Promise<void> {
   const { controller: instance, route, params: rawParams } = match;
@@ -77,6 +86,8 @@ export async function dispatchRequest(
     : createInputCoercer<Record<string, any>>(route.body, { mode: inputCoercion, location: "body" });
 
   const isValidationEnabled = validation !== false && (validation as ValidationOptions)?.enabled !== false;
+  const resolvedCache = options.cache ? resolveCacheProvider(options.cache) : undefined;
+  const routeCache = resolvedCache && isCacheableMethod(route.httpMethod) ? getCacheOptions(route) : undefined;
 
   const authMeta = getRouteAuthMeta(instance.constructor as Constructor, route.handlerName);
 
@@ -91,6 +102,23 @@ export async function dispatchRequest(
       ? coerceQueryString(parsedQueryString)
       : parsedQueryString;
     const params = (coerceParams && rawParams) ? coerceParams(rawParams) : rawParams;
+
+    // Try cache lookup
+    if (routeCache && resolvedCache) {
+      const cacheKey = buildCacheKey(
+        route.httpMethod,
+        match.route.path,
+        routeCache,
+        params as Record<string, unknown>
+      );
+      const cached = await resolvedCache.get(cacheKey);
+      if (cached !== undefined) {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify(cached));
+        return;
+      }
+    }
 
     if (isValidationEnabled) {
       const validationErrors = [];
@@ -169,6 +197,15 @@ export async function dispatchRequest(
         res.statusCode = result.status;
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify(output));
+        if (routeCache && resolvedCache && shouldCacheResult(routeCache.condition, output)) {
+          const cacheKey = buildCacheKey(
+            route.httpMethod,
+            match.route.path,
+            routeCache,
+            params as Record<string, unknown>
+          );
+          await resolvedCache.set(cacheKey, output, routeCache.ttl);
+        }
       }
       return;
     }
@@ -192,6 +229,15 @@ export async function dispatchRequest(
       res.statusCode = defaultStatus(route);
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify(output));
+      if (routeCache && resolvedCache && shouldCacheResult(routeCache.condition, output)) {
+        const cacheKey = buildCacheKey(
+          route.httpMethod,
+          match.route.path,
+          routeCache,
+          params as Record<string, unknown>
+        );
+        await resolvedCache.set(cacheKey, output, routeCache.ttl);
+      }
     }
   } catch (error) {
     if (isValidationErrors(error)) {

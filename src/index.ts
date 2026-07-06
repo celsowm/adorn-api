@@ -45,3 +45,6 @@ export type {
 } from "./adapter/native/index";
 export * from "./adapter/metal-orm/index";
 export * from "./core/types";
+export type { CacheOptions, CacheProvider } from "./core/cache";
+export { InMemoryCacheProvider } from "./core/cache";
+export { RedisCacheProvider, type RedisCacheOptions } from "./core/cache-redis";

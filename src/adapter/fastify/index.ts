@@ -46,7 +46,8 @@ export async function createFastifyApp(options: FastifyAdapterOptions): Promise<
     inputCoercion,
     options.multipart,
     options.validation,
-    { userProperty: options.bearerAuth?.userProperty }
+    { userProperty: options.bearerAuth?.userProperty },
+    options.cache
   );
 
   if (options.openApi) {
