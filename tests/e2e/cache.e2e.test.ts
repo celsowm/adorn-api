@@ -23,14 +23,6 @@ class CreateUserDto {
   name!: string;
 }
 
-@Dto()
-class UserDto {
-  @Field(t.integer())
-  id!: number;
-  @Field(t.string({ minLength: 1 }))
-  name!: string;
-}
-
 @Controller("/cache-test")
 class CacheTestController {
   @Get("/no-cache")

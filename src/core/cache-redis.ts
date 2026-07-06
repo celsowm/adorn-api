@@ -11,36 +11,46 @@ export interface RedisCacheOptions {
 export class RedisCacheProvider implements CacheProvider {
   private client: any;
   private keyPrefix: string;
+  private options: RedisCacheOptions;
 
   constructor(options: RedisCacheOptions = {}) {
+    this.options = options;
     this.keyPrefix = options.keyPrefix ?? "";
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const Redis = require("ioredis");
+  }
+
+  private async getClient(): Promise<any> {
+    if (this.client) return this.client;
+    const { default: Redis } = await import("ioredis");
     this.client = new Redis({
-      host: options.host ?? "localhost",
-      port: options.port ?? 6379,
-      password: options.password,
-      db: options.db ?? 0
+      host: this.options.host ?? "localhost",
+      port: this.options.port ?? 6379,
+      password: this.options.password,
+      db: this.options.db ?? 0
     });
+    return this.client;
   }
 
   async get<T = unknown>(key: string): Promise<T | undefined> {
-    const value = await this.client.get(this.prefix(key));
+    const client = await this.getClient();
+    const value = await client.get(this.prefix(key));
     if (value == null) return undefined;
     return JSON.parse(value) as T;
   }
 
   async set(key: string, value: unknown, ttl: number): Promise<void> {
-    await this.client.setex(this.prefix(key), ttl, JSON.stringify(value));
+    const client = await this.getClient();
+    await client.setex(this.prefix(key), ttl, JSON.stringify(value));
   }
 
   async del(key: string): Promise<void> {
-    await this.client.del(this.prefix(key));
+    const client = await this.getClient();
+    await client.del(this.prefix(key));
   }
 
   async clear(): Promise<void> {
-    const stream = this.client.scanStream({ match: `${this.keyPrefix}*` });
-    const pipeline = this.client.pipeline();
+    const client = await this.getClient();
+    const stream = client.scanStream({ match: `${this.keyPrefix}*` });
+    const pipeline = client.pipeline();
     for await (const keys of stream) {
       if (keys.length) {
         pipeline.del(keys);

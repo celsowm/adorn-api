@@ -477,6 +477,81 @@ npm run example -- bearer-auth-swagger
 
 Then open `http://localhost:3001/docs` and use `user-token` or `admin-token` in Swagger Authorize.
 
+## Caching
+
+Route-level caching is available via the `@Cache` decorator. Responses are cached on the serialized JSON and served on subsequent requests without executing the handler.
+
+### Decorator
+
+```typescript
+import { Cache, Controller, Get, type RequestContext } from "adorn-api";
+
+@Controller("/users")
+class UserController {
+  @Get("/:id")
+  @Cache({ ttl: 60 })
+  async getOne(ctx: RequestContext) {
+    return findUser(ctx.params.id);
+  }
+
+  @Get("/search")
+  @Cache({ ttl: 120, key: "users-search" })
+  async search() {
+    return searchUsers();
+  }
+
+  @Get("/details/:slug")
+  @Cache({ ttl: 60, paramKeys: ["slug"] })
+  async details(ctx: RequestContext<unknown, unknown, { slug: string }>) {
+    return findDetails(ctx.params.slug);
+  }
+}
+```
+
+### Options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `ttl` | `number` | (required) | Time-to-live in seconds |
+| `key` | `string` | — | Fixed cache key prefix (defaults to `method:path`) |
+| `paramKeys` | `string[]` | — | Route param names to include in the cache key |
+| `condition` | `(result) => boolean` | — | Only cache the result when this returns `true` |
+
+### Configuration
+
+Caching is only active for `GET` and `HEAD` routes. Pass a `CacheProvider` in the adapter options:
+
+```typescript
+import { createExpressApp, InMemoryCacheProvider } from "adorn-api";
+
+// In-memory (no additional dependencies)
+const app = await createExpressApp({
+  controllers: [UserController],
+  cache: new InMemoryCacheProvider()
+});
+```
+
+For Redis, install `ioredis` (not included by default):
+
+```bash
+npm install ioredis
+```
+
+```typescript
+import { createExpressApp } from "adorn-api";
+import { RedisCacheProvider } from "adorn-api";
+
+const app = await createExpressApp({
+  controllers: [UserController],
+  cache: new RedisCacheProvider({
+    host: "localhost",
+    port: 6379
+  })
+});
+```
+
+If no `cache` provider is passed, `@Cache` is a no-op.
+
 ## OpenAPI and Swagger UI
 
 Adapters can serve OpenAPI JSON and Swagger UI:
