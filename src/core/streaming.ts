@@ -106,13 +106,17 @@ export class SseEmitter implements SseEmitterInterface {
   }
 
   private setupSseHeaders(): void {
+    if (this.res.headersSent) {
+      return;
+    }
+
     if (this.res.setHeader) {
       this.res.setHeader("Content-Type", "text/event-stream");
       this.res.setHeader("Cache-Control", "no-cache, no-transform");
       this.res.setHeader("Connection", "keep-alive");
       this.res.setHeader("X-Accel-Buffering", "no");
     }
-    if (this.res.flushHeaders) {
+    if (this.res.flushHeaders && !this.res.headersSent) {
       this.res.flushHeaders();
     }
   }
@@ -258,6 +262,10 @@ export class StreamWriter implements StreamWriterInterface {
   }
 
   private setupHeaders(options: StreamOptions): void {
+    if (this.res.headersSent) {
+      return;
+    }
+
     const contentType = options.contentType ?? "application/octet-stream";
     if (this.res.setHeader) {
       this.res.setHeader("Content-Type", contentType);
@@ -272,7 +280,7 @@ export class StreamWriter implements StreamWriterInterface {
       }
     }
 
-    if (this.res.flushHeaders) {
+    if (this.res.flushHeaders && !this.res.headersSent) {
       this.res.flushHeaders();
     }
   }
