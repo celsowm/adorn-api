@@ -67,9 +67,9 @@ function buildSwaggerUiHtml(options: {
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>${options.title}</title>
+    <title>${escapeHtml(options.title)}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="${options.swaggerUiUrl}/swagger-ui.css" />
+    <link rel="stylesheet" href="${escapeHtml(options.swaggerUiUrl)}/swagger-ui.css" />
     <style>
       body {
         margin: 0;
@@ -79,11 +79,11 @@ function buildSwaggerUiHtml(options: {
   </head>
   <body>
     <div id="swagger-ui"></div>
-    <script src="${options.swaggerUiUrl}/swagger-ui-bundle.js"></script>
+    <script src="${escapeHtml(options.swaggerUiUrl)}/swagger-ui-bundle.js"></script>
     <script>
       window.onload = () => {
         window.ui = SwaggerUIBundle({
-          url: "${options.openApiPath}",
+          url: ${serializeInlineJsString(options.openApiPath)},
           dom_id: "#swagger-ui",
           deepLinking: true,
           presets: [SwaggerUIBundle.presets.apis],
@@ -93,4 +93,21 @@ function buildSwaggerUiHtml(options: {
     </script>
   </body>
 </html>`;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    switch (character) {
+      case "&": return "&amp;";
+      case "<": return "&lt;";
+      case ">": return "&gt;";
+      case '"': return "&quot;";
+      case "'": return "&#39;";
+      default: return character;
+    }
+  });
+}
+
+function serializeInlineJsString(value: string): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
 }

@@ -89,6 +89,7 @@ export async function attachControllers(
       // Determine if validation is enabled for this route
       const isValidationEnabled = validation !== false && (validation as ValidationOptions)?.enabled !== false;
       const authMeta = getRouteAuthMeta(controller, route.handlerName);
+      const responseContentType = getResponseContentType(route);
 
       // Main route handler
       const routeHandler = async (req: Request, res: Response, next: NextFunction) => {
@@ -181,7 +182,7 @@ export async function attachControllers(
               res.status(result.status).end();
             } else if (route.raw) {
               if (!res.getHeader("Content-Type")) {
-                const ct = getResponseContentType(route) ?? "application/octet-stream";
+                const ct = responseContentType ?? "application/octet-stream";
                 res.type(ct);
               }
               res.status(result.status).send(result.body as any);
@@ -209,7 +210,7 @@ export async function attachControllers(
 
           if (route.raw) {
             if (!res.getHeader("Content-Type")) {
-              const ct = getResponseContentType(route) ?? "application/octet-stream";
+              const ct = responseContentType ?? "application/octet-stream";
               res.type(ct);
             }
             res.status(defaultStatus(route)).send(result as any);
